@@ -70,6 +70,23 @@ export interface PagedOrders {
   totalPages: number
 }
 
+/** Disponibilidad de un ítem de la orden contra el inventario de la sucursal. */
+export interface OrderStockItem {
+  itemId: string | null
+  name: string
+  sku: string | null
+  requested: number
+  available: number
+  tracksInventory: boolean
+  sufficient: boolean
+}
+
+/** Resultado de GET /api/orders/{id}/stock-check (solo informativo). */
+export interface OrderStockCheck {
+  hasShortage: boolean
+  items: OrderStockItem[]
+}
+
 export type OrderStatus = "Pending" | "Confirmed" | "Preparing" | "Ready" | "Shipped" | "Delivered" | "Cancelled"
 
 export interface BranchIntegration {

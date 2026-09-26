@@ -176,12 +176,7 @@ export function BusinessDashboardPage() {
         <div className="space-y-4">
           {/* Active Orders */}
           <div>
-            <ActiveOrdersCard
-              orders={(activeOrders ?? []).map((o) => ({
-                ...o,
-                status: o.status as "pending" | "preparing" | "ready" | "on_the_way" | "delivered",
-              }))}
-            />
+            <ActiveOrdersCard orders={activeOrders ?? []} />
           </div>
 
           {/* Tender Report */}

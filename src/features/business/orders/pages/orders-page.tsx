@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useRef } from "react"
 import { useTranslation } from "@/i18n/use-i18n"
 import { useNotify } from "@/hooks/use-notify"
 import Spinner from "@/components/Spinner"
@@ -6,6 +6,16 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { RefreshCw, Truck, Settings, Plus, Store, ShoppingCart, AlertTriangle } from "lucide-react"
 import { useQueries } from "@tanstack/react-query"
 import { useBranches } from "@/features/business/branches/hooks/use-branches"
@@ -17,7 +27,8 @@ import { OrdersKanban } from "../components/orders-kanban"
 import { OrderDetailDialog } from "../components/order-detail-dialog"
 import { IntegrationConfigDialog } from "../components/integration-config-dialog"
 import { KANBAN_COLUMNS, ORDER_STATUS_CONFIG } from "../types"
-import type { OrderListItem, OrderStatus } from "../types/api"
+import { checkOrderStock } from "../services/orders.service"
+import type { OrderListItem, OrderStatus, OrderStockItem } from "../types/api"
 
 type PlatformFilter = "all" | "CLUVI" | "WOOCOMMERCE" | "POSCO"
 
@@ -100,14 +111,48 @@ export function OrdersPage() {
     [allOrders]
   )
 
-  const handleDragEnd = (orderId: string, newStatus: OrderStatus) => {
+  const [stockWarning, setStockWarning] = useState<OrderStockItem[] | null>(null)
+  const pendingConfirmRef = useRef<{ orderId: string; status: OrderStatus } | null>(null)
+
+  const applyStatus = (orderId: string, newStatus: OrderStatus) => {
     updateStatusMutation.mutate(
       { id: orderId, status: newStatus },
       {
         onSuccess: () => notify.success(t("status") + " → " + (ORDER_STATUS_CONFIG[newStatus]?.label ?? newStatus)),
-        onError: () => notify.error(t("sync_failed")),
+        onError: (error: unknown) => {
+          const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message
+          notify.error(message || t("status_update_failed"))
+        },
       }
     )
+  }
+
+  /**
+   * Al pasar la orden a "Confirmado" se consulta el inventario de la sucursal.
+   * Si falta stock se muestra la advertencia y el usuario decide: nunca se
+   * bloquea la orden, solo se avisa antes de enviar el cambio.
+   */
+  const handleDragEnd = async (orderId: string, newStatus: OrderStatus) => {
+    if (newStatus === "Confirmed") {
+      try {
+        const check = await checkOrderStock(orderId)
+        if (check.hasShortage) {
+          pendingConfirmRef.current = { orderId, status: newStatus }
+          setStockWarning(check.items.filter((item) => !item.sufficient))
+          return
+        }
+      } catch {
+        // Sin verificación no se bloquea el movimiento.
+      }
+    }
+    applyStatus(orderId, newStatus)
+  }
+
+  const handleConfirmDespiteShortage = () => {
+    const pending = pendingConfirmRef.current
+    pendingConfirmRef.current = null
+    setStockWarning(null)
+    if (pending) applyStatus(pending.orderId, pending.status)
   }
 
   const handleViewDetail = (order: OrderListItem) => {
@@ -247,6 +292,41 @@ export function OrdersPage() {
         branchId={branchId}
         platform={configPlatform}
       />
+
+      {/* Advertencia de inventario insuficiente antes de confirmar la orden */}
+      <AlertDialog
+        open={stockWarning !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            pendingConfirmRef.current = null
+            setStockWarning(null)
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("stock_warning_title")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("stock_warning_desc")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <ul className="max-h-60 space-y-1 overflow-y-auto">
+            {(stockWarning ?? []).map((item, index) => (
+              <li
+                key={item.itemId ?? index}
+                className="flex items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+              >
+                <span className="min-w-0 truncate font-medium">{item.name}</span>
+                <span className="shrink-0 font-mono tabular-nums">
+                  {t("stock_warning_line", { requested: item.requested, available: item.available })}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("stock_warning_cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDespiteShortage}>{t("stock_warning_confirm")}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

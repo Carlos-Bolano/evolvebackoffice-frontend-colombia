@@ -2,6 +2,7 @@ import { api } from "@/config/axios-client"
 import type {
   PagedOrders,
   OrderDetail,
+  OrderStockCheck,
   BranchIntegration,
   CreateIntegrationDto,
   SyncMenuResponse,
@@ -42,6 +43,12 @@ export async function getOrderById(id: string): Promise<OrderDetail> {
 
 export async function updateOrderStatus(id: string, status: string): Promise<void> {
   await api.put(`/api/orders/${id}/status`, { status })
+}
+
+/** Inventario de la orden contra la sucursal. Solo informativo, nunca bloquea. */
+export async function checkOrderStock(id: string): Promise<OrderStockCheck> {
+  const { data } = await api.get<OrderStockCheck>(`/api/orders/${id}/stock-check`)
+  return data
 }
 
 export async function addOrderProduct(
