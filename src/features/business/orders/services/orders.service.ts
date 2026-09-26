@@ -10,7 +10,7 @@ import type {
   ActivateStoreResult,
 } from "../types/api"
 
-function normalizePagedResponse(raw: unknown, pageNumber: number, pageSize: number): PagedOrders {
+function normalizePagedResponse(raw: unknown, pageSize: number): PagedOrders {
   if (raw && typeof raw === "object" && "data" in raw) {
     const obj = raw as Record<string, unknown>
     const data = Array.isArray(obj.data) ? obj.data : []
@@ -33,7 +33,7 @@ export async function getOrders(
   if (filters?.status) params.status = filters.status
   if (filters?.platform) params.platform = filters.platform
   const { data } = await api.get("/api/orders", { params })
-  return normalizePagedResponse(data, pageNumber, pageSize)
+  return normalizePagedResponse(data, pageSize)
 }
 
 export async function getOrderById(id: string): Promise<OrderDetail> {

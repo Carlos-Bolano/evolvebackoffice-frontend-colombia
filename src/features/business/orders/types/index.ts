@@ -1,3 +1,5 @@
+import type { BadgeTone } from "@/components/ui/badge"
+
 export type {
   OrderListItem,
   OrderDetail,
@@ -16,7 +18,7 @@ export type {
   ActivateStoreResult,
 } from "./api"
 
-export const ORDER_STATUS_CONFIG: Record<string, { label: string; color: string; bgClass: string }> = {
+export const ORDER_STATUS_CONFIG: Record<string, { label: string; color: BadgeTone; bgClass: string }> = {
   Pending: { label: "Pendiente", color: "warning", bgClass: "bg-amber-50 border-amber-200" },
   Confirmed: { label: "Confirmado", color: "info", bgClass: "bg-blue-50 border-blue-200" },
   Preparing: { label: "Preparando", color: "purple", bgClass: "bg-purple-50 border-purple-200" },

@@ -18,6 +18,7 @@ export type Namespace =
   | "business-items-modifiers"
   | "business-inventory"
   | "business-onboarding"
+  | "business-orders"
   | "business-people"
   | "business-reports"
   | "business-registers"

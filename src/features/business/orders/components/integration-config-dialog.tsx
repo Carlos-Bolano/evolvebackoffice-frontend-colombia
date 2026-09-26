@@ -1,11 +1,10 @@
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { useTranslation } from "@/i18n/use-i18n"
 import { useNotify } from "@/hooks/use-notify"
 import Spinner from "@/components/Spinner"
@@ -25,15 +24,26 @@ interface IntegrationConfigDialogProps {
   platform: string
 }
 
+/** Lee el storeId guardado en SettingsJson de la integración ("" si no hay). */
+function readStoreId(settingsJson: string | null | undefined): string {
+  if (!settingsJson) return ""
+  try {
+    const parsed = JSON.parse(settingsJson) as { storeId?: unknown }
+    return typeof parsed.storeId === "string" ? parsed.storeId : ""
+  } catch {
+    return ""
+  }
+}
+
 export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform }: IntegrationConfigDialogProps) {
   const { t } = useTranslation("business-orders")
   const notify = useNotify()
 
-  const [step, setStep] = useState(0)
-  const [baseUrl, setBaseUrl] = useState("")
+  const [stepOverride, setStepOverride] = useState<number | null>(null)
+  const [baseUrlOverride, setBaseUrlOverride] = useState<string | null>(null)
   const [appId, setAppId] = useState("")
   const [secretKey, setSecretKey] = useState("")
-  const [storeId, setStoreId] = useState("")
+  const [storeIdOverride, setStoreIdOverride] = useState<string | null>(null)
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
   // Estado de la tienda en Cluvi: "on" | "off" | null (aún desconocido)
   const [storeStatus, setStoreStatus] = useState<string | null>(null)
@@ -50,27 +60,25 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
   const platformName = isCluvi ? "Cluvi" : "WooCommerce"
   const defaultBaseUrl = isCluvi ? "https://api.cluviplatform.click" : ""
 
-  useEffect(() => {
-    if (open) {
-      setBaseUrl(existingIntegration?.baseUrl ?? defaultBaseUrl)
+  // Valores derivados en render (sin useEffect): si el usuario no los cambió,
+  // siguen a la integración existente —incluso si carga después de abrir—.
+  const step = stepOverride ?? (existingIntegration ? 1 : 0)
+  const baseUrl = baseUrlOverride ?? existingIntegration?.baseUrl ?? defaultBaseUrl
+  const storeId = storeIdOverride ?? readStoreId(existingIntegration?.settingsJson)
+
+  /** Al cerrar se limpia todo para que la próxima apertura arranque de cero. */
+  const handleOpenChange = (next: boolean) => {
+    if (!next) {
+      setStepOverride(null)
+      setBaseUrlOverride(null)
+      setStoreIdOverride(null)
       setAppId("")
       setSecretKey("")
-      setStoreId("")
       setTestResult(null)
-
-      if (existingIntegration) {
-        setStep(1)
-        try {
-          const settings = JSON.parse(existingIntegration.settingsJson ?? "{}")
-          setStoreId(settings.storeId ?? "")
-        } catch {
-          /* ignore */
-        }
-      } else {
-        setStep(0)
-      }
+      setStoreStatus(null)
     }
-  }, [open, existingIntegration, defaultBaseUrl])
+    onOpenChange(next)
+  }
 
   const steps = [t("config_step_credentials"), t("config_step_verify"), t("config_step_menu")]
 
@@ -126,11 +134,11 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
         },
       },
       {
-        onSuccess: (data) => {
+        onSuccess: () => {
           notify.success(t("save_integration"))
           // After create, the query will refetch and existingIntegration will update
           // Force step 1 after a short delay to allow query invalidation
-          setTimeout(() => setStep(1), 500)
+          setTimeout(() => setStepOverride(1), 500)
         },
         onError: () => notify.error(t("connection_failed")),
       }
@@ -145,7 +153,7 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
         onSuccess: (res) => {
           if (res.success) {
             notify.success(res.message ?? t("sync_success"))
-            onOpenChange(false)
+            handleOpenChange(false)
           } else {
             notify.error(res.message ?? t("sync_failed"))
           }
@@ -158,7 +166,7 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
   const PlatformIcon = isCluvi ? Truck : Store
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -199,7 +207,11 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
             </div>
             <div className="space-y-2">
               <Label>{t("base_url")}</Label>
-              <Input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder={defaultBaseUrl} />
+              <Input
+                value={baseUrl}
+                onChange={(e) => setBaseUrlOverride(e.target.value)}
+                placeholder={defaultBaseUrl}
+              />
             </div>
             <div className="space-y-2">
               <Label>{isCluvi ? t("app_id") : "Consumer Key"}</Label>
@@ -212,11 +224,11 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
             {isCluvi && (
               <div className="space-y-2">
                 <Label>{t("store_id")}</Label>
-                <Input value={storeId} onChange={(e) => setStoreId(e.target.value)} placeholder="34511" />
+                <Input value={storeId} onChange={(e) => setStoreIdOverride(e.target.value)} placeholder="34511" />
               </div>
             )}
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
+              <Button variant="outline" onClick={() => handleOpenChange(false)}>
                 {t("close")}
               </Button>
               <Button onClick={handleSave} disabled={!appId || !secretKey || createMutation.isPending}>
@@ -283,11 +295,11 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
               </CardContent>
             </Card>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setStep(0)}>
+              <Button variant="outline" onClick={() => setStepOverride(0)}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 {t("config_step_credentials")}
               </Button>
-              <Button onClick={() => setStep(2)}>
+              <Button onClick={() => setStepOverride(2)}>
                 {t("config_step_menu")}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
@@ -321,7 +333,7 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
                     <p className="text-sm text-muted-foreground">
                       La integración con WooCommerce está configurada. Las órdenes se sincronizarán automáticamente.
                     </p>
-                    <Button onClick={() => onOpenChange(false)} className="w-full">
+                    <Button onClick={() => handleOpenChange(false)} className="w-full">
                       {t("close")}
                     </Button>
                   </>
@@ -329,7 +341,7 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
               </CardContent>
             </Card>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setStep(1)}>
+              <Button variant="outline" onClick={() => setStepOverride(1)}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 {t("config_step_verify")}
               </Button>

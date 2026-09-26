@@ -27,9 +27,7 @@ export function OrderDetailDialog({ open, onOpenChange, order }: OrderDetailDial
             <DialogTitle>
               {t("order_number")} #{order.externalOrderId?.slice(0, 8) ?? order.id.slice(0, 8)}
             </DialogTitle>
-            <Badge variant={statusConfig?.color as "warning" | "info" | "purple" | "success"}>
-              {statusConfig?.label ?? order.statusName}
-            </Badge>
+            <Badge tone={statusConfig?.color}>{statusConfig?.label ?? order.statusName}</Badge>
           </div>
         </DialogHeader>
 

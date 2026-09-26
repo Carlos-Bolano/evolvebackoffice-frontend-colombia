@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,15 +17,26 @@ interface CluviConfigWizardProps {
   branchId: string
 }
 
+/** Lee el storeId guardado en SettingsJson de la integración ("" si no hay). */
+function readStoreId(settingsJson: string | null | undefined): string {
+  if (!settingsJson) return ""
+  try {
+    const parsed = JSON.parse(settingsJson) as { storeId?: unknown }
+    return typeof parsed.storeId === "string" ? parsed.storeId : ""
+  } catch {
+    return ""
+  }
+}
+
 export function CluviConfigWizard({ open, onOpenChange, branchId }: CluviConfigWizardProps) {
   const { t } = useTranslation("business-orders")
   const notify = useNotify()
 
-  const [step, setStep] = useState(0)
+  const [stepOverride, setStepOverride] = useState<number | null>(null)
   const [baseUrl, setBaseUrl] = useState("https://api.cluviplatform.click")
   const [appId, setAppId] = useState("")
   const [secretKey, setSecretKey] = useState("")
-  const [storeId, setStoreId] = useState("")
+  const [storeIdOverride, setStoreIdOverride] = useState<string | null>(null)
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
 
   const { data: integrations } = useBranchIntegrations(branchId)
@@ -35,19 +46,19 @@ export function CluviConfigWizard({ open, onOpenChange, branchId }: CluviConfigW
   const testMutation = useTestConnection()
   const syncMenuMutation = useSyncMenu()
 
-  useEffect(() => {
-    if (open && existingIntegration) {
-      setStep(1)
-      try {
-        const settings = JSON.parse(existingIntegration.settingsJson ?? "{}")
-        setStoreId(settings.storeId ?? "")
-      } catch {
-        setStoreId("")
-      }
-    } else if (open) {
-      setStep(0)
+  // Valores derivados en render (sin useEffect): si el usuario no los cambió,
+  // siguen a la integración existente —incluso si carga después de abrir—.
+  const step = stepOverride ?? (existingIntegration ? 1 : 0)
+  const storeId = storeIdOverride ?? readStoreId(existingIntegration?.settingsJson)
+
+  /** Al cerrar se limpian los overrides para que la próxima apertura arranque de cero. */
+  const handleOpenChange = (next: boolean) => {
+    if (!next) {
+      setStepOverride(null)
+      setStoreIdOverride(null)
     }
-  }, [open, existingIntegration])
+    onOpenChange(next)
+  }
 
   const steps = [t("config_step_credentials"), t("config_step_verify"), t("config_step_menu")]
 
@@ -81,7 +92,7 @@ export function CluviConfigWizard({ open, onOpenChange, branchId }: CluviConfigW
       {
         onSuccess: () => {
           notify.success(t("save_integration"))
-          setStep(1)
+          setStepOverride(1)
         },
         onError: () => notify.error(t("connection_failed")),
       }
@@ -96,7 +107,7 @@ export function CluviConfigWizard({ open, onOpenChange, branchId }: CluviConfigW
         onSuccess: (res) => {
           if (res.success) {
             notify.success(res.message ?? t("sync_success"))
-            onOpenChange(false)
+            handleOpenChange(false)
           } else {
             notify.error(res.message ?? t("sync_failed"))
           }
@@ -107,7 +118,7 @@ export function CluviConfigWizard({ open, onOpenChange, branchId }: CluviConfigW
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{t("config_title")}</DialogTitle>
@@ -121,7 +132,7 @@ export function CluviConfigWizard({ open, onOpenChange, branchId }: CluviConfigW
         </DialogHeader>
 
         <div className="flex items-center justify-center gap-2">
-          {steps.map((s, i) => (
+          {steps.map((_, i) => (
             <div key={i} className="flex items-center gap-2">
               <div
                 className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${
@@ -169,12 +180,12 @@ export function CluviConfigWizard({ open, onOpenChange, branchId }: CluviConfigW
               <Label>{t("store_id")}</Label>
               <Input
                 value={storeId}
-                onChange={(e) => setStoreId(e.target.value)}
+                onChange={(e) => setStoreIdOverride(e.target.value)}
                 placeholder={t("store_id_placeholder")}
               />
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
+              <Button variant="outline" onClick={() => handleOpenChange(false)}>
                 {t("close")}
               </Button>
               <Button onClick={handleSave} disabled={!appId || !secretKey || !storeId || createMutation.isPending}>
@@ -219,11 +230,11 @@ export function CluviConfigWizard({ open, onOpenChange, branchId }: CluviConfigW
               </CardContent>
             </Card>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setStep(0)}>
+              <Button variant="outline" onClick={() => setStepOverride(0)}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 {t("config_step_credentials")}
               </Button>
-              <Button onClick={() => setStep(2)}>
+              <Button onClick={() => setStepOverride(2)}>
                 {t("config_step_menu")}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
@@ -254,7 +265,7 @@ export function CluviConfigWizard({ open, onOpenChange, branchId }: CluviConfigW
               </CardContent>
             </Card>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setStep(1)}>
+              <Button variant="outline" onClick={() => setStepOverride(1)}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 {t("config_step_verify")}
               </Button>

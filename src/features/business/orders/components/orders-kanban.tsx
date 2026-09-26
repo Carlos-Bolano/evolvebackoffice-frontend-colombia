@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react"
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -36,7 +37,7 @@ export function OrdersKanban({ ordersByStatus, onDragEnd, onViewDetail }: Orders
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-semibold">{config?.label}</CardTitle>
-                    <Badge variant={config?.color as "warning" | "info" | "purple" | "success"}>{orders.length}</Badge>
+                    <Badge tone={config?.color}>{orders.length}</Badge>
                   </div>
                 </CardHeader>
                 <Droppable droppableId={status}>
@@ -58,6 +59,10 @@ export function OrdersKanban({ ordersByStatus, onDragEnd, onViewDetail }: Orders
                               ref={provided.innerRef}
                               {...provided.draggableProps}
                               {...provided.dragHandleProps}
+                              // dnd tipa `style` con DraggableStyle; se reinterpreta
+                              // como CSSProperties para compatibilidad con los
+                              // index signatures de custom properties (--radix-*).
+                              style={provided.draggableProps.style as CSSProperties}
                               className={`rounded-lg border bg-card p-3 shadow-sm transition-shadow ${
                                 snapshot.isDragging ? "shadow-md" : ""
                               }`}
@@ -66,7 +71,7 @@ export function OrdersKanban({ ordersByStatus, onDragEnd, onViewDetail }: Orders
                                 <span className="font-mono text-xs text-muted-foreground">
                                   #{order.externalOrderId?.slice(0, 8) ?? order.id.slice(0, 8)}
                                 </span>
-                                <Badge variant="outline" className="text-[10px]">
+                                <Badge tone="neutral" className="text-[10px]">
                                   {order.platformCode}
                                 </Badge>
                               </div>

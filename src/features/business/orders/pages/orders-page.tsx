@@ -16,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { RefreshCw, Truck, Settings, Plus, Store, ShoppingCart, AlertTriangle } from "lucide-react"
+import { RefreshCw, Truck, Store, ShoppingCart, AlertTriangle } from "lucide-react"
 import { useQueries } from "@tanstack/react-query"
 import { useBranches } from "@/features/business/branches/hooks/use-branches"
 import { branchModulesKeys, useBranchModules } from "@/features/business/branches/hooks/use-branch-modules"
@@ -86,7 +86,9 @@ export function OrdersPage() {
   const { data: ordersData, isLoading, refetch } = useOrders(1, 500, branchId ? { branchId } : undefined, !!branchId)
   const updateStatusMutation = useUpdateOrderStatus()
 
-  const allOrders = ordersData?.data ?? []
+  // Memoizado para que los useMemo dependientes (filtros/conteos) no se
+  // recalculen en cada render por una referencia nueva.
+  const allOrders = useMemo(() => ordersData?.data ?? [], [ordersData])
 
   const filteredOrders = useMemo(() => {
     if (platformFilter === "all") return allOrders
@@ -226,7 +228,7 @@ export function OrdersPage() {
                   : "No configurado"}
               </p>
             </div>
-            <Badge variant={hasCluviIntegration ? "success" : "neutral"}>
+            <Badge tone={hasCluviIntegration ? "success" : "neutral"}>
               {hasCluviIntegration ? t("active") : t("inactive")}
             </Badge>
           </CardContent>
@@ -238,7 +240,7 @@ export function OrdersPage() {
               <p className="text-sm font-medium">WooCommerce</p>
               <p className="text-xs text-muted-foreground">{hasWooIntegration ? "Activo" : "No configurado"}</p>
             </div>
-            <Badge variant={hasWooIntegration ? "success" : "neutral"}>
+            <Badge tone={hasWooIntegration ? "success" : "neutral"}>
               {hasWooIntegration ? t("active") : t("inactive")}
             </Badge>
           </CardContent>
@@ -251,25 +253,25 @@ export function OrdersPage() {
           <TabsTrigger value="all" className="gap-1.5">
             <ShoppingCart className="h-3.5 w-3.5" />
             Todas
-            <Badge variant="outline" className="ml-1 text-[10px]">
+            <Badge tone="neutral" className="ml-1 text-[10px]">
               {platformCounts.all}
             </Badge>
           </TabsTrigger>
           <TabsTrigger value="POSCO" className="gap-1.5">
             Local
-            <Badge variant="outline" className="ml-1 text-[10px]">
+            <Badge tone="neutral" className="ml-1 text-[10px]">
               {platformCounts.POSCO}
             </Badge>
           </TabsTrigger>
           <TabsTrigger value="CLUVI" className="gap-1.5">
             Cluvi
-            <Badge variant="outline" className="ml-1 text-[10px]">
+            <Badge tone="neutral" className="ml-1 text-[10px]">
               {platformCounts.CLUVI}
             </Badge>
           </TabsTrigger>
           <TabsTrigger value="WOOCOMMERCE" className="gap-1.5">
             WooCommerce
-            <Badge variant="outline" className="ml-1 text-[10px]">
+            <Badge tone="neutral" className="ml-1 text-[10px]">
               {platformCounts.WOOCOMMERCE}
             </Badge>
           </TabsTrigger>
