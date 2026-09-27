@@ -9,6 +9,7 @@ export type Namespace =
   | "platform-clients"
   | "platform-tenants"
   | "platform-email"
+  | "platform-logs"
   | "platform-users"
   | "business-dashboard"
   | "business-items"

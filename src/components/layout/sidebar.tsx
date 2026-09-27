@@ -5,6 +5,7 @@ import {
   LogOut,
   Mail,
   Package,
+  ScrollText,
   Settings,
   Users,
   ChevronsUpDown,
@@ -48,6 +49,7 @@ const platformNavigationItems = [
   { to: "/platform/tenants", labelKey: "tenants", icon: Building2 },
   { to: "/platform/users", labelKey: "users", icon: Users },
   { to: "/platform/email-settings", labelKey: "email_settings", icon: Mail },
+  { to: "/platform/logs", labelKey: "logs", icon: ScrollText },
 ]
 
 const businessNavigationItems = [
@@ -156,6 +158,7 @@ export function SidebarContent({
                         | "reports"
                         | "settings"
                         | "orders"
+                        | "logs"
                     )
                   : undefined
               }
@@ -182,6 +185,7 @@ export function SidebarContent({
                       | "users"
                       | "email_settings"
                       | "orders"
+                      | "logs"
                   )}
                 </span>
               )}

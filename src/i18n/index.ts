@@ -12,6 +12,8 @@ import platformUsersEs from "@/features/platform/users/i18n/es.json"
 import platformUsersEn from "@/features/platform/users/i18n/en.json"
 import platformEmailEs from "@/features/platform/email/i18n/es.json"
 import platformEmailEn from "@/features/platform/email/i18n/en.json"
+import platformLogsEs from "@/features/platform/logs/i18n/es.json"
+import platformLogsEn from "@/features/platform/logs/i18n/en.json"
 import businessDashboardEs from "@/features/business/dashboard/i18n/es.json"
 import businessDashboardEn from "@/features/business/dashboard/i18n/en.json"
 import businessItemsEs from "@/features/business/items/i18n/es.json"
@@ -46,6 +48,7 @@ const resources = {
     "platform-tenants": platformTenantsEs,
     "platform-users": platformUsersEs,
     "platform-email": platformEmailEs,
+    "platform-logs": platformLogsEs,
     "business-dashboard": businessDashboardEs,
     "business-items": businessItemsEs,
     "business-items-catalog": businessItemsCatalogEs,
@@ -66,6 +69,7 @@ const resources = {
     "platform-tenants": platformTenantsEn,
     "platform-users": platformUsersEn,
     "platform-email": platformEmailEn,
+    "platform-logs": platformLogsEn,
     "business-dashboard": businessDashboardEn,
     "business-items": businessItemsEn,
     "business-items-catalog": businessItemsCatalogEn,
@@ -94,6 +98,7 @@ i18n.use(initReactI18next).init({
     "platform-tenants",
     "platform-users",
     "platform-email",
+    "platform-logs",
     "business-dashboard",
     "business-items",
     "business-items-catalog",

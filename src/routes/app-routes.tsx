@@ -29,6 +29,7 @@ import { TenantCreatePage } from "@/features/platform/tenants/pages/tenant-creat
 import { PlatformDashboardPage } from "@/features/platform/dashboard/pages/platform-dashboard-page"
 import { PlatformUsersPage } from "@/features/platform/users/pages/platform-users-page"
 import { EmailSettingsPage } from "@/features/platform/email/pages/email-settings-page"
+import { LogsPage } from "@/features/platform/logs/pages/logs-page"
 import { OnboardingGate } from "@/routes/onboarding-gate"
 import { ProtectedRoute } from "@/routes/protected-route"
 import { PublicRoute } from "@/routes/public-route"
@@ -71,6 +72,7 @@ function AppRoutesContent() {
           <Route path="/platform/tenants/:id" element={<TenantDetailPage />} />
           <Route path="/platform/users" element={<PlatformUsersPage />} />
           <Route path="/platform/email-settings" element={<EmailSettingsPage />} />
+          <Route path="/platform/logs" element={<LogsPage />} />
         </Route>
       </Route>
 
