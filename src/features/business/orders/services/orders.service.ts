@@ -8,6 +8,7 @@ import type {
   SyncMenuResponse,
   TestConnectionResult,
   ActivateStoreResult,
+  NewOrdersUpdate,
 } from "../types/api"
 
 function normalizePagedResponse(raw: unknown, pageSize: number): PagedOrders {
@@ -101,5 +102,19 @@ export async function activateStore(branchId: string, integrationId: string): Pr
  */
 export async function syncMenu(branchId: string, integrationId: string): Promise<SyncMenuResponse> {
   const { data } = await api.put<SyncMenuResponse>(`/api/branches/${branchId}/integrations/${integrationId}/sync-menu`)
+  return data
+}
+
+/**
+ * Long-poll de órdenes nuevas (`GET /api/orders/updates`). Si no hay órdenes
+ * desde `sinceUtc`, el backend mantiene la conexión hasta `waitSeconds` (máx.
+ * 30) esperando una inserción — el cliente solo debe repetir con el `nowUtc`
+ * devuelto como nuevo `sinceUtc`. `signal` permite abortar al desmontar.
+ */
+export async function fetchNewOrders(sinceUtc: string, signal?: AbortSignal): Promise<NewOrdersUpdate> {
+  const { data } = await api.get<NewOrdersUpdate>("/api/orders/updates", {
+    params: { sinceUtc, waitSeconds: 25 },
+    signal,
+  })
   return data
 }

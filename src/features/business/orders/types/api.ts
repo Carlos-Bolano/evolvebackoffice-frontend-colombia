@@ -182,3 +182,22 @@ export interface ActivateStoreResult {
   newOrderWebhookUrl: string | null
   pingWebhookUrl: string | null
 }
+
+/** Orden nueva detectada por el long-poll de notificaciones. */
+export interface NewOrderNotice {
+  id: string
+  platformCode: string
+  externalOrderId: string
+  customerName: string | null
+  branchName: string | null
+  total: number
+  status: string
+  createdAt: string
+}
+
+/** Respuesta de GET /api/orders/updates (long-poll de órdenes nuevas). */
+export interface NewOrdersUpdate {
+  data: NewOrderNotice[]
+  /** Cursor superior: usar como sinceUtc de la siguiente llamada. */
+  nowUtc: string
+}

@@ -5,11 +5,16 @@ import { Navbar } from "@/components/layout/navbar"
 import { Sidebar } from "@/components/layout/sidebar"
 import { useAuth } from "@/features/auth/hooks/use-auth"
 import { ChangePasswordDialog } from "@/features/auth/components/change-password-dialog"
+import { useNewOrderNotifications } from "@/features/business/orders/hooks/use-new-order-notifications"
 
 export function AppLayout() {
   const { session } = useAuth()
   const [passwordChanged, setPasswordChanged] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(false)
+
+  // Notificaciones en tiempo real de órdenes nuevas (solo sesiones de tenant:
+  // la sesión de plataforma no tiene tenantId). Sonido + toast + escritorio.
+  useNewOrderNotifications(Boolean(session?.tenantId))
 
   const mustChangePassword =
     session?.user.role === "BusinessAdmin" && session?.forcePasswordChange === true && !passwordChanged
