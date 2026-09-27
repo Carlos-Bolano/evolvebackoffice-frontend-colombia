@@ -4,6 +4,7 @@
   "use_tab_description": "Usa la pestaña que coincida con tu rol. Las sesiones, selección de negocio y tema se persisten.",
   "business_admin": "Administrador de Negocio",
   "platform_admin": "Administrador de Plataforma",
+  "platform_login_restricted": "El administrador de plataforma solo está disponible en {{host}}.",
   "tenant_public_id": "Public ID del tenant (GUID)",
   "tenant_public_id_placeholder": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
   "email_placeholder": "nombre@ejemplo.com",

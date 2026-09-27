@@ -4,6 +4,7 @@
   "use_tab_description": "Use the tab that matches your role. Sessions, active business selection, and theme are persisted.",
   "business_admin": "Business Admin",
   "platform_admin": "Platform Admin",
+  "platform_login_restricted": "The platform administrator is only available at {{host}}.",
   "tenant_public_id": "Tenant Public ID (GUID)",
   "tenant_public_id_placeholder": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
   "email_placeholder": "name@example.com",
