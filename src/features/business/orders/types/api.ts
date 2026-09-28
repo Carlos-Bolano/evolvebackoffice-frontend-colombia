@@ -201,3 +201,37 @@ export interface NewOrdersUpdate {
   /** Cursor superior: usar como sinceUtc de la siguiente llamada. */
   nowUtc: string
 }
+
+/** Línea de producto en la creación manual de una orden. */
+export interface CreateManualOrderItemDto {
+  itemPublicId: string
+  quantity: number
+  /** null = usa el precio de la sucursal (BranchItem.Price). */
+  unitPriceOverride: number | null
+  tax: number | null
+  discount: number | null
+  modifiersJson: string | null
+  notes: string | null
+}
+
+/** Payload de POST /api/orders (creación manual: caja / domicilio). */
+export interface CreateManualOrderDto {
+  branchId: string
+  customerId: string | null
+  personId: string | null
+  paymentMethod: string
+  /** Pending | Confirmed | NeedsReview */
+  status: string
+  notes: string | null
+  shippingStreet: string | null
+  shippingCity: string | null
+  shippingState: string | null
+  shippingZipCode: string | null
+  shippingLatitude: number | null
+  shippingLongitude: number | null
+  shippingNotes: string | null
+  tax: number | null
+  discount: number | null
+  shippingCost: number | null
+  items: CreateManualOrderItemDto[]
+}

@@ -16,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { RefreshCw, Truck, Store, ShoppingCart, AlertTriangle } from "lucide-react"
+import { RefreshCw, Truck, Store, ShoppingCart, AlertTriangle, Plus } from "lucide-react"
 import { useQueries } from "@tanstack/react-query"
 import { useBranches } from "@/features/business/branches/hooks/use-branches"
 import { branchModulesKeys, useBranchModules } from "@/features/business/branches/hooks/use-branch-modules"
@@ -26,6 +26,7 @@ import { useOrders, useBranchIntegrations, useUpdateOrderStatus } from "../hooks
 import { OrdersKanban } from "../components/orders-kanban"
 import { OrderDetailDialog } from "../components/order-detail-dialog"
 import { IntegrationConfigDialog } from "../components/integration-config-dialog"
+import { ManualOrderDialog } from "../components/manual-order-dialog"
 import { KANBAN_COLUMNS, ORDER_STATUS_CONFIG } from "../types"
 import { checkOrderStock } from "../services/orders.service"
 import type { OrderListItem, OrderStatus, OrderStockItem } from "../types/api"
@@ -42,6 +43,7 @@ export function OrdersPage() {
   const [detailOpen, setDetailOpen] = useState(false)
   const [configOpen, setConfigOpen] = useState(false)
   const [configPlatform, setConfigPlatform] = useState<string>("CLUVI")
+  const [createOrderOpen, setCreateOrderOpen] = useState(false)
   const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all")
 
   // Sucursal consultada: selección visible con persistencia local.
@@ -184,6 +186,10 @@ export function OrdersPage() {
               if (id) handleBranchChange(id)
             }}
           />
+          <Button size="sm" onClick={() => setCreateOrderOpen(true)} disabled={!branchId}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t("create_order")}
+          </Button>
           <Button variant="outline" size="sm" onClick={() => refetch()}>
             <RefreshCw className="mr-2 h-4 w-4" />
             {t("refresh")}
@@ -329,6 +335,9 @@ export function OrdersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Creación manual de órdenes (venta de caja / domicilio) */}
+      <ManualOrderDialog open={createOrderOpen} onOpenChange={setCreateOrderOpen} branchId={branchId || null} />
     </div>
   )
 }

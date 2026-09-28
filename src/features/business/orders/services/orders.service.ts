@@ -9,6 +9,7 @@ import type {
   TestConnectionResult,
   ActivateStoreResult,
   NewOrdersUpdate,
+  CreateManualOrderDto,
 } from "../types/api"
 
 function normalizePagedResponse(raw: unknown, pageSize: number): PagedOrders {
@@ -116,5 +117,15 @@ export async function fetchNewOrders(sinceUtc: string, signal?: AbortSignal): Pr
     params: { sinceUtc, waitSeconds: 25 },
     signal,
   })
+  return data
+}
+
+/**
+ * Crea una orden manual (venta de caja o domicilio). En tenants colombianos
+ * el backend garantiza que el total sea el precio rotulado (IVA incluido):
+ * no se envía `tax` ni se agrega nada al total.
+ */
+export async function createManualOrder(payload: CreateManualOrderDto): Promise<OrderDetail> {
+  const { data } = await api.post<OrderDetail>("/api/orders", payload)
   return data
 }

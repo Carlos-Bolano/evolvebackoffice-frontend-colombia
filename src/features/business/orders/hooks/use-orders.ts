@@ -8,8 +8,9 @@ import {
   testConnection,
   syncMenu,
   activateStore,
+  createManualOrder,
 } from "../services/orders.service"
-import type { CreateIntegrationDto, SyncMenuResponse, ActivateStoreResult } from "../types/api"
+import type { CreateIntegrationDto, SyncMenuResponse, ActivateStoreResult, CreateManualOrderDto } from "../types/api"
 
 export const ordersKeys = {
   all: ["orders"] as const,
@@ -89,5 +90,20 @@ export function useActivateStore() {
       branchId: string
       integrationId: string
     }): Promise<ActivateStoreResult> => activateStore(branchId, integrationId),
+  })
+}
+
+/**
+ * Crea una orden manual (venta de caja / domicilio). Refresca la lista de
+ * órdenes; el toast de éxito/error lo dispara el formulario.
+ */
+export function useCreateManualOrder() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (payload: CreateManualOrderDto) => createManualOrder(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ordersKeys.all })
+    },
   })
 }
