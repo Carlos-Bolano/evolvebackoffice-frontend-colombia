@@ -144,6 +144,15 @@
     @apply appearance-none;
   }
 
+  /* El reset appearance-none anterior deja los checkboxes SIN caja nativa
+     (invisible: la columna "Asignar" de impuestos se veía vacía). Se restaura
+     el render nativo con el acento del tema — visible en claro y oscuro. */
+  input[type="checkbox"] {
+    appearance: auto;
+    accent-color: var(--primary);
+    cursor: pointer;
+  }
+
   /* --- ESTILOS GLOBALES PARA SCROLLBARS --- */
   /* Para navegadores basados en Webkit (Chrome, Safari, Edge, Opera) */
   ::-webkit-scrollbar {
