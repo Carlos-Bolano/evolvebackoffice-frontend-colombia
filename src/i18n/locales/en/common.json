@@ -53,5 +53,11 @@
   "current_business": "Current business",
   "no_business_selected": "No business selected",
   "placeholder_desc": "This placeholder is already tenant-aware, so the future implementation can plug into the active business context directly.",
-  "coming_soon": "Coming Soon"
+  "coming_soon": "Coming Soon",
+  "person_found_title": "Person found in the registry",
+  "person_found_desc": "Loaded {{name}}'s data from the shared persons table (users, customers and suppliers). Complete or adjust only the missing fields.",
+  "person_found_confirm": "Got it",
+  "person_not_found": "No person found with that identification. You can keep filling the form.",
+  "person_lookup": "Look up person",
+  "person_looking": "Searching..."
 }

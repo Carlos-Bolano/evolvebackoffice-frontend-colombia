@@ -38,6 +38,10 @@ import businessSettingsEs from "@/features/business/settings/i18n/es.json"
 import businessSettingsEn from "@/features/business/settings/i18n/en.json"
 import businessUsersCatalogEs from "@/features/business/people/users/i18n/es.json"
 import businessUsersCatalogEn from "@/features/business/people/users/i18n/en.json"
+import businessCustomersEs from "@/features/business/people/customers/i18n/es.json"
+import businessCustomersEn from "@/features/business/people/customers/i18n/en.json"
+import businessSuppliersEs from "@/features/business/inventory/suppliers/i18n/es.json"
+import businessSuppliersEn from "@/features/business/inventory/suppliers/i18n/en.json"
 import businessOrdersEs from "@/features/business/orders/i18n/es.json"
 import businessOrdersEn from "@/features/business/orders/i18n/en.json"
 
@@ -61,6 +65,8 @@ const resources = {
     "business-reports": businessReportsEs,
     "business-settings": businessSettingsEs,
     "business-users-catalog": businessUsersCatalogEs,
+    "business-customers": businessCustomersEs,
+    "business-suppliers": businessSuppliersEs,
     "business-orders": businessOrdersEs,
   },
   en: {
@@ -82,6 +88,8 @@ const resources = {
     "business-reports": businessReportsEn,
     "business-settings": businessSettingsEn,
     "business-users-catalog": businessUsersCatalogEn,
+    "business-customers": businessCustomersEn,
+    "business-suppliers": businessSuppliersEn,
     "business-orders": businessOrdersEn,
   },
 }
@@ -111,6 +119,8 @@ i18n.use(initReactI18next).init({
     "business-reports",
     "business-settings",
     "business-users-catalog",
+    "business-customers",
+    "business-suppliers",
     "business-orders",
   ],
   defaultNS: "common",
