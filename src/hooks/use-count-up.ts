@@ -21,7 +21,17 @@ export function useCountUp(
   const startTimeRef = useRef<number | null>(null)
 
   useEffect(() => {
-    if (target === 0) return
+    // Objetivo0: no hay animación que correr, pero el display SÍ debe
+    // actualizarse. Sin esto, el valor se queda pegado en el último monto
+    // no-cero (p. ej. al volver de "Mes" a "Semana" cuando ventas web es0).
+    if (target === 0) {
+      setDisplay(
+        formatter
+          ? formatter(0)
+          : `${prefix}${(0).toLocaleString(locale, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`
+      )
+      return
+    }
 
     startTimeRef.current = null
 

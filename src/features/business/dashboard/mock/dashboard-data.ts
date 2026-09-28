@@ -17,10 +17,14 @@ export interface StatsData {
   voidedAmount: number
   voidCount: number
   cancelTrans: number
+  /** Cantidad de transacciones POS canceladas en el periodo. */
+  cancelTransCount: number
   itemsSold: number
   webSales: number
   webOrderSales: number
+  webOrderTax: number
   manualOrderSales: number
+  manualOrderTax: number
   totalSales: number
   shippingCollected: number
 }
@@ -116,10 +120,13 @@ export const dashboardData: DashboardData = {
       voidedAmount: 0,
       voidCount: 0,
       cancelTrans: 0,
+      cancelTransCount: 0,
       itemsSold: 156,
       webSales: 34,
       webOrderSales: 420_000,
+      webOrderTax: 63_000,
       manualOrderSales: 180_000,
+      manualOrderTax: 27_000,
       totalSales: 3_180_000,
       shippingCollected: 0,
     },
@@ -131,10 +138,13 @@ export const dashboardData: DashboardData = {
       voidedAmount: 125_000,
       voidCount: 2,
       cancelTrans: 87_500,
+      cancelTransCount: 1,
       itemsSold: 1_080,
       webSales: 220,
       webOrderSales: 2_200_000,
+      webOrderTax: 330_000,
       manualOrderSales: 950_000,
+      manualOrderTax: 142_500,
       totalSales: 21_600_000,
       shippingCollected: 0,
     },
@@ -146,10 +156,13 @@ export const dashboardData: DashboardData = {
       voidedAmount: 450_000,
       voidCount: 9,
       cancelTrans: 225_000,
+      cancelTransCount: 4,
       itemsSold: 4_670,
       webSales: 950,
       webOrderSales: 9_800_000,
+      webOrderTax: 1_470_000,
       manualOrderSales: 4_100_000,
+      manualOrderTax: 615_000,
       totalSales: 92_400_000,
       shippingCollected: 0,
     },

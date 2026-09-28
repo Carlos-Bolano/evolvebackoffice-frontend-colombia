@@ -9,12 +9,18 @@ export interface DashboardStats {
   voidedAmount: number
   voidCount: number
   cancelTrans: number
+  /** Cantidad de transacciones POS canceladas en el periodo. */
+  cancelTransCount: number
   itemsSold: number
   webSales: number
   /** Ventas de órdenes web (Cluvi+Woo) entregadas en el periodo. */
   webOrderSales: number
+  /** Impuesto (Order.Tax) incluido en webOrderSales. */
+  webOrderTax: number
   /** Ventas de órdenes manuales confirmadas (o superiores) en el periodo. */
   manualOrderSales: number
+  /** Impuesto (Order.Tax) incluido en manualOrderSales. */
+  manualOrderTax: number
   /** Total de ventas de todas las fuentes: POS + web + manuales. */
   totalSales: number
   /** Domicilios (envío) cobrados en el periodo — solo órdenes Delivered. */
