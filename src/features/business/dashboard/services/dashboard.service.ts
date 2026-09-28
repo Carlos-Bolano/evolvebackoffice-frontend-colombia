@@ -5,16 +5,19 @@ export interface DashboardStats {
   grossSales: number
   taxes: number
   netSales: number
-  hash: number
-  negHash: number
-  netSalesWohash: number
   customers: number
   voidedAmount: number
   voidCount: number
   cancelTrans: number
   itemsSold: number
   webSales: number
-  /** Domicilios (envío) cobrados en el periodo — aparte de las ventas. */
+  /** Ventas de órdenes web (Cluvi+Woo) entregadas en el periodo. */
+  webOrderSales: number
+  /** Ventas de órdenes manuales confirmadas (o superiores) en el periodo. */
+  manualOrderSales: number
+  /** Total de ventas de todas las fuentes: POS + web + manuales. */
+  totalSales: number
+  /** Domicilios (envío) cobrados en el periodo — solo órdenes Delivered. */
   shippingCollected: number
 }
 
@@ -43,6 +46,9 @@ export interface DashboardSalesByPeriod {
 
 export interface DashboardActiveOrder {
   id: string
+  /** Sucursal de la orden (el dashboard es tenant-wide; Órdenes filtra por sucursal). */
+  branchId?: string | null
+  branchName?: string | null
   customerName: string
   phone: string
   items: string[]

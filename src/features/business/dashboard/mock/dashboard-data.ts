@@ -13,15 +13,15 @@ export interface StatsData {
   grossSales: number
   taxes: number
   netSales: number
-  hash: number
-  negHash: number
-  netSalesWohash: number
   customers: number
   voidedAmount: number
   voidCount: number
   cancelTrans: number
   itemsSold: number
   webSales: number
+  webOrderSales: number
+  manualOrderSales: number
+  totalSales: number
   shippingCollected: number
 }
 
@@ -60,6 +60,9 @@ export type OrderStatus = "pending" | "preparing" | "ready" | "on_the_way" | "de
 
 export interface ActiveOrder {
   id: string
+  /** Sucursal de la orden (el dashboard es tenant-wide). */
+  branchId?: string | null
+  branchName?: string | null
   customerName: string
   phone: string
   items: string[]
@@ -109,45 +112,45 @@ export const dashboardData: DashboardData = {
       grossSales: 2_580_000,
       taxes: 139_320,
       netSales: 2_440_680,
-      hash: 0,
-      negHash: 0,
-      netSalesWohash: 0,
       customers: 87,
       voidedAmount: 0,
       voidCount: 0,
       cancelTrans: 0,
       itemsSold: 156,
       webSales: 34,
+      webOrderSales: 420_000,
+      manualOrderSales: 180_000,
+      totalSales: 3_180_000,
       shippingCollected: 0,
     },
     week: {
       grossSales: 18_450_000,
       taxes: 996_300,
       netSales: 17_453_700,
-      hash: 52_000,
-      negHash: 18_000,
-      netSalesWohash: 17_401_700,
       customers: 612,
       voidedAmount: 125_000,
       voidCount: 2,
       cancelTrans: 87_500,
       itemsSold: 1_080,
       webSales: 220,
+      webOrderSales: 2_200_000,
+      manualOrderSales: 950_000,
+      totalSales: 21_600_000,
       shippingCollected: 0,
     },
     month: {
       grossSales: 78_500_000,
       taxes: 4_239_000,
       netSales: 74_261_000,
-      hash: 184_000,
-      negHash: 62_000,
-      netSalesWohash: 74_077_000,
       customers: 2_540,
       voidedAmount: 450_000,
       voidCount: 9,
       cancelTrans: 225_000,
       itemsSold: 4_670,
       webSales: 950,
+      webOrderSales: 9_800_000,
+      manualOrderSales: 4_100_000,
+      totalSales: 92_400_000,
       shippingCollected: 0,
     },
   },

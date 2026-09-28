@@ -3,20 +3,7 @@ import { useCountUp } from "@/hooks/use-count-up"
 import { useLocaleFormat } from "@/hooks/use-locale-format"
 import { useTranslation } from "@/i18n/use-i18n"
 import type { StatsData } from "../mock/dashboard-data"
-import {
-  DollarSign,
-  Receipt,
-  Wallet,
-  Hash,
-  CreditCard,
-  Users,
-  XCircle,
-  Ban,
-  Package,
-  Globe,
-  Truck,
-  Undo2,
-} from "lucide-react"
+import { DollarSign, Receipt, Wallet, Banknote, Users, XCircle, Ban, Package, Globe, Truck, Undo2 } from "lucide-react"
 import { CHART_PRIMARY, CHART_SECONDARY } from "../constants"
 
 interface StatsGridProps {
@@ -74,8 +61,7 @@ export function StatsGrid({ stats }: StatsGridProps) {
         <StatCard label={t("gross_sales")} value={stats.grossSales} accent={CHART_PRIMARY} icon={DollarSign} />
         <StatCard label={t("taxes")} value={stats.taxes} accent={CHART_SECONDARY} icon={Receipt} />
         <StatCard label={t("net_sales")} value={stats.netSales} accent={CHART_PRIMARY} icon={Wallet} />
-        <StatCard label={t("hash")} value={stats.hash} accent={CHART_SECONDARY} icon={Hash} />
-        <StatCard label={t("net_sales_wohash")} value={stats.netSalesWohash} accent={CHART_PRIMARY} icon={CreditCard} />
+        <StatCard label={t("sales_total")} value={stats.totalSales} accent={CHART_SECONDARY} icon={Banknote} />
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         <StatCard label={t("customers")} value={stats.customers} style="number" accent={CHART_SECONDARY} icon={Users} />

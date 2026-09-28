@@ -100,6 +100,14 @@ function OrderRow({ order, t, index }: { order: ActiveOrderView; t: (key: string
           {moreItems}
         </p>
         <div className="mt-1 flex items-center gap-3 text-[11px] text-muted-foreground/80">
+          {order.branchName ? (
+            <>
+              <span className="max-w-32 truncate font-medium text-foreground/70" title={order.branchName}>
+                {order.branchName}
+              </span>
+              <span>·</span>
+            </>
+          ) : null}
           <span>{order.createdAt}</span>
           <span>·</span>
           <span>
