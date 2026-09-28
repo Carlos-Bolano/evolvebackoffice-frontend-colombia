@@ -17,10 +17,12 @@ export interface StatsData {
   negHash: number
   netSalesWohash: number
   customers: number
-  voidTrans: number
+  voidedAmount: number
+  voidCount: number
   cancelTrans: number
   itemsSold: number
   webSales: number
+  shippingCollected: number
 }
 
 export interface DepartmentSale {
@@ -111,10 +113,12 @@ export const dashboardData: DashboardData = {
       negHash: 0,
       netSalesWohash: 0,
       customers: 87,
-      voidTrans: 0,
+      voidedAmount: 0,
+      voidCount: 0,
       cancelTrans: 0,
       itemsSold: 156,
       webSales: 34,
+      shippingCollected: 0,
     },
     week: {
       grossSales: 18_450_000,
@@ -124,10 +128,12 @@ export const dashboardData: DashboardData = {
       negHash: 18_000,
       netSalesWohash: 17_401_700,
       customers: 612,
-      voidTrans: 125_000,
+      voidedAmount: 125_000,
+      voidCount: 2,
       cancelTrans: 87_500,
       itemsSold: 1_080,
       webSales: 220,
+      shippingCollected: 0,
     },
     month: {
       grossSales: 78_500_000,
@@ -137,10 +143,12 @@ export const dashboardData: DashboardData = {
       negHash: 62_000,
       netSalesWohash: 74_077_000,
       customers: 2_540,
-      voidTrans: 450_000,
+      voidedAmount: 450_000,
+      voidCount: 9,
       cancelTrans: 225_000,
       itemsSold: 4_670,
       webSales: 950,
+      shippingCollected: 0,
     },
   },
 

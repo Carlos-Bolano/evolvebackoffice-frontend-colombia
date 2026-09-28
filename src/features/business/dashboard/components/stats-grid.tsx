@@ -3,7 +3,20 @@ import { useCountUp } from "@/hooks/use-count-up"
 import { useLocaleFormat } from "@/hooks/use-locale-format"
 import { useTranslation } from "@/i18n/use-i18n"
 import type { StatsData } from "../mock/dashboard-data"
-import { DollarSign, Receipt, Wallet, Hash, CreditCard, Users, XCircle, Ban, Package, Globe } from "lucide-react"
+import {
+  DollarSign,
+  Receipt,
+  Wallet,
+  Hash,
+  CreditCard,
+  Users,
+  XCircle,
+  Ban,
+  Package,
+  Globe,
+  Truck,
+  Undo2,
+} from "lucide-react"
 import { CHART_PRIMARY, CHART_SECONDARY } from "../constants"
 
 interface StatsGridProps {
@@ -66,7 +79,14 @@ export function StatsGrid({ stats }: StatsGridProps) {
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         <StatCard label={t("customers")} value={stats.customers} style="number" accent={CHART_SECONDARY} icon={Users} />
-        <StatCard label={t("void_trans")} value={stats.voidTrans} accent={CHART_PRIMARY} icon={XCircle} />
+        <StatCard label={t("voided_amount")} value={stats.voidedAmount} accent={CHART_PRIMARY} icon={XCircle} />
+        <StatCard
+          label={t("void_count")}
+          value={stats.voidCount}
+          style="number"
+          accent={CHART_SECONDARY}
+          icon={Undo2}
+        />
         <StatCard label={t("cancel_trans")} value={stats.cancelTrans} accent={CHART_SECONDARY} icon={Ban} />
         <StatCard
           label={t("items_sold")}
@@ -75,7 +95,13 @@ export function StatsGrid({ stats }: StatsGridProps) {
           accent={CHART_PRIMARY}
           icon={Package}
         />
+      </div>
+
+      {/* Domicilios cobrados: dinero recibido que NO se contabiliza como venta
+          (regla contable — el informe de cierre sumará ventas + domicilios). */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         <StatCard label={t("web_sales")} value={stats.webSales} style="number" accent={CHART_SECONDARY} icon={Globe} />
+        <StatCard label={t("shipping_collected")} value={stats.shippingCollected} accent={CHART_PRIMARY} icon={Truck} />
       </div>
     </div>
   )

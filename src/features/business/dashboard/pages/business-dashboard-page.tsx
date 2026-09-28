@@ -104,10 +104,12 @@ export function BusinessDashboardPage() {
       negHash: 0,
       netSalesWohash: 0,
       customers: 0,
-      voidTrans: 0,
+      voidedAmount: 0,
+      voidCount: 0,
       cancelTrans: 0,
       itemsSold: 0,
       webSales: 0,
+      shippingCollected: 0,
     }),
     []
   )

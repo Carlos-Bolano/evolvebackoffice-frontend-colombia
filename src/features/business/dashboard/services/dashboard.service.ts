@@ -9,10 +9,13 @@ export interface DashboardStats {
   negHash: number
   netSalesWohash: number
   customers: number
-  voidTrans: number
+  voidedAmount: number
+  voidCount: number
   cancelTrans: number
   itemsSold: number
   webSales: number
+  /** Domicilios (envío) cobrados en el periodo — aparte de las ventas. */
+  shippingCollected: number
 }
 
 export interface DashboardDepartmentSales {
