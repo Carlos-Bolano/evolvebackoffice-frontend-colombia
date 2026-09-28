@@ -9,8 +9,15 @@ import {
   syncMenu,
   activateStore,
   createManualOrder,
+  updateOrderDetails,
 } from "../services/orders.service"
-import type { CreateIntegrationDto, SyncMenuResponse, ActivateStoreResult, CreateManualOrderDto } from "../types/api"
+import type {
+  CreateIntegrationDto,
+  SyncMenuResponse,
+  ActivateStoreResult,
+  CreateManualOrderDto,
+  UpdateOrderDetailsDto,
+} from "../types/api"
 
 export const ordersKeys = {
   all: ["orders"] as const,
@@ -102,6 +109,21 @@ export function useCreateManualOrder() {
 
   return useMutation({
     mutationFn: (payload: CreateManualOrderDto) => createManualOrder(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ordersKeys.all })
+    },
+  })
+}
+
+/**
+ * Actualiza detalles de una orden (notas, dirección, costo de envío).
+ * Refresca lista y detalle; el toast lo dispara el formulario.
+ */
+export function useUpdateOrderDetails() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: UpdateOrderDetailsDto }) => updateOrderDetails(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ordersKeys.all })
     },

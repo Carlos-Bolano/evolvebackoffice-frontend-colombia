@@ -2,6 +2,8 @@ export interface OrderListItem {
   id: string
   externalOrderId: string | null
   platformCode: string
+  /** Origen controlado (OrderOrigin): WhatsApp, Facebook, Call, Others, Cluvi, WooCommerce. */
+  origin?: string | null
   branchId: string | null
   branchName: string | null
   statusCode: string
@@ -23,6 +25,8 @@ export interface OrderDetail {
   id: string
   externalOrderId: string | null
   platformCode: string
+  /** Origen controlado (OrderOrigin). */
+  origin?: string | null
   branchId: string | null
   branchName: string | null
   customerId: string | null
@@ -222,6 +226,8 @@ export interface CreateManualOrderDto {
   paymentMethod: string
   /** Pending | Confirmed | NeedsReview */
   status: string
+  /** Origen controlado (OrderOrigin) de la orden manual; null = sin origen. */
+  origin: string | null
   notes: string | null
   shippingStreet: string | null
   shippingCity: string | null
@@ -234,4 +240,17 @@ export interface CreateManualOrderDto {
   discount: number | null
   shippingCost: number | null
   items: CreateManualOrderItemDto[]
+}
+
+/** Payload de PUT /api/orders/{id}/details — null = no modificar el campo. */
+export interface UpdateOrderDetailsDto {
+  notes: string | null
+  shippingStreet: string | null
+  shippingCity: string | null
+  shippingState: string | null
+  shippingZipCode: string | null
+  shippingLatitude: number | null
+  shippingLongitude: number | null
+  shippingNotes: string | null
+  shippingCost: number | null
 }

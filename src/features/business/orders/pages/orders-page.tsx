@@ -27,6 +27,7 @@ import { OrdersKanban } from "../components/orders-kanban"
 import { OrderDetailDialog } from "../components/order-detail-dialog"
 import { IntegrationConfigDialog } from "../components/integration-config-dialog"
 import { ManualOrderDialog } from "../components/manual-order-dialog"
+import { EditOrderDialog } from "../components/edit-order-dialog"
 import { KANBAN_COLUMNS, ORDER_STATUS_CONFIG } from "../types"
 import { checkOrderStock } from "../services/orders.service"
 import type { OrderListItem, OrderStatus, OrderStockItem } from "../types/api"
@@ -44,6 +45,7 @@ export function OrdersPage() {
   const [configOpen, setConfigOpen] = useState(false)
   const [configPlatform, setConfigPlatform] = useState<string>("CLUVI")
   const [createOrderOpen, setCreateOrderOpen] = useState(false)
+  const [editOrderOpen, setEditOrderOpen] = useState(false)
   const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all")
 
   // Sucursal consultada: selección visible con persistencia local.
@@ -293,7 +295,13 @@ export function OrdersPage() {
         <OrdersKanban ordersByStatus={ordersByStatus} onDragEnd={handleDragEnd} onViewDetail={handleViewDetail} />
       )}
 
-      <OrderDetailDialog open={detailOpen} onOpenChange={setDetailOpen} order={selectedOrder} />
+      <OrderDetailDialog
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        order={selectedOrder}
+        onEdit={() => setEditOrderOpen(true)}
+      />
+      <EditOrderDialog open={editOrderOpen} onOpenChange={setEditOrderOpen} orderId={selectedOrder?.id ?? null} />
       <IntegrationConfigDialog
         open={configOpen}
         onOpenChange={setConfigOpen}

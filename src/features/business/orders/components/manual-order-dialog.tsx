@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useBranchItems } from "@/features/business/items/catalog/hooks/use-branch-items"
 import { useCreateManualOrder } from "../hooks/use-orders"
+import { ORDER_ORIGIN_LABEL_KEY } from "../types"
 import type { CreateManualOrderDto } from "../types/api"
 import { notify } from "@/hooks/use-notify"
 import { useLocaleFormat } from "@/hooks/use-locale-format"
@@ -39,6 +40,9 @@ interface OrderLine {
   price: number
   quantity: number
 }
+
+/** Orígenes manuales ofrecidos en el formulario (miembros del enum OrderOrigin). */
+const MANUAL_ORIGINS = ["WhatsApp", "Facebook", "Call", "Others"] as const
 
 function apiErrorMessage(error: unknown): string | null {
   const e = error as {
@@ -69,6 +73,7 @@ export function ManualOrderDialog({ open, onOpenChange, branchId }: ManualOrderD
   const [selectedItem, setSelectedItem] = useState("")
   const [paymentMethod, setPaymentMethod] = useState("CASH")
   const [status, setStatus] = useState("Confirmed")
+  const [origin, setOrigin] = useState("")
   const [notes, setNotes] = useState("")
   const [street, setStreet] = useState("")
   const [city, setCity] = useState("")
@@ -80,6 +85,7 @@ export function ManualOrderDialog({ open, onOpenChange, branchId }: ManualOrderD
       setSelectedItem("")
       setPaymentMethod("CASH")
       setStatus("Confirmed")
+      setOrigin("")
       setNotes("")
       setStreet("")
       setCity("")
@@ -139,6 +145,7 @@ export function ManualOrderDialog({ open, onOpenChange, branchId }: ManualOrderD
       personId: null,
       paymentMethod,
       status,
+      origin: origin || null,
       notes: notes.trim() ? notes.trim() : null,
       shippingStreet: street.trim() ? street.trim() : null,
       shippingCity: city.trim() ? city.trim() : null,
@@ -274,7 +281,7 @@ export function ManualOrderDialog({ open, onOpenChange, branchId }: ManualOrderD
         ) : null}
 
         {/* Datos de la venta */}
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-3">
           <div className="space-y-1.5">
             <Label>{t("payment_method")}</Label>
             <Select value={paymentMethod} onValueChange={setPaymentMethod}>
@@ -300,6 +307,25 @@ export function ManualOrderDialog({ open, onOpenChange, branchId }: ManualOrderD
                 <SelectItem value="Confirmed">{t("confirmed")}</SelectItem>
                 <SelectItem value="Pending">{t("pending")}</SelectItem>
                 <SelectItem value="NeedsReview">{t("st_review")}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Origen controlado (enum OrderOrigin) — para filtrar reportes junto
+              con Cluvi/WooCommerce (que se marcan automáticamente). */}
+          <div className="space-y-1.5">
+            <Label>{t("origin")}</Label>
+            <Select value={origin || "none"} onValueChange={(v) => setOrigin(v === "none" ? "" : v)}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">{t("origin_none")}</SelectItem>
+                {MANUAL_ORIGINS.map((o) => (
+                  <SelectItem key={o} value={o}>
+                    {t(ORDER_ORIGIN_LABEL_KEY[o])}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

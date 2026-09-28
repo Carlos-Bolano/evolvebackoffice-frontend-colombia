@@ -29,3 +29,13 @@ export const ORDER_STATUS_CONFIG: Record<string, { label: string; color: BadgeTo
 }
 
 export const KANBAN_COLUMNS = ["Pending", "Confirmed", "Preparing", "Ready", "Shipped", "Delivered"] as const
+
+/** Etiqueta i18n de cada origen controlado (enum OrderOrigin del backend). */
+export const ORDER_ORIGIN_LABEL_KEY: Record<string, string> = {
+  WhatsApp: "origin_whatsapp",
+  Facebook: "origin_facebook",
+  Call: "origin_call",
+  Others: "origin_other",
+  Cluvi: "origin_cluvi",
+  WooCommerce: "origin_woocommerce",
+}

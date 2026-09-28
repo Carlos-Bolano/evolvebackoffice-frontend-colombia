@@ -1,19 +1,24 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { useTranslation } from "@/i18n/use-i18n"
-import { ORDER_STATUS_CONFIG } from "../types"
+import { useLocaleFormat } from "@/hooks/use-locale-format"
+import { ORDER_STATUS_CONFIG, ORDER_ORIGIN_LABEL_KEY } from "../types"
 import type { OrderListItem } from "../types/api"
-import { MapPin, Clock, CreditCard, FileText } from "lucide-react"
+import { MapPin, Clock, CreditCard, FileText, SquarePen, Tag } from "lucide-react"
 
 interface OrderDetailDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   order: OrderListItem | null
+  /** Abre el formulario de edición de detalles (notas/dirección/envío). */
+  onEdit?: () => void
 }
 
-export function OrderDetailDialog({ open, onOpenChange, order }: OrderDetailDialogProps) {
+export function OrderDetailDialog({ open, onOpenChange, order, onEdit }: OrderDetailDialogProps) {
   const { t } = useTranslation("business-orders")
+  const { formatCurrency } = useLocaleFormat()
 
   if (!order) return null
 
@@ -35,7 +40,7 @@ export function OrderDetailDialog({ open, onOpenChange, order }: OrderDetailDial
           {/* Total */}
           <div className="rounded-lg bg-primary/5 p-4 text-center">
             <p className="text-sm text-muted-foreground">{t("total")}</p>
-            <p className="text-3xl font-bold">${order.total.toFixed(2)}</p>
+            <p className="text-3xl font-bold">{formatCurrency(order.total)}</p>
           </div>
 
           {/* Info */}
@@ -45,6 +50,16 @@ export function OrderDetailDialog({ open, onOpenChange, order }: OrderDetailDial
               <span className="text-muted-foreground">{t("payment_method")}:</span>
               <span className="font-medium">{order.paymentMethod ?? "—"}</span>
             </div>
+
+            {order.origin ? (
+              <div className="flex items-center gap-3 text-sm">
+                <Tag className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">{t("origin")}:</span>
+                <span className="font-medium">
+                  {ORDER_ORIGIN_LABEL_KEY[order.origin] ? t(ORDER_ORIGIN_LABEL_KEY[order.origin]) : order.origin}
+                </span>
+              </div>
+            ) : null}
 
             <div className="flex items-center gap-3 text-sm">
               <MapPin className="h-4 w-4 text-muted-foreground" />
@@ -71,22 +86,30 @@ export function OrderDetailDialog({ open, onOpenChange, order }: OrderDetailDial
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Subtotal</span>
-              <span>${order.subTotal.toFixed(2)}</span>
+              <span>{formatCurrency(order.subTotal)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Envío</span>
-              <span>${order.shippingCost.toFixed(2)}</span>
+              <span>{formatCurrency(order.shippingCost)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Descuento</span>
-              <span>-${order.discount.toFixed(2)}</span>
+              <span>{order.discount > 0 ? `− ${formatCurrency(order.discount)}` : formatCurrency(0)}</span>
             </div>
             <Separator />
             <div className="flex justify-between font-semibold">
               <span>{t("total")}</span>
-              <span>${order.total.toFixed(2)}</span>
+              <span>{formatCurrency(order.total)}</span>
             </div>
           </div>
+
+          {/* Editar detalles (notas, dirección, costo de envío) */}
+          {onEdit ? (
+            <Button type="button" variant="outline" className="w-full" onClick={onEdit}>
+              <SquarePen className="mr-2 size-4" />
+              {t("edit_order")}
+            </Button>
+          ) : null}
         </div>
       </DialogContent>
     </Dialog>

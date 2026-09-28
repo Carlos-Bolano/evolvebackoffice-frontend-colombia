@@ -10,6 +10,7 @@ import type {
   ActivateStoreResult,
   NewOrdersUpdate,
   CreateManualOrderDto,
+  UpdateOrderDetailsDto,
 } from "../types/api"
 
 function normalizePagedResponse(raw: unknown, pageSize: number): PagedOrders {
@@ -128,4 +129,14 @@ export async function fetchNewOrders(sinceUtc: string, signal?: AbortSignal): Pr
 export async function createManualOrder(payload: CreateManualOrderDto): Promise<OrderDetail> {
   const { data } = await api.post<OrderDetail>("/api/orders", payload)
   return data
+}
+
+/**
+ * Actualiza detalles editables de una orden (notas, dirección de envío, costo
+ * de domicilio). El backend hace push best-effort a la plataforma externa:
+ * WooCommerce recibe la dirección/notas; Cluvi no expone endpoint (solo
+ * productos y estados según docs/cluvi-api-reference.md).
+ */
+export async function updateOrderDetails(id: string, payload: UpdateOrderDetailsDto): Promise<void> {
+  await api.put(`/api/orders/${id}/details`, payload)
 }
