@@ -10,6 +10,7 @@ import { useTranslation } from "@/i18n/use-i18n"
 import { useCustomers, useCreateCustomer, useUpdateCustomer, useToggleCustomerActive } from "../hooks/use-customers"
 import { CustomersTable } from "../components/customers-table"
 import { CustomerFormDialog } from "../components/customer-form-dialog"
+import { CreditDialog } from "../../credit/components/credit-dialog"
 import type { CreateCustomerFormValues } from "../schemas/customer-schema"
 import type { CustomerResponseDto } from "../types"
 
@@ -18,6 +19,7 @@ export function CustomersPage() {
   const [search, setSearch] = useState("")
   const [formOpen, setFormOpen] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerResponseDto | null>(null)
+  const [creditCustomer, setCreditCustomer] = useState<CustomerResponseDto | null>(null)
 
   const { data, isLoading } = useCustomers()
   const createMutation = useCreateCustomer()
@@ -132,6 +134,7 @@ export function CustomersPage() {
                 customers={filteredCustomers}
                 onEdit={openEditDialog}
                 onToggleActive={handleToggleActive}
+                onCredit={setCreditCustomer}
               />
               {totalCount > customers.length && (
                 <p className="mt-3 text-xs text-muted-foreground">
@@ -148,6 +151,17 @@ export function CustomersPage() {
           customerToEdit={selectedCustomer}
           onSubmit={selectedCustomer ? handleEdit : handleCreate}
           isSubmitting={createMutation.isPending || updateMutation.isPending}
+        />
+
+        <CreditDialog
+          open={creditCustomer != null}
+          onOpenChange={(open) => {
+            if (!open) setCreditCustomer(null)
+          }}
+          personId={creditCustomer?.personPublicId ?? null}
+          personName={
+            creditCustomer ? [creditCustomer.firstName, creditCustomer.lastName].filter(Boolean).join(" ") : ""
+          }
         />
       </CardContent>
     </Card>

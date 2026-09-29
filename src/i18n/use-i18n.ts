@@ -30,6 +30,7 @@ export type Namespace =
   | "business-customers"
   | "business-suppliers"
   | "business-payment-methods"
+  | "business-credit"
   | "marketing"
 
 export function useTranslation(ns: Namespace = "common") {

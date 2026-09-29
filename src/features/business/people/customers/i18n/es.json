@@ -37,6 +37,7 @@
   "inactive": "Inactivo",
   "actions": "Acciones",
   "edit_customer_action": "Editar cliente",
+  "credit_action": "Crédito de la tienda",
   "activate_customer_action": "Activar cliente",
   "deactivate_customer_action": "Desactivar cliente",
   "first_name_required": "Los nombres son requeridos.",

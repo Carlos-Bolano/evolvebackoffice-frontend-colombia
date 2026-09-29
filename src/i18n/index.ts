@@ -46,6 +46,8 @@ import businessOrdersEs from "@/features/business/orders/i18n/es.json"
 import businessOrdersEn from "@/features/business/orders/i18n/en.json"
 import businessPaymentMethodsEs from "@/features/business/payment-methods/i18n/es.json"
 import businessPaymentMethodsEn from "@/features/business/payment-methods/i18n/en.json"
+import businessCreditEs from "@/features/business/people/credit/i18n/es.json"
+import businessCreditEn from "@/features/business/people/credit/i18n/en.json"
 
 const resources = {
   es: {
@@ -71,6 +73,7 @@ const resources = {
     "business-suppliers": businessSuppliersEs,
     "business-orders": businessOrdersEs,
     "business-payment-methods": businessPaymentMethodsEs,
+    "business-credit": businessCreditEs,
   },
   en: {
     common: commonEn,
@@ -95,6 +98,7 @@ const resources = {
     "business-suppliers": businessSuppliersEn,
     "business-orders": businessOrdersEn,
     "business-payment-methods": businessPaymentMethodsEn,
+    "business-credit": businessCreditEn,
   },
 }
 
@@ -127,6 +131,7 @@ i18n.use(initReactI18next).init({
     "business-suppliers",
     "business-orders",
     "business-payment-methods",
+    "business-credit",
   ],
   defaultNS: "common",
   interpolation: {

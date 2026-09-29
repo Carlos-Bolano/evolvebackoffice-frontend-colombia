@@ -1,4 +1,4 @@
-import { Pencil, UserCheck, UserX } from "lucide-react"
+import { CreditCard, Pencil, UserCheck, UserX } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -11,9 +11,10 @@ type CustomersTableProps = {
   customers: CustomerResponseDto[]
   onEdit: (customer: CustomerResponseDto) => void
   onToggleActive: (customer: CustomerResponseDto) => void
+  onCredit: (customer: CustomerResponseDto) => void
 }
 
-export function CustomersTable({ customers, onEdit, onToggleActive }: CustomersTableProps) {
+export function CustomersTable({ customers, onEdit, onToggleActive, onCredit }: CustomersTableProps) {
   const { t } = useTranslation("business-customers")
 
   if (customers.length === 0) {
@@ -78,6 +79,16 @@ export function CustomersTable({ customers, onEdit, onToggleActive }: CustomersT
                     title={customer.isActive ? t("deactivate_customer_action") : t("activate_customer_action")}
                   >
                     {customer.isActive ? <UserX className="size-4" /> : <UserCheck className="size-4" />}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8"
+                    onClick={() => onCredit(customer)}
+                    aria-label={t("credit_action")}
+                    title={t("credit_action")}
+                  >
+                    <CreditCard className="size-4" />
                   </Button>
                   <Button
                     variant="ghost"
