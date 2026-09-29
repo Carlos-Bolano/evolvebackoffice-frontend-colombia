@@ -20,6 +20,7 @@ import { CustomersPage } from "@/features/business/people/customers/pages/custom
 import { SuppliersPage } from "@/features/business/inventory/suppliers/pages/suppliers-page"
 import { ReportsPage } from "@/features/business/reports/pages/reports-page"
 import { SettingsPage } from "@/features/business/settings/pages/settings-page"
+import { PaymentMethodsPage } from "@/features/business/payment-methods/pages/payment-methods-page"
 import { RegistersPage } from "@/features/business/registers/pages/registers-page"
 import { OrdersPage } from "@/features/business/orders/pages/orders-page"
 import { BranchTerminalSettingsPage } from "@/features/business/branches/terminals/pages/branch-terminal-settings-page"
@@ -99,6 +100,7 @@ function AppRoutesContent() {
             <Route path="/business/reports" element={<ReportsPage />} />
             <Route path="/business/settings" element={<SettingsPage />} />
             <Route path="/business/settings/registers" element={<RegistersPage />} />
+            <Route path="/business/settings/payment-methods" element={<PaymentMethodsPage />} />
             <Route path="/business/branches/:branchId/settings/terminals" element={<BranchTerminalSettingsPage />} />
             <Route path="/business/branches/:branchId/config" element={<BranchConfigPage />} />
           </Route>

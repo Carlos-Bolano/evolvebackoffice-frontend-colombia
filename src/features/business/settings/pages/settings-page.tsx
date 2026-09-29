@@ -81,7 +81,8 @@ export function SettingsPage() {
       name: t("tenders"),
       label: t("tenders_desc"),
       icon: CreditCard,
-      disabled: true,
+      disabled: false,
+      onClick: () => navigate("/business/settings/payment-methods"),
     },
     {
       name: t("pos_options"),
