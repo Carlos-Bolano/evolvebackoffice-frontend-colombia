@@ -40,6 +40,10 @@ export interface TenderEntry {
   quantity: number
   sales: number
   color: string
+  /** Categoría estable del medio (Cash, Transfer, Credit…) — F5. */
+  category?: string
+  /** Participación % sobre el total (0–100) — F5. */
+  share?: number
 }
 
 export interface YearOnYearMonth {

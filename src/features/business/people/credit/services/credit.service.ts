@@ -1,5 +1,5 @@
 import { api } from "@/config/axios-client"
-import type { CreditHistoryResult, CreditMovementDto, PersonCreditResponseDto } from "../types"
+import type { CreditHistoryResult, CreditMovementDto, PendingAuthorizationDto, PersonCreditResponseDto } from "../types"
 
 /** Estado del cupo de crédito de una persona (web: solo lectura + activación). */
 export async function getPersonCredit(personId: string): Promise<PersonCreditResponseDto | null> {
@@ -32,4 +32,13 @@ export async function getCreditHistory(personId: string, pageNumber = 1, pageSiz
     { params: { pageNumber, pageSize } }
   )
   return { items: data?.data ?? [], totalCount: data?.totalCount ?? 0 }
+}
+
+/**
+ * Autorizaciones de crédito pendientes de liquidar (venta autorizada en el POS
+ * que aún no ha sincronizado su lote). Consulta administrativa (F5).
+ */
+export async function getPendingAuthorizations(): Promise<PendingAuthorizationDto[]> {
+  const { data } = await api.get<PendingAuthorizationDto[]>("/api/credit/authorizations")
+  return data ?? []
 }

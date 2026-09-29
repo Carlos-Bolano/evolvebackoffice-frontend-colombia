@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
-import { activatePersonCredit, getCreditHistory, getPersonCredit, resendCreditPin } from "../services/credit.service"
+import {
+  activatePersonCredit,
+  getCreditHistory,
+  getPendingAuthorizations,
+  getPersonCredit,
+  resendCreditPin,
+} from "../services/credit.service"
 
 export function usePersonCredit(personId: string | null) {
   return useQuery({
@@ -38,5 +44,15 @@ export function useResendCreditPin(personId: string | null) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["person-credit", personId] })
     },
+  })
+}
+
+/** Autorizaciones pendientes de liquidar (panel administrativo — F5). */
+export function usePendingAuthorizations(enabled = true) {
+  return useQuery({
+    queryKey: ["credit-pending-authorizations"],
+    queryFn: getPendingAuthorizations,
+    enabled,
+    refetchInterval: enabled ? 60_000 : false,
   })
 }

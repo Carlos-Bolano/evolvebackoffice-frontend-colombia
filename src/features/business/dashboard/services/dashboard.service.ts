@@ -34,8 +34,12 @@ export interface DashboardDepartmentSales {
 
 export interface DashboardTenderReport {
   description: string
+  /** Categoría estable del medio (Cash, Transfer, Credit…). */
+  category: string
   quantity: number
   sales: number
+  /** Participación sobre el total del tender (0–100). */
+  share: number
 }
 
 export interface DashboardSalesByPeriodPoint {

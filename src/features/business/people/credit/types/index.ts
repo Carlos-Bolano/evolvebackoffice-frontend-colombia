@@ -37,6 +37,18 @@ export interface CreditHistoryResult {
   totalCount: number
 }
 
+/** Autorización de crédito aún no liquidada (venta pendiente de sincronizar). */
+export interface PendingAuthorizationDto {
+  id: string
+  personId: string
+  personName: string
+  amount: number
+  authorizationCode: string
+  createdAt: string
+  expiresAt: string | null
+  isExpired: boolean
+}
+
 export interface CreditActivationResult {
   account: PersonCreditResponseDto
   pinDeliveryError: string | null

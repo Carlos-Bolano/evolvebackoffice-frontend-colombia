@@ -26,6 +26,7 @@
   "description": "Description",
   "quantity": "Quantity",
   "sales": "Sales",
+  "share": "%",
   "total": "TOTAL:",
   "vs_previous_month": "Vs. Previous Month",
   "vs_previous_month_description": "The chart compares {{currentMonth}} (2026) with {{previousMonth}} (2026), divided by weeks.",

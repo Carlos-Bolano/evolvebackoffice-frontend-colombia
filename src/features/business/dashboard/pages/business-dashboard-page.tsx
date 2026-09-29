@@ -28,6 +28,10 @@ import { ActiveOrdersCard } from "../components/active-orders-card"
 import { StatsGrid } from "../components/stats-grid"
 import { DepartmentSalesChart } from "../components/department-sales-chart"
 import { TenderReportCard } from "../components/tender-report-card"
+import { CHART_PRIMARY, CHART_PRIMARY_LIGHT, CHART_SECONDARY, CHART_SECONDARY_DARK } from "../constants"
+
+/** Paleta del donut de tender (los datos del API no traen color). */
+const TENDER_COLORS = [CHART_PRIMARY, CHART_SECONDARY, CHART_PRIMARY_LIGHT, CHART_SECONDARY_DARK]
 import { YearOnYearChart } from "../components/year-on-year-chart"
 import { VsPreviousMonthChart } from "../components/vs-previous-month-chart"
 
@@ -187,7 +191,10 @@ export function BusinessDashboardPage() {
           {/* Tender Report */}
           <div>
             <TenderReportCard
-              data={(tenderReport ?? []).map((t) => ({ ...t, color: "" }))}
+              data={(tenderReport ?? []).map((t, i) => ({
+                ...t,
+                color: TENDER_COLORS[i % TENDER_COLORS.length],
+              }))}
               dateRange={dateRange}
               onPrint={handlePrint}
               onSave={handleSave}

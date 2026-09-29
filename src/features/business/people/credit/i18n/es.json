@@ -39,5 +39,13 @@
   "pos_only": "Consumos y abonos: solo en terminales POS.",
   "close": "Cerrar",
   "loading": "Cargando...",
-  "no_person": "Este registro no tiene una persona vinculada (sin cupo posible)."
+  "no_person": "Este registro no tiene una persona vinculada (sin cupo posible).",
+  "pending_title": "Autorizaciones de crédito pendientes",
+  "pending_desc": "Consumos autorizados en el POS cuya venta aún no se ha sincronizado por lote. Si expiran, el cupo se libera automáticamente.",
+  "pending_empty": "Sin autorizaciones pendientes.",
+  "pending_person": "Persona",
+  "pending_amount": "Monto",
+  "pending_code": "Código",
+  "pending_created": "Autorizada",
+  "pending_expires": "Expira"
 }

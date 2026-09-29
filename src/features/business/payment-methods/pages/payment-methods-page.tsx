@@ -16,6 +16,7 @@ import {
 } from "../hooks/use-payment-methods"
 import { PaymentMethodsTable } from "../components/payment-methods-table"
 import { PaymentMethodFormDialog } from "../components/payment-method-form-dialog"
+import { PendingAuthorizationsSection } from "../components/pending-authorizations-section"
 import type { PaymentMethodResponseDto } from "../types"
 
 export function PaymentMethodsPage() {
@@ -147,6 +148,8 @@ export function PaymentMethodsPage() {
             <PaymentMethodsTable methods={filtered} onEdit={openEditDialog} onToggleActive={handleToggleActive} />
           )}
         </div>
+
+        <PendingAuthorizationsSection />
 
         <PaymentMethodFormDialog
           open={formOpen}
