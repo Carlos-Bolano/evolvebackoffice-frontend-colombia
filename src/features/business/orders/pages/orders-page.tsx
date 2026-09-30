@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef } from "react"
+import { useNavigate } from "react-router-dom"
 import { useTranslation } from "@/i18n/use-i18n"
 import { useNotify } from "@/hooks/use-notify"
 import Spinner from "@/components/Spinner"
@@ -16,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { RefreshCw, Truck, Store, ShoppingCart, AlertTriangle, Plus } from "lucide-react"
+import { RefreshCw, Truck, Store, ShoppingCart, AlertTriangle, Plus, Lock } from "lucide-react"
 import { useQueries } from "@tanstack/react-query"
 import { useBranches } from "@/features/business/branches/hooks/use-branches"
 import { branchModulesKeys, useBranchModules } from "@/features/business/branches/hooks/use-branch-modules"
@@ -39,6 +40,7 @@ const ORDERS_BRANCH_STORAGE_KEY = "business.orders.branchId"
 
 export function OrdersPage() {
   const { t } = useTranslation("business-orders")
+  const navigate = useNavigate()
   const notify = useNotify()
   const [selectedOrder, setSelectedOrder] = useState<OrderListItem | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
@@ -195,6 +197,10 @@ export function OrdersPage() {
           <Button variant="outline" size="sm" onClick={() => refetch()}>
             <RefreshCw className="mr-2 h-4 w-4" />
             {t("refresh")}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => navigate("/business/orders/closing")}>
+            <Lock className="mr-2 h-4 w-4" />
+            {t("closing_entry")}
           </Button>
           <Button variant="outline" size="sm" onClick={() => openConfig("CLUVI")} disabled={!hasOrdersModule}>
             <Truck className="mr-2 h-4 w-4" />
