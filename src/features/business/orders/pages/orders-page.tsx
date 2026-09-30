@@ -52,9 +52,12 @@ export function OrdersPage() {
 
   // Sucursal consultada: selección visible con persistencia local.
   // (Antes se tomaba branches[0] a ciegas y no se veía cuál era.)
+  // "__ALL__" = todas las sucursales (como el catálogo global de artículos).
+  const ALL_BRANCHES = "__ALL__"
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(() =>
     localStorage.getItem(ORDERS_BRANCH_STORAGE_KEY)
   )
+  const showAllBranches = selectedBranchId === ALL_BRANCHES
   const { data: branchesData } = useBranches(1, 50)
   const branches = branchesData?.data ?? []
 
@@ -71,25 +74,41 @@ export function OrdersPage() {
     (_, i) => moduleQueries[i]?.data?.some((m) => m.moduleCode === "ORDERS" && m.isEnabled) ?? false
   )
 
-  const branchId =
-    selectedBranchId && branchesWithOrdersModule.some((b) => b.id === selectedBranchId)
+  const branchId = showAllBranches
+    ? ""
+    : selectedBranchId && branchesWithOrdersModule.some((b) => b.id === selectedBranchId)
       ? selectedBranchId
       : (branchesWithOrdersModule[0]?.id ?? "")
 
-  const handleBranchChange = (id: string) => {
-    localStorage.setItem(ORDERS_BRANCH_STORAGE_KEY, id)
-    setSelectedBranchId(id)
+  const handleBranchChange = (id: string | null) => {
+    // null = "Todas las sucursales"
+    const value = id ?? ALL_BRANCHES
+    localStorage.setItem(ORDERS_BRANCH_STORAGE_KEY, value)
+    setSelectedBranchId(value)
   }
 
   const { data: branchModules } = useBranchModules(branchId)
-  const hasOrdersModule = branchModules?.some((m) => m.moduleCode === "ORDERS" && m.isEnabled)
+  const hasOrdersModule = showAllBranches
+    ? branchesWithOrdersModule.length > 0
+    : branchModules?.some((m) => m.moduleCode === "ORDERS" && m.isEnabled)
 
   const { data: integrations } = useBranchIntegrations(branchId)
-  const hasCluviIntegration = integrations?.some((i) => i.platformCode === "CLUVI" && i.isActive)
-  const hasWooIntegration = integrations?.some((i) => i.platformCode === "WOOCOMMERCE" && i.isActive)
+
+  /** Estado de una integración en la sucursal seleccionada. */
+  const integrationState = (platform: string): "active" | "configured" | "none" => {
+    if (!branchId) return "none"
+    const row = integrations?.find((i) => i.platformCode === platform)
+    if (!row) return "none"
+    return row.isActive ? "active" : "configured"
+  }
 
   // enabled=!!branchId: no se pide órdenes sin sucursal (evita una petición sin filtrar mientras carga la lista)
-  const { data: ordersData, isLoading, refetch } = useOrders(1, 500, branchId ? { branchId } : undefined, !!branchId)
+  // En "todas" se pide sin branchId (el backend devuelve todas las sucursales).
+  const {
+    data: ordersData,
+    isLoading,
+    refetch,
+  } = useOrders(1, 500, branchId ? { branchId } : undefined, !!branchId || showAllBranches)
   const updateStatusMutation = useUpdateOrderStatus()
 
   // Memoizado para que los useMemo dependientes (filtros/conteos) no se
@@ -184,11 +203,12 @@ export function OrdersPage() {
         <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
           <span className="hidden text-sm text-muted-foreground md:inline">{t("viewing_branch")}</span>
           <BranchSelector
-            options={branchesWithOrdersModule.map((b) => ({ id: b.id, name: b.name }))}
-            selectedId={branchId || null}
-            onSelect={(id) => {
-              if (id) handleBranchChange(id)
-            }}
+            options={[
+              { id: null, name: t("all_branches") },
+              ...branchesWithOrdersModule.map((b) => ({ id: b.id as string | null, name: b.name })),
+            ]}
+            selectedId={showAllBranches ? null : branchId || null}
+            onSelect={handleBranchChange}
           />
           <Button size="sm" onClick={() => setCreateOrderOpen(true)} disabled={!branchId}>
             <Plus className="mr-2 h-4 w-4" />
@@ -202,13 +222,27 @@ export function OrdersPage() {
             <Lock className="mr-2 h-4 w-4" />
             {t("closing_entry")}
           </Button>
-          <Button variant="outline" size="sm" onClick={() => openConfig("CLUVI")} disabled={!hasOrdersModule}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => openConfig("CLUVI")}
+            disabled={!hasOrdersModule || showAllBranches}
+            title={integrationTitle(integrationState("CLUVI"), t)}
+          >
             <Truck className="mr-2 h-4 w-4" />
             Cluvi
+            {!showAllBranches && <StatusDot state={integrationState("CLUVI")} />}
           </Button>
-          <Button variant="outline" size="sm" onClick={() => openConfig("WOOCOMMERCE")} disabled={!hasOrdersModule}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => openConfig("WOOCOMMERCE")}
+            disabled={!hasOrdersModule || showAllBranches}
+            title={integrationTitle(integrationState("WOOCOMMERCE"), t)}
+          >
             <Store className="mr-2 h-4 w-4" />
             WooCommerce
+            {!showAllBranches && <StatusDot state={integrationState("WOOCOMMERCE")} />}
           </Button>
         </div>
       </div>
@@ -229,37 +263,7 @@ export function OrdersPage() {
         </Card>
       )}
 
-      {/* Integration Status */}
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Card className="flex-1">
-          <CardContent className="flex items-center gap-3 py-3">
-            <Truck className="h-5 w-5 text-muted-foreground" />
-            <div className="flex-1">
-              <p className="text-sm font-medium">Cluvi</p>
-              <p className="text-xs text-muted-foreground">
-                {hasCluviIntegration
-                  ? `Activo — ${integrations?.find((i) => i.platformCode === "CLUVI")?.settingsJson ? JSON.parse(integrations.find((i) => i.platformCode === "CLUVI")!.settingsJson!).storeId : ""}`
-                  : "No configurado"}
-              </p>
-            </div>
-            <Badge tone={hasCluviIntegration ? "success" : "neutral"}>
-              {hasCluviIntegration ? t("active") : t("inactive")}
-            </Badge>
-          </CardContent>
-        </Card>
-        <Card className="flex-1">
-          <CardContent className="flex items-center gap-3 py-3">
-            <Store className="h-5 w-5 text-muted-foreground" />
-            <div className="flex-1">
-              <p className="text-sm font-medium">WooCommerce</p>
-              <p className="text-xs text-muted-foreground">{hasWooIntegration ? "Activo" : "No configurado"}</p>
-            </div>
-            <Badge tone={hasWooIntegration ? "success" : "neutral"}>
-              {hasWooIntegration ? t("active") : t("inactive")}
-            </Badge>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Filtros de plataforma + kanban/lista */}
 
       {/* Platform Filter Tabs */}
       <Tabs value={platformFilter} onValueChange={(v) => setPlatformFilter(v as PlatformFilter)}>
@@ -298,7 +302,12 @@ export function OrdersPage() {
           <Spinner className="h-8 w-8" />
         </div>
       ) : (
-        <OrdersKanban ordersByStatus={ordersByStatus} onDragEnd={handleDragEnd} onViewDetail={handleViewDetail} />
+        <OrdersKanban
+          ordersByStatus={ordersByStatus}
+          onDragEnd={handleDragEnd}
+          onViewDetail={handleViewDetail}
+          showBranch={showAllBranches}
+        />
       )}
 
       <OrderDetailDialog
@@ -354,4 +363,26 @@ export function OrdersPage() {
       <ManualOrderDialog open={createOrderOpen} onOpenChange={setCreateOrderOpen} branchId={branchId || null} />
     </div>
   )
+}
+
+type IntegrationState = "active" | "configured" | "none"
+
+/**
+ * Círculo indicativo del estado de la integración en la sucursal seleccionada:
+ * verde = activa · ámbar/naranja = configurada (inactiva) · rojo = no configurada.
+ * Colores ya usados en la app (emerald/amber/red de las wizards de integración).
+ */
+function StatusDot({ state }: { state: IntegrationState }) {
+  return (
+    <span
+      aria-hidden
+      className={`ml-1.5 inline-block size-2.5 shrink-0 rounded-full ${
+        state === "active" ? "bg-emerald-500" : state === "configured" ? "bg-amber-500" : "bg-red-500"
+      }`}
+    />
+  )
+}
+
+function integrationTitle(state: IntegrationState, t: ReturnType<typeof useTranslation>["t"]): string {
+  return state === "active" ? t("active") : state === "configured" ? t("int_configured") : t("int_none")
 }

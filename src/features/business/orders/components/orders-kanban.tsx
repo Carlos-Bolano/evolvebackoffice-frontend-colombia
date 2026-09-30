@@ -12,9 +12,11 @@ interface OrdersKanbanProps {
   ordersByStatus: Record<string, OrderListItem[]>
   onDragEnd: (orderId: string, newStatus: OrderStatus) => void
   onViewDetail: (order: OrderListItem) => void
+  /** En "todas las sucursales" cada tarjeta muestra su sucursal. */
+  showBranch?: boolean
 }
 
-export function OrdersKanban({ ordersByStatus, onDragEnd, onViewDetail }: OrdersKanbanProps) {
+export function OrdersKanban({ ordersByStatus, onDragEnd, onViewDetail, showBranch = false }: OrdersKanbanProps) {
   const { t } = useTranslation("business-orders")
 
   const handleDragEnd = (result: DropResult) => {
@@ -67,13 +69,20 @@ export function OrdersKanban({ ordersByStatus, onDragEnd, onViewDetail }: Orders
                                 snapshot.isDragging ? "shadow-md" : ""
                               }`}
                             >
-                              <div className="mb-2 flex items-start justify-between">
-                                <span className="font-mono text-xs text-muted-foreground">
+                              <div className="mb-2 flex items-start justify-between gap-1">
+                                <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">
                                   #{order.externalOrderId?.slice(0, 8) ?? order.id.slice(0, 8)}
                                 </span>
-                                <Badge tone="neutral" className="text-[10px]">
-                                  {order.platformCode}
-                                </Badge>
+                                <span className="flex shrink-0 items-center gap-1">
+                                  {showBranch && order.branchName && (
+                                    <Badge tone="info" className="max-w-28 truncate text-[10px]">
+                                      {order.branchName}
+                                    </Badge>
+                                  )}
+                                  <Badge tone="neutral" className="text-[10px]">
+                                    {order.platformCode}
+                                  </Badge>
+                                </span>
                               </div>
 
                               <p className="mb-1 text-sm font-medium">${order.total.toFixed(2)}</p>

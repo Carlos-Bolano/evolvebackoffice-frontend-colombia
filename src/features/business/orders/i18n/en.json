@@ -165,5 +165,8 @@
   "history_closed_by": "Closed by",
   "history_notes": "Notes",
   "loading": "Loading...",
-  "open_detail": "View detail"
+  "open_detail": "View detail",
+  "all_branches": "All branches",
+  "int_configured": "Configured (inactive)",
+  "int_none": "Not configured"
 }

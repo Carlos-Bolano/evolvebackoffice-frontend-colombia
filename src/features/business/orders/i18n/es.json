@@ -165,5 +165,8 @@
   "history_closed_by": "Cerrado por",
   "history_notes": "Notas",
   "loading": "Cargando...",
-  "open_detail": "Ver detalle"
+  "open_detail": "Ver detalle",
+  "all_branches": "Todas las sucursales",
+  "int_configured": "Configurado (inactivo)",
+  "int_none": "No configurado"
 }
