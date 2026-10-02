@@ -14,6 +14,7 @@ import {
   useTestConnection,
   useSyncMenu,
   useActivateStore,
+  useUpdateIntegration,
 } from "../hooks/use-orders"
 import { CheckCircle, XCircle, ArrowRight, ArrowLeft, Truck, Store } from "lucide-react"
 
@@ -49,9 +50,13 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
   const [storeStatus, setStoreStatus] = useState<string | null>(null)
 
   const { data: integrations } = useBranchIntegrations(branchId)
-  const existingIntegration = integrations?.find((i) => i.platformCode === platform && i.isActive)
+  // Se busca por plataforma SIN filtrar por isActive: una integración guardada
+  // pero desactivada (isActive=false) sigue existiendo en el backend y crear
+  // otra produce 500 (índice único sucursal+plataforma).
+  const existingIntegration = integrations?.find((i) => i.platformCode === platform)
 
   const createMutation = useCreateIntegration()
+  const updateMutation = useUpdateIntegration()
   const testMutation = useTestConnection()
   const syncMenuMutation = useSyncMenu()
   const activateMutation = useActivateStore()
@@ -121,6 +126,39 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
     if (!branchId) return
     const settingsJson = isCluvi ? JSON.stringify({ storeId }) : undefined
 
+    const onSuccess = () => {
+      notify.success(t("save_integration"))
+      // After save, the query will refetch and existingIntegration will update
+      // Force step 1 after a short delay to allow query invalidation
+      setTimeout(() => setStepOverride(1), 500)
+    }
+    const onError = () => notify.error(t("connection_failed"))
+
+    if (existingIntegration) {
+      // Ya existe una integración para esta sucursal+plataforma (aunque esté
+      // desactivada): se actualiza. Crear otra viola el índice único del
+      // backend y responde 500.
+      updateMutation.mutate(
+        {
+          branchId,
+          integrationId: existingIntegration.id,
+          dto: {
+            isActive: true,
+            baseUrl,
+            setNewApiKey: true,
+            apiKey: appId,
+            setNewApiSecret: true,
+            apiSecret: secretKey,
+            setNewConsumerKey: false,
+            setNewConsumerSecret: false,
+            settingsJson,
+          },
+        },
+        { onSuccess, onError }
+      )
+      return
+    }
+
     createMutation.mutate(
       {
         branchId,
@@ -133,15 +171,7 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
           settingsJson,
         },
       },
-      {
-        onSuccess: () => {
-          notify.success(t("save_integration"))
-          // After create, the query will refetch and existingIntegration will update
-          // Force step 1 after a short delay to allow query invalidation
-          setTimeout(() => setStepOverride(1), 500)
-        },
-        onError: () => notify.error(t("connection_failed")),
-      }
+      { onSuccess, onError }
     )
   }
 
@@ -231,8 +261,11 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
               <Button variant="outline" onClick={() => handleOpenChange(false)}>
                 {t("close")}
               </Button>
-              <Button onClick={handleSave} disabled={!appId || !secretKey || createMutation.isPending}>
-                {createMutation.isPending && <Spinner className="mr-2 h-4 w-4" />}
+              <Button
+                onClick={handleSave}
+                disabled={!appId || !secretKey || createMutation.isPending || updateMutation.isPending}
+              >
+                {(createMutation.isPending || updateMutation.isPending) && <Spinner className="mr-2 h-4 w-4" />}
                 {t("save_integration")}
               </Button>
             </div>

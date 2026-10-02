@@ -8,7 +8,13 @@ import { Separator } from "@/components/ui/separator"
 import { useTranslation } from "@/i18n/use-i18n"
 import { useNotify } from "@/hooks/use-notify"
 import Spinner from "@/components/Spinner"
-import { useBranchIntegrations, useCreateIntegration, useTestConnection, useSyncMenu } from "../hooks/use-orders"
+import {
+  useBranchIntegrations,
+  useCreateIntegration,
+  useUpdateIntegration,
+  useTestConnection,
+  useSyncMenu,
+} from "../hooks/use-orders"
 import { CheckCircle, XCircle, ArrowRight, ArrowLeft } from "lucide-react"
 
 interface CluviConfigWizardProps {
@@ -40,9 +46,12 @@ export function CluviConfigWizard({ open, onOpenChange, branchId }: CluviConfigW
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
 
   const { data: integrations } = useBranchIntegrations(branchId)
-  const existingIntegration = integrations?.find((i) => i.platformCode === "CLUVI" && i.isActive)
+  // Sin filtrar por isActive: una integración desactivada ya existe en el
+  // backend (índice único sucursal+plataforma) y hay que editarla, no crear otra.
+  const existingIntegration = integrations?.find((i) => i.platformCode === "CLUVI")
 
   const createMutation = useCreateIntegration()
+  const updateMutation = useUpdateIntegration()
   const testMutation = useTestConnection()
   const syncMenuMutation = useSyncMenu()
 
@@ -77,6 +86,36 @@ export function CluviConfigWizard({ open, onOpenChange, branchId }: CluviConfigW
   const handleSave = () => {
     if (!branchId) return
     const settingsJson = JSON.stringify({ storeId })
+
+    const onSuccess = () => {
+      notify.success(t("save_integration"))
+      setStepOverride(1)
+    }
+    const onError = () => notify.error(t("connection_failed"))
+
+    if (existingIntegration) {
+      // Ya existe: se actualiza (crear otra viola el índice único y da 500).
+      updateMutation.mutate(
+        {
+          branchId,
+          integrationId: existingIntegration.id,
+          dto: {
+            isActive: true,
+            baseUrl,
+            setNewApiKey: true,
+            apiKey: appId, // app_id se guarda en ApiKey
+            setNewApiSecret: true,
+            apiSecret: secretKey, // secret_key se guarda en ApiSecret
+            setNewConsumerKey: false,
+            setNewConsumerSecret: false,
+            settingsJson,
+          },
+        },
+        { onSuccess, onError }
+      )
+      return
+    }
+
     createMutation.mutate(
       {
         branchId,
@@ -89,13 +128,7 @@ export function CluviConfigWizard({ open, onOpenChange, branchId }: CluviConfigW
           settingsJson,
         },
       },
-      {
-        onSuccess: () => {
-          notify.success(t("save_integration"))
-          setStepOverride(1)
-        },
-        onError: () => notify.error(t("connection_failed")),
-      }
+      { onSuccess, onError }
     )
   }
 
@@ -188,8 +221,11 @@ export function CluviConfigWizard({ open, onOpenChange, branchId }: CluviConfigW
               <Button variant="outline" onClick={() => handleOpenChange(false)}>
                 {t("close")}
               </Button>
-              <Button onClick={handleSave} disabled={!appId || !secretKey || !storeId || createMutation.isPending}>
-                {createMutation.isPending && <Spinner className="mr-2 h-4 w-4" />}
+              <Button
+                onClick={handleSave}
+                disabled={!appId || !secretKey || !storeId || createMutation.isPending || updateMutation.isPending}
+              >
+                {(createMutation.isPending || updateMutation.isPending) && <Spinner className="mr-2 h-4 w-4" />}
                 {t("save_integration")}
               </Button>
             </div>

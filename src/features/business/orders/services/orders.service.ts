@@ -5,6 +5,7 @@ import type {
   OrderStockCheck,
   BranchIntegration,
   CreateIntegrationDto,
+  UpdateIntegrationDto,
   SyncMenuResponse,
   TestConnectionResult,
   ActivateStoreResult,
@@ -74,6 +75,15 @@ export async function getBranchIntegrations(branchId: string): Promise<BranchInt
 
 export async function createIntegration(branchId: string, dto: CreateIntegrationDto): Promise<BranchIntegration> {
   const { data } = await api.post(`/api/branches/${branchId}/integrations`, dto)
+  return data
+}
+
+export async function updateIntegration(
+  branchId: string,
+  integrationId: string,
+  dto: UpdateIntegrationDto
+): Promise<BranchIntegration> {
+  const { data } = await api.put(`/api/branches/${branchId}/integrations/${integrationId}`, dto)
   return data
 }
 

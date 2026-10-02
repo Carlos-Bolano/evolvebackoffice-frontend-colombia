@@ -116,6 +116,21 @@ export interface CreateIntegrationDto {
   settingsJson?: string
 }
 
+/** Actualización de una integración existente (los secretos solo se envían con su flag SetNew*). */
+export interface UpdateIntegrationDto {
+  isActive?: boolean | null
+  baseUrl?: string | null
+  setNewApiKey: boolean
+  apiKey?: string | null
+  setNewApiSecret: boolean
+  apiSecret?: string | null
+  setNewConsumerKey: boolean
+  consumerKey?: string | null
+  setNewConsumerSecret: boolean
+  consumerSecret?: string | null
+  settingsJson?: string | null
+}
+
 export interface CluviStoreInfo {
   id: number
   label: string

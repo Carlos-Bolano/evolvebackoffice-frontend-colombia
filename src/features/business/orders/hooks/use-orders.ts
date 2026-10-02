@@ -5,6 +5,7 @@ import {
   updateOrderStatus,
   getBranchIntegrations,
   createIntegration,
+  updateIntegration,
   testConnection,
   syncMenu,
   activateStore,
@@ -13,6 +14,7 @@ import {
 } from "../services/orders.service"
 import type {
   CreateIntegrationDto,
+  UpdateIntegrationDto,
   SyncMenuResponse,
   ActivateStoreResult,
   CreateManualOrderDto,
@@ -69,6 +71,23 @@ export function useCreateIntegration() {
   return useMutation({
     mutationFn: ({ branchId, dto }: { branchId: string; dto: CreateIntegrationDto }) =>
       createIntegration(branchId, dto),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ordersKeys.all }),
+  })
+}
+
+/** Actualiza una integración existente (siempre que ya exista por sucursal+plataforma). */
+export function useUpdateIntegration() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      branchId,
+      integrationId,
+      dto,
+    }: {
+      branchId: string
+      integrationId: string
+      dto: UpdateIntegrationDto
+    }) => updateIntegration(branchId, integrationId, dto),
     onSuccess: () => qc.invalidateQueries({ queryKey: ordersKeys.all }),
   })
 }
