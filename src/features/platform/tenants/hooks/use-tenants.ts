@@ -93,10 +93,22 @@ export function useUpdateTenant() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, values, token }: { id: string; values: TenantFormValues; token: string }) =>
+    mutationFn: ({
+      id,
+      tenantSlug,
+      values,
+      token,
+    }: {
+      id: string
+      // Slug del tenant (TenantId): X-Tenant-Id debe llevar el slug y no el
+      // PublicId, si no el middleware devuelve 404 tenant_not_found.
+      tenantSlug?: string
+      values: TenantFormValues
+      token: string
+    }) =>
       updateTenant(id, toUpdateDto(values)).then(async (result) => {
         if (values.modules.length > 0) {
-          await bulkUpdateTenantModules(token, id, toBulkModuleItems(values.modules))
+          await bulkUpdateTenantModules(token, tenantSlug || id, toBulkModuleItems(values.modules))
         }
         return result
       }),

@@ -287,7 +287,9 @@ describe("TenantDetailPage", () => {
     fireEvent.click(firstSave)
 
     await waitFor(() => {
-      expect(modulesClient.put).toHaveBeenCalledWith(`/api/tenant-modules/${fakeModulesDto[0]!.id}`, { quantity: 7 })
+      expect(modulesClient.put).toHaveBeenCalledWith(`/api/tenant-modules/${fakeModulesDto[0]!.moduleId}`, {
+        quantity: 7,
+      })
       expect(notify.success).toHaveBeenCalledTimes(1)
     })
 
@@ -306,7 +308,7 @@ describe("TenantDetailPage", () => {
     fireEvent.click(inventorySwitch)
 
     await waitFor(() => {
-      expect(modulesClient.put).toHaveBeenCalledWith(`/api/tenant-modules/${fakeModulesDto[1]!.id}`, {
+      expect(modulesClient.put).toHaveBeenCalledWith(`/api/tenant-modules/${fakeModulesDto[1]!.moduleId}`, {
         isEnabled: true,
       })
       expect(notify.success).toHaveBeenCalledTimes(1)

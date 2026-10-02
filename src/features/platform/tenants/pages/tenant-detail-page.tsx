@@ -94,7 +94,10 @@ export function TenantDetailPage() {
       ...(newEnabled && !isTenantOnlyModule(moduleItem.moduleCode) && moduleItem.quantity < 1 ? { quantity: 1 } : {}),
     }
     updateModuleMutation.mutate(
-      { modulePublicId: moduleItem.id, body },
+      // El endpoint PUT /api/tenant-modules/{moduleId} espera el PublicId del
+      // Module (no el del TenantModule): con el id del TenantModule el
+      // backend responde 404.
+      { modulePublicId: moduleItem.moduleId, body },
       {
         onSuccess: () => notify.success(t("module_updated")),
         onError: (error) => notify.error(error instanceof Error ? error.message : t("module_update_error")),
@@ -121,7 +124,7 @@ export function TenantDetailPage() {
     const newQuantity = quantities[moduleItem.id] ?? moduleItem.quantity
     const body: UpdateTenantModuleDto = { quantity: newQuantity }
     updateModuleMutation.mutate(
-      { modulePublicId: moduleItem.id, body },
+      { modulePublicId: moduleItem.moduleId, body },
       {
         onSuccess: () => {
           notify.success(t("module_updated"))
@@ -138,6 +141,7 @@ export function TenantDetailPage() {
 
   const handleDecommission = (serialId: string) => {
     if (!id) return
+    if (!window.confirm(t("decommission_confirm"))) return
     const reason = decommissionReason[serialId] || undefined
     decommissionMutation.mutate(
       { tenantId: id, serialId, reason },
@@ -154,6 +158,17 @@ export function TenantDetailPage() {
       }
     )
   }
+
+  // Estados reales de PosSerialCode en el backend: Unassigned | Activated | Decommissioned.
+  const serialStatusTone = (status: string) =>
+    status === "Activated" ? "success" : status === "Unassigned" ? "warning" : "neutral"
+
+  const serialStatusLabel = (status: string) =>
+    status === "Activated"
+      ? t("serial_status_activated")
+      : status === "Unassigned"
+        ? t("serial_status_unassigned")
+        : t("serial_status_decommissioned")
 
   const handleResetAdmin = () => {
     if (!id) return
@@ -176,7 +191,7 @@ export function TenantDetailPage() {
     }
 
     updateTenantMutation.mutate(
-      { id, values, token },
+      { id, tenantSlug: tenant?.tenantId, values, token },
       {
         onSuccess: () => {
           notify.success(t("tenant_updated"))
@@ -190,33 +205,30 @@ export function TenantDetailPage() {
   const handleAdjustConfirm = (serialsToDecommission: string[]) => {
     if (!id || !token || !pendingValues) return
 
-    updateTenantMutation.mutate(
-      { id, values: pendingValues, token },
+    // 1) Ajustar el pool de seriales PRIMERO: genera/descomisiona según el nuevo
+    //    máximo y persiste MaxRegisters en el backend. Así, el PUT posterior solo
+    //    guarda el resto de datos del tenant y no vuelve a ajustar (evita que la
+    //    selección hecha en el diálogo se quede sin efecto).
+    adjustSerialsMutation.mutate(
+      { tenantId: id, data: { newMaxRegisters: pendingValues.maxRegisters, serialsToDecommission } },
       {
         onSuccess: () => {
-          if (serialsToDecommission.length > 0) {
-            adjustSerialsMutation.mutate(
-              { tenantId: id, data: { newMaxRegisters: pendingValues.maxRegisters, serialsToDecommission } },
-              {
-                onSuccess: () => {
-                  notify.success(t("tenant_updated"))
-                  setAdjustDialogOpen(false)
-                  setPendingValues(null)
-                  setEditDialogOpen(false)
-                },
-                onError: (error) => {
-                  notify.error(error instanceof Error ? error.message : t("unable_to_save"))
-                  setAdjustDialogOpen(false)
-                  setPendingValues(null)
-                },
-              }
-            )
-          } else {
-            notify.success(t("tenant_updated"))
-            setAdjustDialogOpen(false)
-            setPendingValues(null)
-            setEditDialogOpen(false)
-          }
+          updateTenantMutation.mutate(
+            { id, tenantSlug: tenant?.tenantId, values: pendingValues, token },
+            {
+              onSuccess: () => {
+                notify.success(t("tenant_updated"))
+                setAdjustDialogOpen(false)
+                setPendingValues(null)
+                setEditDialogOpen(false)
+              },
+              onError: (error) => {
+                notify.error(error instanceof Error ? error.message : t("unable_to_save"))
+                setAdjustDialogOpen(false)
+                setPendingValues(null)
+              },
+            }
+          )
         },
         onError: (error) => {
           notify.error(error instanceof Error ? error.message : t("unable_to_save"))
@@ -236,7 +248,8 @@ export function TenantDetailPage() {
 
   const summaryTiles = useMemo(() => {
     const enabled = modules.filter((m) => m.isEnabled).length
-    const activeSerials = serialCodes.filter((s) => s.status === "Active").length
+    // Estados reales del backend: Unassigned | Activated | Decommissioned.
+    const activeSerials = serialCodes.filter((s) => s.status !== "Decommissioned").length
     return {
       total: modules.length,
       enabled,
@@ -324,7 +337,7 @@ export function TenantDetailPage() {
             />
             <SummaryTile
               label={t("serial_codes")}
-              value={serialLoading ? 0 : summaryTiles.serialTotal}
+              value={serialLoading ? "0" : `${summaryTiles.serialActive}/${summaryTiles.serialTotal}`}
               loading={serialLoading}
             />
             <SummaryTile
@@ -601,6 +614,7 @@ export function TenantDetailPage() {
                       <TableHead>{t("serial_device")}</TableHead>
                       <TableHead>{t("serial_activated")}</TableHead>
                       <TableHead>{t("serial_last_seen")}</TableHead>
+                      <TableHead>{t("serial_created")}</TableHead>
                       <TableHead className="text-right">{t("actions")}</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -611,21 +625,7 @@ export function TenantDetailPage() {
                           <span className="font-mono text-sm">{serial.serialCode}</span>
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            tone={
-                              serial.status === "Active"
-                                ? "success"
-                                : serial.status === "Inactive"
-                                  ? "warning"
-                                  : "neutral"
-                            }
-                          >
-                            {serial.status === "Active"
-                              ? t("serial_status_active")
-                              : serial.status === "Inactive"
-                                ? t("serial_status_inactive")
-                                : t("serial_status_decommissioned")}
-                          </Badge>
+                          <Badge tone={serialStatusTone(serial.status)}>{serialStatusLabel(serial.status)}</Badge>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {serial.machineIdentifier || "—"}
@@ -637,8 +637,11 @@ export function TenantDetailPage() {
                         <TableCell className="text-sm text-muted-foreground">
                           {serial.lastSeenAt ? formatDateTime(serial.lastSeenAt) : "—"}
                         </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatDateTime(serial.createdAt)}
+                        </TableCell>
                         <TableCell className="text-right">
-                          {serial.status === "Active" && (
+                          {serial.status !== "Decommissioned" && (
                             <div className="flex items-center justify-end gap-2">
                               <Input
                                 type="text"
@@ -677,21 +680,7 @@ export function TenantDetailPage() {
                     <CardContent className="space-y-3 p-4">
                       <div className="flex items-center justify-between">
                         <span className="font-mono text-sm font-medium">{serial.serialCode}</span>
-                        <Badge
-                          tone={
-                            serial.status === "Active"
-                              ? "success"
-                              : serial.status === "Inactive"
-                                ? "warning"
-                                : "neutral"
-                          }
-                        >
-                          {serial.status === "Active"
-                            ? t("serial_status_active")
-                            : serial.status === "Inactive"
-                              ? t("serial_status_inactive")
-                              : t("serial_status_decommissioned")}
-                        </Badge>
+                        <Badge tone={serialStatusTone(serial.status)}>{serialStatusLabel(serial.status)}</Badge>
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
                         <div>
@@ -708,8 +697,11 @@ export function TenantDetailPage() {
                           <span className="font-medium">{t("serial_last_seen")}:</span>{" "}
                           {serial.lastSeenAt ? formatDateTime(serial.lastSeenAt) : "—"}
                         </div>
+                        <div>
+                          <span className="font-medium">{t("serial_created")}:</span> {formatDateTime(serial.createdAt)}
+                        </div>
                       </div>
-                      {serial.status === "Active" && (
+                      {serial.status !== "Decommissioned" && (
                         <div className="flex items-center gap-2 border-t pt-2">
                           <Input
                             type="text"
@@ -756,7 +748,7 @@ export function TenantDetailPage() {
         newMax={pendingValues?.maxRegisters ?? 0}
         serialCodes={serialCodes}
         onConfirm={handleAdjustConfirm}
-        isPending={adjustSerialsMutation.isPending}
+        isPending={adjustSerialsMutation.isPending || updateTenantMutation.isPending}
       />
     </div>
   )

@@ -55,5 +55,15 @@
   "empty_desc": "Create the first POS terminal to start operating.",
   "total_registers": "Total Terminals",
   "active_registers": "Active Terminals",
-  "summary": "Summary"
+  "summary": "Summary",
+  "error_save": "Could not save the terminal",
+  "clear_search": "Clear search",
+  "refresh": "Refresh",
+  "serials_pool_title": "POS serial codes",
+  "serials_pool_desc": "POS license pool: available, in use and decommissioned.",
+  "serials_pool_empty": "This tenant has no POS serial codes.",
+  "serials_pool_register": "Assigned to",
+  "serial_status_activated": "Activated",
+  "serial_status_unassigned": "Unassigned",
+  "serial_status_decommissioned": "Decommissioned"
 }

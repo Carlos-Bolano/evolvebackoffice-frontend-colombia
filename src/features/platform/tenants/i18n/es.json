@@ -35,6 +35,12 @@
   "delete_tenant": "Eliminar tenant",
   "tenant_updated": "Tenant actualizado exitosamente.",
   "tenant_created": "Tenant creado exitosamente.",
+  "created_title": "Tenant creado",
+  "created_desc": "Guarda estas credenciales y los seriales POS: solo se muestran una vez.",
+  "created_password": "Contraseña temporal",
+  "created_pin": "PIN temporal POS",
+  "created_serials": "Seriales POS generados",
+  "created_continue": "Continuar",
   "tenant_deleted": "Tenant eliminado exitosamente.",
   "tenant_activated": "Tenant activado exitosamente.",
   "tenant_deactivated": "Tenant desactivado exitosamente.",
@@ -136,8 +142,8 @@
   "serial_activated": "Activado",
   "serial_last_seen": "Última vista",
   "serial_created": "Creado",
-  "serial_status_active": "Activo",
-  "serial_status_inactive": "Inactivo",
+  "serial_status_activated": "Activado",
+  "serial_status_unassigned": "Sin asignar",
   "serial_status_decommissioned": "Descomisionado",
   "decommission_serial": "Descomisionar",
   "decommission_confirm": "¿Estás seguro de descomisionar este serial?",
@@ -165,5 +171,6 @@
   "serials_selected_to_delete": "{{count}} serial(es) seleccionado(s) para descomisionar.",
   "new_serials_will_be_generated": "Se generarán {{count}} nuevos códigos seriales.",
   "confirm_increase": "Aumentar registradoras",
-  "confirm_decrease": "Reducir registradoras"
+  "confirm_decrease": "Reducir registradoras",
+  "adjust_selection_required": "Debes seleccionar {{count}} serial(es) para descomisionar."
 }

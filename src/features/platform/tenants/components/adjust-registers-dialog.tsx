@@ -43,6 +43,11 @@ export function AdjustRegistersDialog({
 
   const availableForDecommission = serialCodes.filter((s) => s.status === "Unassigned" || s.status === "Activated")
 
+  // Si hay seriales suficientes se exige seleccionar exactamente la diferencia;
+  // si no los hay, el backend completa el ajuste con lo disponible.
+  const requiresExactSelection = isDecreasing && difference > 0 && availableForDecommission.length >= difference
+  const selectionOk = !requiresExactSelection || selectedSerials.length === difference
+
   const handleToggleSerial = (serialId: string) => {
     setSelectedSerials((prev) => (prev.includes(serialId) ? prev.filter((id) => id !== serialId) : [...prev, serialId]))
   }
@@ -145,6 +150,9 @@ export function AdjustRegistersDialog({
                   ))}
                 </div>
               )}
+              {requiresExactSelection && selectedSerials.length !== difference && (
+                <p className="text-sm text-muted-foreground">{t("adjust_selection_required", { count: difference })}</p>
+              )}
               {selectedSerials.length > 0 && (
                 <p className="text-sm text-orange-600">
                   {t("serials_selected_to_delete", { count: selectedSerials.length })}
@@ -169,7 +177,7 @@ export function AdjustRegistersDialog({
             type="button"
             variant={isDecreasing ? "destructive" : "default"}
             onClick={handleConfirm}
-            disabled={isPending || (isDecreasing && selectedSerials.length === 0)}
+            disabled={isPending || !selectionOk}
           >
             {isPending && <Spinner IsButton />}
             {isIncreasing ? t("confirm_increase") : t("confirm_decrease")}

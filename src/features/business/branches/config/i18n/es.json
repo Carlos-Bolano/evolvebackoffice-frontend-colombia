@@ -1,8 +1,8 @@
 {
   "page_title": "Configuración de Sucursal",
   "page_desc": "Administra los módulos, seriales e integraciones de esta sucursal.",
-  "back_to_branches": "← Volver a Sucursales",
-  "breadcrumb_branches": "Sucursales",
+  "back_to_branches": "← Volver a Configuración",
+  "breadcrumb_branches": "Cajas / Terminales POS",
   "breadcrumb_config": "Configuración",
 
   "tab_info": "Información",
@@ -42,11 +42,12 @@
   "serials_code": "Serial",
   "serials_status": "Estado",
   "serials_status_active": "Activo",
-  "serials_status_activated": "Activado",
-  "serials_status_unassigned": "Sin asignar",
-  "serials_status_decommissioned": "Dado de baja",
+  "serials_status_maintenance": "Mantenimiento",
+  "serials_status_locked": "Bloqueada",
+  "serials_status_inactive": "Inactiva",
+  "serials_device": "Dispositivo",
   "serials_empty": "No hay seriales asignados a esta sucursal.",
-  "serials_empty_hint": "Los seriales se asignan desde la configuración del tenant.",
+  "serials_empty_hint": "Las terminales y sus seriales se gestionan en Cajas / Terminales POS.",
 
   "integration_title": "Integración con {{platform}}",
   "integration_desc": "Configura la conexión con {{platform}} para sincronizar pedidos y productos.",

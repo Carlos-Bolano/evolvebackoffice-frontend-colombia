@@ -24,12 +24,24 @@ import { isTenantOnlyModule } from "@/utils/module-scope"
 import { useAuth } from "@/features/auth/hooks/use-auth"
 import { createTenant } from "@/features/platform/tenants/services/tenant.service"
 import { bulkUpdateTenantModules } from "@/features/platform/tenants/services/tenant-modules.service"
-import type { CreateTenantDto, BulkUpdateTenantModuleItemDto } from "@/features/platform/tenants/types/api"
+import type {
+  CreateTenantDto,
+  BulkUpdateTenantModuleItemDto,
+  CreateTenantResponseDto,
+} from "@/features/platform/tenants/types/api"
 import { DocumentType } from "@/features/platform/tenants/types/api"
 import { tenantCreateSchema } from "@/features/platform/tenants/schemas/tenant-schema"
 import { useModulesCatalog } from "@/features/platform/tenants/hooks/use-modules-catalog"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -48,6 +60,8 @@ export function TenantCreatePage() {
 
   const { data: catalogModules = [], isLoading: catalogLoading } = useModulesCatalog(token)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  // Credenciales + seriales generados: se muestran UNA sola vez tras crear.
+  const [createdResult, setCreatedResult] = useState<CreateTenantResponseDto | null>(null)
 
   const [modulesState, setModulesState] = useState<Record<string, { isEnabled: boolean; quantity: number }>>({})
 
@@ -171,7 +185,7 @@ export function TenantCreatePage() {
       }
 
       notify.success(t("tenant_created"))
-      navigate("/platform/tenants", { replace: true })
+      setCreatedResult(result)
     } catch (error) {
       const msg = error instanceof Error ? error.message : t("unable_to_save")
       notify.error(msg)
@@ -574,6 +588,60 @@ export function TenantCreatePage() {
           </div>
         </form>
       </Form>
+
+      {/* Credenciales y seriales generados (solo se muestran una vez) */}
+      <Dialog
+        open={createdResult !== null}
+        onOpenChange={(open) => {
+          if (!open) navigate("/platform/tenants", { replace: true })
+        }}
+      >
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t("created_title")}</DialogTitle>
+            <DialogDescription>{t("created_desc")}</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <CreatedField label={t("admin_credentials")} value={createdResult?.adminUsername} />
+              <CreatedField label={t("created_password")} value={createdResult?.adminTemporaryPassword} />
+              <CreatedField label={t("created_pin")} value={createdResult?.adminTemporaryPin} />
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-foreground">{t("created_serials")}</p>
+              {createdResult?.serialCodes?.length ? (
+                <ul className="max-h-48 space-y-1 overflow-y-auto rounded-xl border border-border/70 bg-card/60 p-3">
+                  {createdResult.serialCodes.map((s) => (
+                    <li key={s.id} className="flex items-center justify-between gap-2 text-sm">
+                      <span className="font-mono">{s.serialCode}</span>
+                      <Badge tone={s.status === "Unassigned" ? "warning" : "neutral"}>{s.status}</Badge>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">—</p>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button type="button" onClick={() => navigate("/platform/tenants", { replace: true })} className="px-6">
+              {t("created_continue")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+function CreatedField({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div className="rounded-xl border border-border/70 bg-card/60 px-3 py-2">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-0.5 font-mono text-sm font-medium break-all text-foreground">{value || "—"}</p>
     </div>
   )
 }

@@ -33,6 +33,7 @@ import {
 import type { RegisterStatus } from "@/features/business/registers/types"
 
 import { notify } from "@/hooks/use-notify"
+import { getApiErrorMessage } from "@/utils/api-error"
 import { formatDateTime } from "@/utils/format"
 import { useTranslation } from "@/i18n/use-i18n"
 
@@ -122,7 +123,7 @@ export function BranchTerminalSettingsPage() {
           setEnabledOverride(null)
         },
         onError: (error) => {
-          notify.error(error instanceof Error ? error.message : t("loading"))
+          notify.error(getApiErrorMessage(error, t("error_save")))
         },
       }
     )
@@ -140,7 +141,7 @@ export function BranchTerminalSettingsPage() {
         refetchRegisters()
       },
       onError: (error) => {
-        notify.error(error instanceof Error ? error.message : t("loading"))
+        notify.error(getApiErrorMessage(error, t("error_save")))
       },
     })
   }
@@ -156,7 +157,7 @@ export function BranchTerminalSettingsPage() {
         refetchRegisters()
       },
       onError: (error) => {
-        notify.error(error instanceof Error ? error.message : t("loading"))
+        notify.error(getApiErrorMessage(error, t("error_save")))
       },
     })
   }
@@ -391,6 +392,8 @@ export function BranchTerminalSettingsPage() {
                     <TableRow>
                       <TableHead>{t("column_name")}</TableHead>
                       <TableHead>{t("column_code")}</TableHead>
+                      <TableHead>{t("column_serial")}</TableHead>
+                      <TableHead>{t("column_device")}</TableHead>
                       <TableHead>{t("column_status")}</TableHead>
                       <TableHead>{t("column_last_activity")}</TableHead>
                     </TableRow>
@@ -400,6 +403,8 @@ export function BranchTerminalSettingsPage() {
                       <TableRow key={r.id}>
                         <TableCell className="font-medium">{r.name}</TableCell>
                         <TableCell className="text-muted-foreground">{r.code}</TableCell>
+                        <TableCell className="font-mono text-sm">{r.serialCode || "—"}</TableCell>
+                        <TableCell className="text-muted-foreground">{r.deviceIdentifier || "—"}</TableCell>
                         <TableCell>
                           <Badge tone={statusBadgeTone(r.status)}>{t(statusTextKey(r.status as RegisterStatus))}</Badge>
                         </TableCell>
@@ -423,6 +428,12 @@ export function BranchTerminalSettingsPage() {
                       <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
                         <div>
                           <span className="font-medium">{t("column_code")}:</span> {r.code}
+                        </div>
+                        <div>
+                          <span className="font-medium">{t("column_serial")}:</span> {r.serialCode || "—"}
+                        </div>
+                        <div>
+                          <span className="font-medium">{t("column_device")}:</span> {r.deviceIdentifier || "—"}
                         </div>
                         <div>
                           <span className="font-medium">{t("column_last_activity")}:</span>{" "}

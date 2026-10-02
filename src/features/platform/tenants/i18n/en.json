@@ -35,6 +35,12 @@
   "delete_tenant": "Delete tenant",
   "tenant_updated": "Tenant updated successfully.",
   "tenant_created": "Tenant created successfully.",
+  "created_title": "Tenant created",
+  "created_desc": "Save these credentials and POS serials: they are shown only once.",
+  "created_password": "Temporary password",
+  "created_pin": "POS temporary PIN",
+  "created_serials": "Generated POS serials",
+  "created_continue": "Continue",
   "tenant_deleted": "Tenant deleted successfully.",
   "tenant_activated": "Tenant activated successfully.",
   "tenant_deactivated": "Tenant deactivated successfully.",
@@ -136,8 +142,8 @@
   "serial_activated": "Activated",
   "serial_last_seen": "Last seen",
   "serial_created": "Created",
-  "serial_status_active": "Active",
-  "serial_status_inactive": "Inactive",
+  "serial_status_activated": "Activated",
+  "serial_status_unassigned": "Unassigned",
   "serial_status_decommissioned": "Decommissioned",
   "decommission_serial": "Decommission",
   "decommission_confirm": "Are you sure you want to decommission this serial?",
@@ -165,5 +171,6 @@
   "serials_selected_to_delete": "{{count}} serial(s) selected for decommission.",
   "new_serials_will_be_generated": "{{count}} new serial codes will be generated.",
   "confirm_increase": "Increase registers",
-  "confirm_decrease": "Decrease registers"
+  "confirm_decrease": "Decrease registers",
+  "adjust_selection_required": "You must select {{count}} serial(s) to decommission."
 }

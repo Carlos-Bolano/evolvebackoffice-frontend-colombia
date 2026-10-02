@@ -1,8 +1,8 @@
 {
   "page_title": "Branch Configuration",
   "page_desc": "Manage modules, serials and integrations for this branch.",
-  "back_to_branches": "← Back to Branches",
-  "breadcrumb_branches": "Branches",
+  "back_to_branches": "← Back to Settings",
+  "breadcrumb_branches": "POS Terminals",
   "breadcrumb_config": "Configuration",
 
   "tab_info": "Information",
@@ -42,11 +42,12 @@
   "serials_code": "Serial",
   "serials_status": "Status",
   "serials_status_active": "Active",
-  "serials_status_activated": "Activated",
-  "serials_status_unassigned": "Unassigned",
-  "serials_status_decommissioned": "Decommissioned",
+  "serials_status_maintenance": "Maintenance",
+  "serials_status_locked": "Locked",
+  "serials_status_inactive": "Inactive",
+  "serials_device": "Device",
   "serials_empty": "No serials assigned to this branch.",
-  "serials_empty_hint": "Serials are assigned from the tenant configuration.",
+  "serials_empty_hint": "Terminals and their serials are managed in POS Terminals.",
 
   "integration_title": "{{platform}} Integration",
   "integration_desc": "Configure the connection with {{platform}} to sync orders and products.",

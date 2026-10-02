@@ -48,6 +48,12 @@ import businessPaymentMethodsEs from "@/features/business/payment-methods/i18n/e
 import businessPaymentMethodsEn from "@/features/business/payment-methods/i18n/en.json"
 import businessCreditEs from "@/features/business/people/credit/i18n/es.json"
 import businessCreditEn from "@/features/business/people/credit/i18n/en.json"
+import businessRegistersEs from "@/features/business/registers/i18n/es.json"
+import businessRegistersEn from "@/features/business/registers/i18n/en.json"
+import businessBranchesConfigEs from "@/features/business/branches/config/i18n/es.json"
+import businessBranchesConfigEn from "@/features/business/branches/config/i18n/en.json"
+import businessBranchesTerminalsEs from "@/features/business/branches/terminals/i18n/es.json"
+import businessBranchesTerminalsEn from "@/features/business/branches/terminals/i18n/en.json"
 
 const resources = {
   es: {
@@ -74,6 +80,9 @@ const resources = {
     "business-orders": businessOrdersEs,
     "business-payment-methods": businessPaymentMethodsEs,
     "business-credit": businessCreditEs,
+    "business-registers": businessRegistersEs,
+    "business-branches-config": businessBranchesConfigEs,
+    "business-branches-terminals": businessBranchesTerminalsEs,
   },
   en: {
     common: commonEn,
@@ -99,6 +108,9 @@ const resources = {
     "business-orders": businessOrdersEn,
     "business-payment-methods": businessPaymentMethodsEn,
     "business-credit": businessCreditEn,
+    "business-registers": businessRegistersEn,
+    "business-branches-config": businessBranchesConfigEn,
+    "business-branches-terminals": businessBranchesTerminalsEn,
   },
 }
 
@@ -132,12 +144,25 @@ i18n.use(initReactI18next).init({
     "business-orders",
     "business-payment-methods",
     "business-credit",
+    "business-registers",
+    "business-branches-config",
+    "business-branches-terminals",
   ],
   defaultNS: "common",
   interpolation: {
     escapeValue: false,
   },
 })
+
+// Carga perezosa de JSON de features. Se usa import.meta.glob (y no un
+// import() con la ruta construida en runtime) porque Vite solo puede analizar
+// estáticamente rutas con un nivel de variable: con dos (p. ej.
+// business/registers) el dev server falla con "Unknown variable dynamic
+// import" y la página queda mostrando las claves i18n crudas.
+type FeatureI18nModule = { default: Record<string, string> }
+
+const featureI18nEs = import.meta.glob<FeatureI18nModule>("../features/**/i18n/es.json")
+const featureI18nEn = import.meta.glob<FeatureI18nModule>("../features/**/i18n/en.json")
 
 export async function loadFeatureNamespace(featureNs: string) {
   const lng = i18n.language
@@ -146,11 +171,17 @@ export async function loadFeatureNamespace(featureNs: string) {
     return
   }
 
+  const basePath = `../features/${featureNs.replace(/-/g, "/")}/i18n/`
+  const loadEs = featureI18nEs[`${basePath}es.json`]
+  const loadEn = featureI18nEn[`${basePath}en.json`]
+
+  if (!loadEs || !loadEn) {
+    console.error(`Failed to load namespace "${featureNs}": i18n files not found at ${basePath}`)
+    return
+  }
+
   try {
-    const [esModule, enModule] = await Promise.all([
-      import(`@/features/${featureNs.replace(/-/g, "/")}/i18n/es.json`),
-      import(`@/features/${featureNs.replace(/-/g, "/")}/i18n/en.json`),
-    ])
+    const [esModule, enModule] = await Promise.all([loadEs(), loadEn()])
 
     i18n.addResourceBundle("es", featureNs, esModule.default, true, true)
     i18n.addResourceBundle("en", featureNs, enModule.default, true, true)

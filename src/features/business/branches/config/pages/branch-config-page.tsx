@@ -40,6 +40,32 @@ function moduleIcon(code: string | null) {
   return MODULE_ICONS[code ?? ""] ?? Package
 }
 
+function registerStatusTone(status: string) {
+  switch (status) {
+    case "Active":
+      return "success"
+    case "Locked":
+      return "danger"
+    case "Maintenance":
+      return "warning"
+    default:
+      return "neutral"
+  }
+}
+
+function registerStatusKey(status: string) {
+  switch (status) {
+    case "Active":
+      return "serials_status_active"
+    case "Maintenance":
+      return "serials_status_maintenance"
+    case "Locked":
+      return "serials_status_locked"
+    default:
+      return "serials_status_inactive"
+  }
+}
+
 export function BranchConfigPage() {
   const { branchId } = useParams<{ branchId: string }>()
   const navigate = useNavigate()
@@ -351,7 +377,8 @@ export function BranchConfigPage() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>{t("modules_code")}</TableHead>
+                          <TableHead>{t("serials_code")}</TableHead>
+                          <TableHead>{t("serials_device")}</TableHead>
                           <TableHead>{t("serials_status")}</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -359,14 +386,9 @@ export function BranchConfigPage() {
                         {registers.map((r) => (
                           <TableRow key={r.id}>
                             <TableCell className="font-mono text-sm">{r.serialCode ?? r.code}</TableCell>
+                            <TableCell className="text-muted-foreground">{r.deviceIdentifier || "—"}</TableCell>
                             <TableCell>
-                              <Badge tone={r.status === "Active" ? "success" : "warning"}>
-                                {r.status === "Active"
-                                  ? t("serials_status_active")
-                                  : r.status === "Maintenance"
-                                    ? t("serials_status_activated")
-                                    : r.status}
-                              </Badge>
+                              <Badge tone={registerStatusTone(r.status)}>{t(registerStatusKey(r.status))}</Badge>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -377,16 +399,13 @@ export function BranchConfigPage() {
                     {registers.map((r) => (
                       <Card key={r.id} className="rounded-2xl border-border/70 bg-background/45 shadow-none">
                         <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between gap-2">
                             <span className="font-mono text-sm">{r.serialCode ?? r.code}</span>
-                            <Badge tone={r.status === "Active" ? "success" : "warning"}>
-                              {r.status === "Active"
-                                ? t("serials_status_active")
-                                : r.status === "Maintenance"
-                                  ? t("serials_status_activated")
-                                  : r.status}
-                            </Badge>
+                            <Badge tone={registerStatusTone(r.status)}>{t(registerStatusKey(r.status))}</Badge>
                           </div>
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            {t("serials_device")}: {r.deviceIdentifier || "—"}
+                          </p>
                         </CardContent>
                       </Card>
                     ))}
