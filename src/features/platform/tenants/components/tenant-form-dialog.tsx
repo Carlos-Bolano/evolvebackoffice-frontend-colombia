@@ -1,4 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod"
+import { useQuery } from "@tanstack/react-query"
 import { Sparkles, SquarePen, Minus, Plus } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useForm, type Resolver } from "react-hook-form"
@@ -26,7 +27,9 @@ import type { CatalogModule, Tenant, TenantFormValues, TenantModuleAssignment } 
 import { DocumentType } from "@/features/platform/tenants/types/api"
 import { useModulesCatalog } from "@/features/platform/tenants/hooks/use-modules-catalog"
 import { getTenantModules } from "@/features/platform/tenants/services/tenant-modules.service"
+import { getTenant } from "@/features/platform/tenants/services/tenant.service"
 import { useAuth } from "@/features/auth/hooks/use-auth"
+import { isTenantOnlyModule } from "@/utils/module-scope"
 import { useTranslation } from "@/i18n/use-i18n"
 
 type TenantFormDialogProps = {
@@ -87,33 +90,57 @@ export function TenantFormDialog({
     defaultValues,
   })
 
+  // Al editar se carga el tenant completo por id: el listado no trae todos los
+  // campos (teléfono, dirección, subdominio, límites de sucursales/usuarios)
+  // ni los datos del usuario administrador.
+  const {
+    data: fullTenant,
+    isLoading: fullTenantLoading,
+    isError: fullTenantError,
+  } = useQuery({
+    queryKey: ["tenant", tenantToEdit?.id],
+    queryFn: () => getTenant(tenantToEdit!.id),
+    enabled: open && isEditMode && Boolean(tenantToEdit?.id),
+    staleTime: 30_000,
+  })
+
+  const tenantSource = isEditMode ? (fullTenant ?? tenantToEdit) : null
+  const detailLoading = isEditMode && fullTenantLoading
+  const detailError = isEditMode && fullTenantError
+
+  // Reinicia el flag de módulos solo al abrir/cambiar de tenant. Si se hace en
+  // el effect de reset del formulario, la llegada del detalle (fullTenant) lo
+  // pondría en false otra vez y la sección de módulos se quedaría cargando.
+  useEffect(() => {
+    if (!open) return
+    queueMicrotask(() => setTenantModulesLoaded(false))
+  }, [open, tenantToEdit?.id])
+
   useEffect(() => {
     if (!open) {
       return
     }
 
-    queueMicrotask(() => setTenantModulesLoaded(false))
-
-    if (tenantToEdit) {
+    if (tenantSource) {
       form.reset({
-        name: tenantToEdit.name,
-        contactEmail: tenantToEdit.contactEmail,
-        phone: tenantToEdit.phone,
-        address: tenantToEdit.address,
-        countryCode: tenantToEdit.countryCode ?? "",
-        maxRegisters: tenantToEdit.maxRegisters,
-        adminIdentification: "",
-        subdomain: tenantToEdit.subdomain ?? "",
-        identificationNumber: tenantToEdit.identificationNumber ?? "",
-        identificationTypeId: tenantToEdit.identificationTypeId ?? 0,
-        maxBranches: tenantToEdit.maxBranches ?? 0,
-        maxUsers: tenantToEdit.maxUsers ?? 0,
+        name: tenantSource.name,
+        contactEmail: tenantSource.contactEmail,
+        phone: tenantSource.phone,
+        address: tenantSource.address,
+        countryCode: tenantSource.countryCode ?? "",
+        maxRegisters: tenantSource.maxRegisters,
+        adminIdentification: fullTenant?.adminIdentification ?? "",
+        subdomain: tenantSource.subdomain ?? "",
+        identificationNumber: tenantSource.identificationNumber ?? "",
+        identificationTypeId: tenantSource.identificationTypeId ?? 0,
+        maxBranches: tenantSource.maxBranches ?? 0,
+        maxUsers: tenantSource.maxUsers ?? 0,
         modules: [],
       })
     } else {
       form.reset(defaultValues)
     }
-  }, [tenantToEdit, form, open])
+  }, [tenantSource, fullTenant, form, open])
 
   useEffect(() => {
     if (!open) return
@@ -132,7 +159,8 @@ export function TenantFormDialog({
           tenantModules.forEach((tm) => {
             merged[tm.moduleId] = {
               isEnabled: tm.isEnabled,
-              quantity: tm.quantity,
+              // El backend puede devolver quantity=null para módulos sin límite.
+              quantity: tm.quantity ?? (tm.isEnabled ? 1 : 0),
             }
           })
           setModulesState(merged)
@@ -217,6 +245,34 @@ export function TenantFormDialog({
           <DialogTitle>{isEditMode ? t("edit_tenant") : t("create_tenant")}</DialogTitle>
           <DialogDescription>{t("fill_metadata")}</DialogDescription>
         </DialogHeader>
+
+        {/* Datos del usuario administrador (solo lectura, disponibles al editar) */}
+        {isEditMode ? (
+          <Card className="rounded-2xl border-border/70 bg-background/45 shadow-none">
+            <CardContent className="space-y-3 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-base font-semibold text-foreground">{t("admin_data_title")}</h3>
+                {typeof fullTenant?.adminIsActive === "boolean" ? (
+                  <Badge tone={fullTenant.adminIsActive ? "success" : "warning"}>
+                    {fullTenant.adminIsActive ? t("active") : t("inactive")}
+                  </Badge>
+                ) : null}
+              </div>
+              {detailLoading ? (
+                <Skeleton className="h-16 w-full rounded-xl" />
+              ) : fullTenant?.adminUsername ? (
+                <dl className="grid gap-3 sm:grid-cols-2">
+                  <AdminInfoRow label={t("admin_username")} value={fullTenant.adminUsername} />
+                  <AdminInfoRow label={t("name")} value={fullTenant.adminFullName} />
+                  <AdminInfoRow label={t("contact_email")} value={fullTenant.adminEmail} />
+                  <AdminInfoRow label={t("admin_identification")} value={fullTenant.adminIdentification} />
+                </dl>
+              ) : (
+                <p className="text-sm text-muted-foreground">{t("admin_missing")}</p>
+              )}
+            </CardContent>
+          </Card>
+        ) : null}
 
         <Form {...form}>
           <form className="space-y-5" onSubmit={form.handleSubmit(handleFormSubmit)}>
@@ -323,19 +379,21 @@ export function TenantFormDialog({
             />
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="adminIdentification"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t("admin_identification")}</FormLabel>
-                    <FormControl>
-                      <Input placeholder={t("admin_identification_placeholder")} {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {!isEditMode ? (
+                <FormField
+                  control={form.control}
+                  name="adminIdentification"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("admin_identification")}</FormLabel>
+                      <FormControl>
+                        <Input placeholder={t("admin_identification_placeholder")} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              ) : null}
 
               <FormField
                 control={form.control}
@@ -477,38 +535,44 @@ export function TenantFormDialog({
                               <div className="hidden text-sm text-muted-foreground sm:block">
                                 {t("module_enabled_label")}
                               </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-muted-foreground sm:hidden">
-                                  {t("module_quantity_label")}:
-                                </span>
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() => handleQuantityDecrement(module.id)}
-                                  disabled={isSubmitting}
-                                >
-                                  <Minus className="size-4" />
-                                </Button>
-                                <Input
-                                  type="number"
-                                  className="w-20 text-center"
-                                  min={0}
-                                  value={state.quantity}
-                                  onChange={(e) => handleQuantityChange(module.id, Number(e.target.value))}
-                                  disabled={isSubmitting}
-                                />
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() => handleQuantityIncrement(module.id)}
-                                  disabled={isSubmitting}
-                                >
-                                  <Plus className="size-4" />
-                                </Button>
-                              </div>
-                              <div className="hidden sm:block">
-                                <span className="text-xs text-muted-foreground">{t("module_quantity_label")}</span>
-                              </div>
+                              {isTenantOnlyModule(module.code) ? (
+                                <span className="text-xs text-muted-foreground">{t("module_scope_tenant")}</span>
+                              ) : (
+                                <>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs text-muted-foreground sm:hidden">
+                                      {t("module_quantity_label")}:
+                                    </span>
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      onClick={() => handleQuantityDecrement(module.id)}
+                                      disabled={isSubmitting}
+                                    >
+                                      <Minus className="size-4" />
+                                    </Button>
+                                    <Input
+                                      type="number"
+                                      className="w-20 text-center"
+                                      min={0}
+                                      value={state.quantity}
+                                      onChange={(e) => handleQuantityChange(module.id, Number(e.target.value))}
+                                      disabled={isSubmitting}
+                                    />
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      onClick={() => handleQuantityIncrement(module.id)}
+                                      disabled={isSubmitting}
+                                    >
+                                      <Plus className="size-4" />
+                                    </Button>
+                                  </div>
+                                  <div className="hidden sm:block">
+                                    <span className="text-xs text-muted-foreground">{t("module_quantity_label")}</span>
+                                  </div>
+                                </>
+                              )}
                             </div>
                           </div>
                         </CardContent>
@@ -527,11 +591,17 @@ export function TenantFormDialog({
               <p className="text-sm font-medium text-destructive">{form.formState.errors.root.message}</p>
             ) : null}
 
+            {detailLoading ? (
+              <p className="text-xs text-muted-foreground">{t("full_data_loading")}</p>
+            ) : detailError ? (
+              <p className="text-sm font-medium text-destructive">{t("full_data_error")}</p>
+            ) : null}
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 {t("cancel")}
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" disabled={isSubmitting || detailLoading || detailError}>
                 {isSubmitting && <Spinner IsButton />}
                 {!isSubmitting && (isEditMode ? <SquarePen className="size-4" /> : <Sparkles className="size-4" />)}
                 {isEditMode ? t("update_tenant") : t("save_tenant")}
@@ -541,5 +611,15 @@ export function TenantFormDialog({
         </Form>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/** Par etiqueta/valor de solo lectura usado en la tarjeta del admin. */
+function AdminInfoRow({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div className="rounded-xl bg-card/60 px-3 py-2">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 text-sm font-medium text-foreground">{value || "—"}</dd>
+    </div>
   )
 }

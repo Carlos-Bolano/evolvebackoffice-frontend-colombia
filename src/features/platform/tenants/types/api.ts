@@ -91,6 +91,11 @@ export interface TenantResponseDto {
   currentRegisterCount: number
   serialCodes: PosSerialCodeResponseDto[] | null
   createdAt: string
+  adminUsername?: string | null
+  adminFullName?: string | null
+  adminEmail?: string | null
+  adminIdentification?: string | null
+  adminIsActive?: boolean | null
 }
 
 export interface TenantListResponseDto {
@@ -99,11 +104,16 @@ export interface TenantListResponseDto {
   tenantId: string | null
   contactEmail: string | null
   countryCode: string | null
+  identificationNumber?: string | null
+  identificationTypeId?: number
+  subdomain?: string | null
   isActive: boolean
   status: string
   createdById: string | null
   rejectionReason: string | null
   maxRegisters: number
+  maxBranches?: number | null
+  maxUsers?: number | null
   createdAt: string
 }
 
@@ -122,7 +132,7 @@ export interface TenantModuleDto {
   moduleName: string
   moduleDescription?: string | null
   isEnabled: boolean
-  quantity: number
+  quantity: number | null
   createdAt: string
 }
 

@@ -100,8 +100,9 @@ export function useUpdateTenant() {
         }
         return result
       }),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["tenants"] })
+      queryClient.invalidateQueries({ queryKey: ["tenant", variables.id] })
     },
   })
 }

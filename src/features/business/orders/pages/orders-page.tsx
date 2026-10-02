@@ -20,7 +20,11 @@ import {
 import { RefreshCw, Truck, Store, ShoppingCart, AlertTriangle, Plus, Lock } from "lucide-react"
 import { useQueries } from "@tanstack/react-query"
 import { useBranches } from "@/features/business/branches/hooks/use-branches"
-import { branchModulesKeys, useBranchModules } from "@/features/business/branches/hooks/use-branch-modules"
+import {
+  branchModulesKeys,
+  useBranchModules,
+  useTenantModules,
+} from "@/features/business/branches/hooks/use-branch-modules"
 import { getBranchModules } from "@/features/business/branches/services/branch-modules.service"
 import { BranchSelector } from "@/features/business/items/catalog/components/branch-selector"
 import { useOrders, useBranchIntegrations, useUpdateOrderStatus } from "../hooks/use-orders"
@@ -93,6 +97,11 @@ export function OrdersPage() {
     : branchModules?.some((m) => m.moduleCode === "ORDERS" && m.isEnabled)
 
   const { data: integrations } = useBranchIntegrations(branchId)
+
+  // La configuración de Cluvi solo se expone si el módulo CLUVI está
+  // habilitado para el tenant (licencia dada de baja en la consola de plataforma).
+  const { data: tenantModules = [], isLoading: tenantModulesLoading } = useTenantModules()
+  const hasCluviModule = !tenantModulesLoading && tenantModules.some((m) => m.moduleCode === "CLUVI" && m.isEnabled)
 
   /** Estado de una integración en la sucursal seleccionada. */
   const integrationState = (platform: string): "active" | "configured" | "none" => {
@@ -222,17 +231,19 @@ export function OrdersPage() {
             <Lock className="mr-2 h-4 w-4" />
             {t("closing_entry")}
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => openConfig("CLUVI")}
-            disabled={!hasOrdersModule || showAllBranches}
-            title={integrationTitle(integrationState("CLUVI"), t)}
-          >
-            <Truck className="mr-2 h-4 w-4" />
-            Cluvi
-            {!showAllBranches && <StatusDot state={integrationState("CLUVI")} />}
-          </Button>
+          {hasCluviModule && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => openConfig("CLUVI")}
+              disabled={!hasOrdersModule || showAllBranches}
+              title={integrationTitle(integrationState("CLUVI"), t)}
+            >
+              <Truck className="mr-2 h-4 w-4" />
+              Cluvi
+              {!showAllBranches && <StatusDot state={integrationState("CLUVI")} />}
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"

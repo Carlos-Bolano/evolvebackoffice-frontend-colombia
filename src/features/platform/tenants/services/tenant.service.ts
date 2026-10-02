@@ -38,6 +38,11 @@ function mapTenantResponseToTenant(dto: TenantResponseDto): Tenant {
     maxUsers: dto.maxUsers ?? 0,
     serialCodes: dto.serialCodes ?? [],
     createdAt: dto.createdAt,
+    adminUsername: dto.adminUsername ?? null,
+    adminFullName: dto.adminFullName ?? null,
+    adminEmail: dto.adminEmail ?? null,
+    adminIdentification: dto.adminIdentification ?? null,
+    adminIsActive: dto.adminIsActive ?? null,
   }
 }
 
@@ -59,11 +64,11 @@ function mapListResponseToPagedTenants(dto: PagedTenantListResponse): PagedTenan
       rejectedAt: null,
       maxRegisters: item.maxRegisters,
       currentRegisterCount: 0,
-      subdomain: "",
-      identificationNumber: "",
-      identificationTypeId: 0,
-      maxBranches: 0,
-      maxUsers: 0,
+      subdomain: item.subdomain ?? "",
+      identificationNumber: item.identificationNumber ?? "",
+      identificationTypeId: item.identificationTypeId ?? 0,
+      maxBranches: item.maxBranches ?? 0,
+      maxUsers: item.maxUsers ?? 0,
       serialCodes: [],
       createdAt: item.createdAt,
     })),

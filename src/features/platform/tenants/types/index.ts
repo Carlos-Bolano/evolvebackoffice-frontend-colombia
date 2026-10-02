@@ -23,6 +23,12 @@ export interface Tenant {
   maxUsers: number
   serialCodes: PosSerialCodeResponseDto[]
   createdAt: string
+  /** Datos del primer usuario administrador (solo disponibles vía GET por id). */
+  adminUsername?: string | null
+  adminFullName?: string | null
+  adminEmail?: string | null
+  adminIdentification?: string | null
+  adminIsActive?: boolean | null
 }
 
 export interface PagedTenantsResponse {

@@ -41,6 +41,7 @@ import { AdjustRegistersDialog } from "@/features/platform/tenants/components/ad
 import { useAuth } from "@/features/auth/hooks/use-auth"
 import { notify } from "@/hooks/use-notify"
 import { formatDateTime } from "@/utils/format"
+import { isTenantOnlyModule } from "@/utils/module-scope"
 import { useTranslation } from "@/i18n/use-i18n"
 import type { TenantModule, TenantFormValues } from "../types"
 import type { UpdateTenantModuleDto } from "../types/api"
@@ -88,7 +89,9 @@ export function TenantDetailPage() {
     const newEnabled = !moduleItem.isEnabled
     const body: UpdateTenantModuleDto = {
       isEnabled: newEnabled,
-      ...(newEnabled && moduleItem.quantity < 1 ? { quantity: 1 } : {}),
+      // Los módulos de nivel tenant (p. ej. CREDITO) no tienen límite de
+      // sucursales, así que no se les fuerza una cantidad.
+      ...(newEnabled && !isTenantOnlyModule(moduleItem.moduleCode) && moduleItem.quantity < 1 ? { quantity: 1 } : {}),
     }
     updateModuleMutation.mutate(
       { modulePublicId: moduleItem.id, body },
@@ -401,7 +404,8 @@ export function TenantDetailPage() {
                   </TableHeader>
                   <TableBody>
                     {modules.map((moduleItem) => {
-                      const displayQuantity = quantities[moduleItem.id] ?? moduleItem.quantity
+                      const displayQuantity =
+                        quantities[moduleItem.id] ?? moduleItem.quantity ?? (moduleItem.isEnabled ? 1 : 0)
                       const isDirty = quantities[moduleItem.id] !== undefined
                       return (
                         <TableRow key={moduleItem.id}>
@@ -426,45 +430,51 @@ export function TenantDetailPage() {
                             />
                           </TableCell>
                           <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() =>
-                                  handleQuantityDecrement(moduleItem.id, moduleItem.quantity, moduleItem.isEnabled)
-                                }
-                                disabled={isAnyMutating}
-                              >
-                                <Minus className="size-4" />
-                              </Button>
-                              <Input
-                                type="number"
-                                className="w-24 text-center"
-                                min={moduleItem.isEnabled ? 1 : 0}
-                                value={displayQuantity}
-                                onChange={(e) =>
-                                  handleQuantityChange(moduleItem.id, Number(e.target.value), moduleItem.isEnabled)
-                                }
-                              />
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => handleQuantityIncrement(moduleItem.id, moduleItem.quantity)}
-                                disabled={isAnyMutating}
-                              >
-                                <Plus className="size-4" />
-                              </Button>
-                            </div>
+                            {isTenantOnlyModule(moduleItem.moduleCode) ? (
+                              <span className="text-xs text-muted-foreground">{t("module_scope_tenant")}</span>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() =>
+                                    handleQuantityDecrement(moduleItem.id, moduleItem.quantity, moduleItem.isEnabled)
+                                  }
+                                  disabled={isAnyMutating}
+                                >
+                                  <Minus className="size-4" />
+                                </Button>
+                                <Input
+                                  type="number"
+                                  className="w-24 text-center"
+                                  min={moduleItem.isEnabled ? 1 : 0}
+                                  value={displayQuantity}
+                                  onChange={(e) =>
+                                    handleQuantityChange(moduleItem.id, Number(e.target.value), moduleItem.isEnabled)
+                                  }
+                                />
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => handleQuantityIncrement(moduleItem.id, moduleItem.quantity)}
+                                  disabled={isAnyMutating}
+                                >
+                                  <Plus className="size-4" />
+                                </Button>
+                              </div>
+                            )}
                           </TableCell>
                           <TableCell className="text-right">
-                            <Button
-                              size="sm"
-                              disabled={!isDirty || isAnyMutating}
-                              onClick={() => handleSaveQuantity(moduleItem)}
-                            >
-                              <Save className="size-4" />
-                              {t("save")}
-                            </Button>
+                            {isTenantOnlyModule(moduleItem.moduleCode) ? null : (
+                              <Button
+                                size="sm"
+                                disabled={!isDirty || isAnyMutating}
+                                onClick={() => handleSaveQuantity(moduleItem)}
+                              >
+                                <Save className="size-4" />
+                                {t("save")}
+                              </Button>
+                            )}
                           </TableCell>
                         </TableRow>
                       )
@@ -475,7 +485,8 @@ export function TenantDetailPage() {
 
               <div className="grid gap-4 xl:hidden">
                 {modules.map((moduleItem) => {
-                  const displayQuantity = quantities[moduleItem.id] ?? moduleItem.quantity
+                  const displayQuantity =
+                    quantities[moduleItem.id] ?? moduleItem.quantity ?? (moduleItem.isEnabled ? 1 : 0)
                   const isDirty = quantities[moduleItem.id] !== undefined
                   return (
                     <Card key={moduleItem.id} className="rounded-[24px] border-border/70 bg-background/45 shadow-none">
@@ -503,44 +514,50 @@ export function TenantDetailPage() {
                         </div>
 
                         <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-muted-foreground">{t("module_quantity")}:</span>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={() =>
-                                handleQuantityDecrement(moduleItem.id, moduleItem.quantity, moduleItem.isEnabled)
-                              }
-                              disabled={isAnyMutating}
-                            >
-                              <Minus className="size-4" />
-                            </Button>
-                            <Input
-                              type="number"
-                              className="w-24 text-center"
-                              min={moduleItem.isEnabled ? 1 : 0}
-                              value={displayQuantity}
-                              onChange={(e) =>
-                                handleQuantityChange(moduleItem.id, Number(e.target.value), moduleItem.isEnabled)
-                              }
-                            />
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={() => handleQuantityIncrement(moduleItem.id, moduleItem.quantity)}
-                              disabled={isAnyMutating}
-                            >
-                              <Plus className="size-4" />
-                            </Button>
-                          </div>
-                          <Button
-                            size="sm"
-                            disabled={!isDirty || isAnyMutating}
-                            onClick={() => handleSaveQuantity(moduleItem)}
-                          >
-                            <Save className="size-4" />
-                            {t("save")}
-                          </Button>
+                          {isTenantOnlyModule(moduleItem.moduleCode) ? (
+                            <span className="text-sm text-muted-foreground">{t("module_scope_tenant")}</span>
+                          ) : (
+                            <>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-muted-foreground">{t("module_quantity")}:</span>
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() =>
+                                    handleQuantityDecrement(moduleItem.id, moduleItem.quantity, moduleItem.isEnabled)
+                                  }
+                                  disabled={isAnyMutating}
+                                >
+                                  <Minus className="size-4" />
+                                </Button>
+                                <Input
+                                  type="number"
+                                  className="w-24 text-center"
+                                  min={moduleItem.isEnabled ? 1 : 0}
+                                  value={displayQuantity}
+                                  onChange={(e) =>
+                                    handleQuantityChange(moduleItem.id, Number(e.target.value), moduleItem.isEnabled)
+                                  }
+                                />
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => handleQuantityIncrement(moduleItem.id, moduleItem.quantity)}
+                                  disabled={isAnyMutating}
+                                >
+                                  <Plus className="size-4" />
+                                </Button>
+                              </div>
+                              <Button
+                                size="sm"
+                                disabled={!isDirty || isAnyMutating}
+                                onClick={() => handleSaveQuantity(moduleItem)}
+                              >
+                                <Save className="size-4" />
+                                {t("save")}
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </CardContent>
                     </Card>

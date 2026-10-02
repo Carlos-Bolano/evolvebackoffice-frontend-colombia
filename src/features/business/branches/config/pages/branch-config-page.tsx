@@ -25,6 +25,7 @@ import { IntegrationForm } from "@/features/business/branches/config/components/
 
 import { notify } from "@/hooks/use-notify"
 import { formatDateTime } from "@/utils/format"
+import { isTenantOnlyModule } from "@/utils/module-scope"
 import { useTranslation } from "@/i18n/use-i18n"
 
 const MODULE_ICONS: Record<string, typeof Package> = {
@@ -57,6 +58,12 @@ export function BranchConfigPage() {
   })
 
   const { data: tenantModules = [], isLoading: tenantModulesLoading } = useTenantModules()
+
+  // El tab Cluvi solo se muestra si el módulo CLUVI está habilitado para el
+  // tenant (licencia dada de baja en la consola de plataforma). Si la pestaña
+  // activa deja de existir se muestra "info" sin necesidad de un effect.
+  const cluviEnabled = !tenantModulesLoading && tenantModules.some((m) => m.moduleCode === "CLUVI" && m.isEnabled)
+  const effectiveTab = !cluviEnabled && activeTab === "cluvi" ? "info" : activeTab
 
   const { data: branchModules = [], isLoading: branchModulesLoading } = useBranchModules(branchId)
 
@@ -152,13 +159,13 @@ export function BranchConfigPage() {
         </CardContent>
       </Card>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={effectiveTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="info">{t("tab_info")}</TabsTrigger>
           <TabsTrigger value="modules">{t("tab_modules")}</TabsTrigger>
           <TabsTrigger value="serials">{t("tab_serials")}</TabsTrigger>
           <TabsTrigger value="woocommerce">{t("tab_woocommerce")}</TabsTrigger>
-          <TabsTrigger value="cluvi">{t("tab_cluvi")}</TabsTrigger>
+          {cluviEnabled && <TabsTrigger value="cluvi">{t("tab_cluvi")}</TabsTrigger>}
         </TabsList>
 
         {/* ───── TAB: INFO ───── */}
@@ -273,7 +280,9 @@ export function BranchConfigPage() {
                 ) : (
                   <div className="space-y-2">
                     {tenantModules
-                      .filter((tm) => tm.isEnabled)
+                      // Los módulos de nivel tenant (p. ej. CREDITO) se habilitan
+                      // en la plataforma, nunca se asignan a una sucursal.
+                      .filter((tm) => tm.isEnabled && !isTenantOnlyModule(tm.moduleCode))
                       .map((tm) => {
                         const Icon = moduleIcon(tm.moduleCode)
                         const isAssigned = assignedTenantModuleIds.has(Number(tm.id))
@@ -402,17 +411,19 @@ export function BranchConfigPage() {
         </TabsContent>
 
         {/* ───── TAB: CLUVI ───── */}
-        <TabsContent value="cluvi">
-          {cluviLoading ? (
-            <Card>
-              <CardContent className="p-8">
-                <Skeleton className="h-64 w-full rounded-xl" />
-              </CardContent>
-            </Card>
-          ) : (
-            <IntegrationForm branchId={branchId!} platformCode="CLUVI" integration={cluviIntegration} />
-          )}
-        </TabsContent>
+        {cluviEnabled && (
+          <TabsContent value="cluvi">
+            {cluviLoading ? (
+              <Card>
+                <CardContent className="p-8">
+                  <Skeleton className="h-64 w-full rounded-xl" />
+                </CardContent>
+              </Card>
+            ) : (
+              <IntegrationForm branchId={branchId!} platformCode="CLUVI" integration={cluviIntegration} />
+            )}
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   )

@@ -20,6 +20,7 @@ import {
 } from "lucide-react"
 
 import { notify } from "@/hooks/use-notify"
+import { isTenantOnlyModule } from "@/utils/module-scope"
 import { useAuth } from "@/features/auth/hooks/use-auth"
 import { createTenant } from "@/features/platform/tenants/services/tenant.service"
 import { bulkUpdateTenantModules } from "@/features/platform/tenants/services/tenant-modules.service"
@@ -515,35 +516,41 @@ export function TenantCreatePage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2 sm:justify-end">
-                          <span className="text-xs text-muted-foreground">{t("module_quantity_label")}</span>
-                          <div className="flex items-center gap-1 rounded-lg border border-border/50 bg-background p-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="size-7"
-                              onClick={() => handleQuantityDecrement(module.id)}
-                              disabled={isSubmitting}
-                            >
-                              <Minus className="size-3" />
-                            </Button>
-                            <Input
-                              type="number"
-                              className="w-14 border-0 bg-transparent text-center text-sm focus-visible:ring-0"
-                              min={0}
-                              value={state.quantity}
-                              onChange={(e) => handleQuantityChange(module.id, Number(e.target.value))}
-                              disabled={isSubmitting}
-                            />
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="size-7"
-                              onClick={() => handleQuantityIncrement(module.id)}
-                              disabled={isSubmitting}
-                            >
-                              <Plus className="size-3" />
-                            </Button>
-                          </div>
+                          {isTenantOnlyModule(module.code) ? (
+                            <span className="text-xs text-muted-foreground">{t("module_scope_tenant")}</span>
+                          ) : (
+                            <>
+                              <span className="text-xs text-muted-foreground">{t("module_quantity_label")}</span>
+                              <div className="flex items-center gap-1 rounded-lg border border-border/50 bg-background p-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="size-7"
+                                  onClick={() => handleQuantityDecrement(module.id)}
+                                  disabled={isSubmitting}
+                                >
+                                  <Minus className="size-3" />
+                                </Button>
+                                <Input
+                                  type="number"
+                                  className="w-14 border-0 bg-transparent text-center text-sm focus-visible:ring-0"
+                                  min={0}
+                                  value={state.quantity}
+                                  onChange={(e) => handleQuantityChange(module.id, Number(e.target.value))}
+                                  disabled={isSubmitting}
+                                />
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="size-7"
+                                  onClick={() => handleQuantityIncrement(module.id)}
+                                  disabled={isSubmitting}
+                                >
+                                  <Plus className="size-3" />
+                                </Button>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                     )

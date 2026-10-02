@@ -17,5 +17,9 @@ export const tenantCreateSchema = (t: TFunction) =>
     maxUsers: z.coerce.number().int().min(0).optional().default(0),
   })
 
-// Alias for the edit dialog (same schema)
-export const tenantEditSchema = tenantCreateSchema
+// Schema de edición: mismo que creación salvo la identificación del admin,
+// que no se edita (es un dato de solo lectura del usuario admin del tenant).
+export const tenantEditSchema = (t: TFunction) =>
+  tenantCreateSchema(t).extend({
+    adminIdentification: z.string().optional().default(""),
+  })
