@@ -64,9 +64,16 @@ export function SupplierFormDialog({
     defaultValues,
   })
 
+  const [prevOpen, setPrevOpen] = useState(open)
+  const [prevSupplierToEdit, setPrevSupplierToEdit] = useState(supplierToEdit)
+  if (open !== prevOpen || supplierToEdit !== prevSupplierToEdit) {
+    setPrevOpen(open)
+    setPrevSupplierToEdit(supplierToEdit)
+    if (open) setFoundPerson(null)
+  }
+
   useEffect(() => {
     if (!open) return
-    setFoundPerson(null)
 
     if (supplierToEdit) {
       form.reset({

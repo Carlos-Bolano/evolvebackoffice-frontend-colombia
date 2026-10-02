@@ -21,14 +21,16 @@ export function LogDetailDialog({ eventId, onOpenChange }: LogDetailDialogProps)
   const { t } = useTranslation("platform-logs")
   const { data, isLoading } = useLogDetail(eventId)
 
+  const propertiesJson = data?.propertiesJson
+
   const properties = useMemo(() => {
-    if (!data?.propertiesJson) return null
+    if (!propertiesJson) return null
     try {
-      return JSON.stringify(JSON.parse(data.propertiesJson), null, 2)
+      return JSON.stringify(JSON.parse(propertiesJson), null, 2)
     } catch {
-      return data.propertiesJson
+      return propertiesJson
     }
-  }, [data?.propertiesJson])
+  }, [propertiesJson])
 
   const copy = (text: string) => {
     void navigator.clipboard.writeText(text).then(() => notify.success(t("copied")))

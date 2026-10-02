@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { Plus, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -79,7 +79,9 @@ export function ManualOrderDialog({ open, onOpenChange, branchId }: ManualOrderD
   const [city, setCity] = useState("")
   const [shippingCost, setShippingCost] = useState("")
 
-  useEffect(() => {
+  const [prevOpen, setPrevOpen] = useState(open)
+  if (open !== prevOpen) {
+    setPrevOpen(open)
     if (!open) {
       setLines([])
       setSelectedItem("")
@@ -91,7 +93,7 @@ export function ManualOrderDialog({ open, onOpenChange, branchId }: ManualOrderD
       setCity("")
       setShippingCost("")
     }
-  }, [open])
+  }
 
   const selectableItems = useMemo(() => (branchItems?.data ?? []).filter((i) => !i.inactive), [branchItems])
 

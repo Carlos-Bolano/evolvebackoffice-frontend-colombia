@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { Save } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -36,9 +36,11 @@ export function ItemTaxEditor({ item }: ItemTaxEditorProps) {
   const activeRates = useMemo(() => (ratesQuery.data?.data ?? []).filter((r) => r.isActive), [ratesQuery.data?.data])
   const assignedIds = useMemo(() => new Set((assignedQuery.data ?? []).map((x) => x.taxRateId)), [assignedQuery.data])
 
-  useEffect(() => {
+  const [prevAssignedIds, setPrevAssignedIds] = useState<Set<string> | null>(null)
+  if (assignedIds !== prevAssignedIds) {
+    setPrevAssignedIds(assignedIds)
     setCheckedIds(new Set(assignedIds))
-  }, [assignedIds])
+  }
 
   const isDirty = useMemo(() => {
     if (checkedIds.size !== assignedIds.size) return true

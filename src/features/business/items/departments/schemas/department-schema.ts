@@ -7,7 +7,7 @@ export const departmentSchema = (t: TFunction) =>
       .string()
       .min(1, t("code_required"))
       .max(20, t("code_max", { max: 20 }))
-      .regex(/^[A-Za-z0-9\-]+$/, t("code_invalid")),
+      .regex(/^[A-Za-z0-9-]+$/, t("code_invalid")),
     name: z
       .string()
       .min(1, t("name_required"))

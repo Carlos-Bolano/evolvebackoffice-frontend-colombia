@@ -41,10 +41,11 @@ type BranchItemEditDialogProps = {
 export function BranchItemEditDialog({ open, onOpenChange, branchId, item }: BranchItemEditDialogProps) {
   const { t } = useTranslation("business-items-catalog")
   const [activeTab, setActiveTab] = useState("prices")
-
-  useEffect(() => {
+  const [prevOpen, setPrevOpen] = useState(open)
+  if (open !== prevOpen) {
+    setPrevOpen(open)
     if (open) setActiveTab("prices")
-  }, [open])
+  }
 
   if (!item) return null
 
