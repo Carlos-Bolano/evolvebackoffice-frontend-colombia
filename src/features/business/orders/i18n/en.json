@@ -168,5 +168,19 @@
   "open_detail": "View detail",
   "all_branches": "All branches",
   "int_configured": "Configured (inactive)",
-  "int_none": "Not configured"
+  "int_none": "Not configured",
+  "webhook_url_title": "Order webhook URL",
+  "webhook_url_desc": "Setting the URL registers the new-order webhook and the health ping with the platform.",
+  "set_webhook_url": "Set URL",
+  "setting_url": "Setting URL...",
+  "webhook_url_hint": "If the platform has a different saved URL, this button replaces it with the correct one.",
+  "new_order_url": "New order webhook",
+  "webhook_url_placeholder": "Set the Store ID to see the URL",
+  "ping_url": "Ping (health)",
+  "webhook_copied": "URL copied to clipboard",
+  "ping_copied": "Ping URL copied",
+  "copy_failed": "Could not copy the URL",
+  "checking_store": "Checking store status...",
+  "store_status_unknown": "Store status not verified",
+  "check_status": "Check"
 }
