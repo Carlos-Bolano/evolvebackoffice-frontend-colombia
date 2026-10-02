@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { CalendarClock, Check, ClipboardCheck, Lock, Undo2 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -36,21 +36,30 @@ export function OrderClosingPage() {
   const [branchId, setBranchId] = useState<string>("")
   const [notes, setNotes] = useState("")
   const [detailId, setDetailId] = useState<string | null>(null)
+  const [prevFirstBranchId, setPrevFirstBranchId] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!branchId && branches.length > 0) setBranchId(branches[0].id)
-  }, [branches, branchId])
+  // Congela la sucursal por defecto en el primer load (antes vivía en un
+  // useEffect que ya no permite react-hooks/set-state-in-effect). Ajuste de
+  // estado en render: si la lista de sucursales cambia después, la rama ya
+  // congelada/la selección del usuario no se mueven solas.
+  const firstBranchId = branches[0]?.id ?? ""
+  if (firstBranchId !== prevFirstBranchId) {
+    setPrevFirstBranchId(firstBranchId)
+    if (!branchId && firstBranchId) setBranchId(firstBranchId)
+  }
 
-  const { data: preview, isLoading: previewLoading } = useOrderClosingPreview(branchId || null)
-  const { data: closings, isLoading: closingsLoading } = useOrderClosings(branchId || null)
+  const effectiveBranchId = branchId || firstBranchId
+
+  const { data: preview, isLoading: previewLoading } = useOrderClosingPreview(effectiveBranchId || null)
+  const { data: closings, isLoading: closingsLoading } = useOrderClosings(effectiveBranchId || null)
   const { data: detail } = useOrderClosingDetail(detailId)
   const closeMutation = useCloseOrders()
 
   const handleClose = () => {
-    if (!branchId || !preview || preview.ordersCount === 0) return
+    if (!effectiveBranchId || !preview || preview.ordersCount === 0) return
     if (!window.confirm(t("close_confirm"))) return
     closeMutation.mutate(
-      { branchId, notes: notes.trim() || undefined },
+      { branchId: effectiveBranchId, notes: notes.trim() || undefined },
       {
         onSuccess: () => {
           setNotes("")
@@ -79,7 +88,7 @@ export function OrderClosingPage() {
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="sm:w-80">
-            <Select value={branchId} onValueChange={setBranchId}>
+            <Select value={effectiveBranchId} onValueChange={setBranchId}>
               <SelectTrigger>
                 <SelectValue placeholder={t("select_branch")} />
               </SelectTrigger>
@@ -94,7 +103,7 @@ export function OrderClosingPage() {
           </div>
         </div>
 
-        {!branchId ? (
+        {!effectiveBranchId ? (
           <p className="mt-8 text-sm text-muted-foreground">{t("select_branch")}</p>
         ) : previewLoading || !preview ? (
           <p className="mt-8 text-sm text-muted-foreground">{t("loading")}</p>

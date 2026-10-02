@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { KeyRound, Loader2, RefreshCw } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -40,14 +40,18 @@ export function CreditDialog({ open, onOpenChange, personId, personName }: Credi
   const [limitInput, setLimitInput] = useState("")
   const [deliveryError, setDeliveryError] = useState<string | null>(null)
 
-  useEffect(() => {
+  const [prevOpen, setPrevOpen] = useState(open)
+  const [prevCredit, setPrevCredit] = useState(credit)
+  if (open !== prevOpen || credit !== prevCredit) {
+    setPrevOpen(open)
+    setPrevCredit(credit)
     if (!open) {
       setLimitInput("")
       setDeliveryError(null)
     } else if (credit) {
       setLimitInput(String(credit.creditLimit > 0 ? credit.creditLimit : ""))
     }
-  }, [open, credit])
+  }
 
   const isActive = credit?.isActive ?? false
 

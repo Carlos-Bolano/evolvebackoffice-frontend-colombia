@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { Percent, Pencil, Plus, Power, RefreshCw, Save, SearchX, Tags } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -304,9 +304,11 @@ function AssignTaxSection({ itemId, onItemIdChange }: { itemId: string; onItemId
   const assignedIds = useMemo(() => new Set((assignedQuery.data ?? []).map((x) => x.taxRateId)), [assignedQuery.data])
 
   // Sincroniza los checks con las asignaciones actuales del producto
-  useEffect(() => {
-    setCheckedIds(new Set((assignedQuery.data ?? []).map((x) => x.taxRateId)))
-  }, [assignedQuery.data])
+  const [prevAssignedIds, setPrevAssignedIds] = useState<Set<string> | null>(null)
+  if (assignedIds !== prevAssignedIds) {
+    setPrevAssignedIds(assignedIds)
+    setCheckedIds(new Set(assignedIds))
+  }
 
   const isDirty = useMemo(() => {
     if (checkedIds.size !== assignedIds.size) return true

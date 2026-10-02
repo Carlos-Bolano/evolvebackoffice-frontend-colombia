@@ -40,9 +40,12 @@ export function LogsPage() {
   }, [searchInput])
 
   // Cualquier cambio de filtro vuelve a la página 1
-  useEffect(() => {
+  const filtersKey = JSON.stringify([search, level, tenantId, from, to])
+  const [prevFiltersKey, setPrevFiltersKey] = useState(filtersKey)
+  if (filtersKey !== prevFiltersKey) {
+    setPrevFiltersKey(filtersKey)
     setPage(1)
-  }, [search, level, tenantId, from, to])
+  }
 
   const filters: LogsFilters = useMemo(
     () => ({

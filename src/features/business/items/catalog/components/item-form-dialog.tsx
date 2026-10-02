@@ -63,9 +63,16 @@ export function ItemFormDialog({ open, onOpenChange, itemToEdit }: ItemFormDialo
     defaultValues,
   })
 
+  const [prevOpen, setPrevOpen] = useState(open)
+  const [prevItemToEdit, setPrevItemToEdit] = useState(itemToEdit)
+  if (open !== prevOpen || itemToEdit !== prevItemToEdit) {
+    setPrevOpen(open)
+    setPrevItemToEdit(itemToEdit)
+    if (open) setActiveTab("info")
+  }
+
   useEffect(() => {
     if (!open) return
-    setActiveTab("info")
 
     if (itemToEdit) {
       form.reset({

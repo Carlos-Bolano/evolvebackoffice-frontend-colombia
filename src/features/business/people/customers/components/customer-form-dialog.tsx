@@ -61,9 +61,16 @@ export function CustomerFormDialog({
     defaultValues,
   })
 
+  const [prevOpen, setPrevOpen] = useState(open)
+  const [prevCustomerToEdit, setPrevCustomerToEdit] = useState(customerToEdit)
+  if (open !== prevOpen || customerToEdit !== prevCustomerToEdit) {
+    setPrevOpen(open)
+    setPrevCustomerToEdit(customerToEdit)
+    if (open) setFoundPerson(null)
+  }
+
   useEffect(() => {
     if (!open) return
-    setFoundPerson(null)
 
     if (customerToEdit) {
       form.reset({

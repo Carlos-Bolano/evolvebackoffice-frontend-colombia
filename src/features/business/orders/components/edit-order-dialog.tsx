@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -51,16 +51,19 @@ export function EditOrderDialog({ open, onOpenChange, orderId }: EditOrderDialog
   const [shippingNotes, setShippingNotes] = useState("")
   const [shippingCost, setShippingCost] = useState("")
 
-  useEffect(() => {
-    if (!detail) return
-    setNotes(detail.notes ?? "")
-    setStreet(detail.shippingStreet ?? "")
-    setCity(detail.shippingCity ?? "")
-    setState(detail.shippingState ?? "")
-    setZip(detail.shippingZipCode ?? "")
-    setShippingNotes(detail.shippingNotes ?? "")
-    setShippingCost(detail.shippingCost != null ? String(detail.shippingCost) : "")
-  }, [detail])
+  const [prevDetail, setPrevDetail] = useState(detail)
+  if (detail !== prevDetail) {
+    setPrevDetail(detail)
+    if (detail) {
+      setNotes(detail.notes ?? "")
+      setStreet(detail.shippingStreet ?? "")
+      setCity(detail.shippingCity ?? "")
+      setState(detail.shippingState ?? "")
+      setZip(detail.shippingZipCode ?? "")
+      setShippingNotes(detail.shippingNotes ?? "")
+      setShippingCost(detail.shippingCost != null ? String(detail.shippingCost) : "")
+    }
+  }
 
   const isFinal = detail?.statusCode === "Cancelled" || detail?.statusCode === "Refunded"
   const canSubmit = Boolean(detail) && !isFinal && !updateDetails.isPending

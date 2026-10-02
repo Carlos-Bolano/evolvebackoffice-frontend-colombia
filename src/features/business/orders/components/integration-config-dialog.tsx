@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { useTranslation } from "@/i18n/use-i18n"
 import { useNotify } from "@/hooks/use-notify"
+import { appConfig } from "@/config/env"
+import { useAppStore } from "@/store/app-store"
 import Spinner from "@/components/Spinner"
 import {
   useBranchIntegrations,
@@ -16,7 +18,7 @@ import {
   useActivateStore,
   useUpdateIntegration,
 } from "../hooks/use-orders"
-import { CheckCircle, XCircle, ArrowRight, ArrowLeft, Truck, Store } from "lucide-react"
+import { CheckCircle, XCircle, ArrowRight, ArrowLeft, Truck, Store, Link2, Copy, RefreshCw } from "lucide-react"
 
 interface IntegrationConfigDialogProps {
   open: boolean
@@ -48,6 +50,11 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
   // Estado de la tienda en Cluvi: "on" | "off" | null (aún desconocido)
   const [storeStatus, setStoreStatus] = useState<string | null>(null)
+  // URLs que Cluvi quedó usando tras "Setear URL" (respuesta del servidor).
+  // Antes de activar se muestran las calculadas con la config actual.
+  const [registeredUrls, setRegisteredUrls] = useState<{ newOrder: string | null; ping: string | null } | null>(null)
+  // Evita repetir la verificación automática de estado en cada refetch.
+  const statusCheckedRef = useRef(false)
 
   const { data: integrations } = useBranchIntegrations(branchId)
   // Se busca por plataforma SIN filtrar por isActive: una integración guardada
@@ -71,6 +78,17 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
   const baseUrl = baseUrlOverride ?? existingIntegration?.baseUrl ?? defaultBaseUrl
   const storeId = storeIdOverride ?? readStoreId(existingIntegration?.settingsJson)
 
+  // URL del webhook que este backend expone para recibir pedidos (la misma
+  // que activate-store registra en Cluvi) y su ping de salud.
+  const tenantId = useAppStore((s) => s.session?.tenantId)
+  const defaultWebhookUrl =
+    tenantId && storeId
+      ? `${appConfig.apiBaseUrl}/api/webhooks/cluvi/${tenantId}?storeId=${encodeURIComponent(storeId)}`
+      : null
+  const defaultPingUrl = `${appConfig.apiBaseUrl}/health`
+  const webhookUrl = registeredUrls?.newOrder ?? defaultWebhookUrl
+  const pingUrl = registeredUrls?.ping ?? defaultPingUrl
+
   /** Al cerrar se limpia todo para que la próxima apertura arranque de cero. */
   const handleOpenChange = (next: boolean) => {
     if (!next) {
@@ -81,6 +99,8 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
       setSecretKey("")
       setTestResult(null)
       setStoreStatus(null)
+      setRegisteredUrls(null)
+      statusCheckedRef.current = false
     }
     onOpenChange(next)
   }
@@ -112,6 +132,7 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
         onSuccess: (res) => {
           if (res.success) {
             setStoreStatus(res.storeStatus ?? "on")
+            setRegisteredUrls({ newOrder: res.newOrderWebhookUrl, ping: res.pingWebhookUrl })
             notify.success(res.message ?? t("store_activated"))
           } else {
             notify.error(res.message ?? t("store_activation_failed"))
@@ -120,6 +141,24 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
         onError: () => notify.error(t("store_activation_failed")),
       }
     )
+  }
+
+  // Al abrir el diálogo se verifica (una sola vez) el estado real de la tienda
+  // en Cluvi vía Prueba de Conexión, para mostrar activa/inactiva sin clics.
+  useEffect(() => {
+    if (!open || !existingIntegration || statusCheckedRef.current) return
+    statusCheckedRef.current = true
+    handleTestConnection()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, existingIntegration?.id])
+
+  const copyText = async (value: string, successKey: string) => {
+    try {
+      await navigator.clipboard.writeText(value)
+      notify.success(t(successKey))
+    } catch {
+      notify.error(t("copy_failed"))
+    }
   }
 
   const handleSave = () => {
@@ -305,28 +344,92 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
                     {testResult.message}
                   </div>
                 )}
-
-                {/* Estado de la tienda en Cluvi: activa → ok; inactiva → botón de activación */}
-                {storeStatus !== null &&
-                  (storeStatus === "on" ? (
-                    <div className="flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">
-                      <CheckCircle className="h-4 w-4 shrink-0" />
-                      {t("store_active")}
-                    </div>
-                  ) : (
-                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
-                      <span className="flex items-center gap-2">
-                        <XCircle className="h-4 w-4 shrink-0" />
-                        {t("store_inactive")}
-                      </span>
-                      <Button size="sm" onClick={handleActivateStore} disabled={activateMutation.isPending}>
-                        {activateMutation.isPending && <Spinner className="mr-2 h-4 w-4" />}
-                        {activateMutation.isPending ? t("activating_store") : t("activate_store")}
-                      </Button>
-                    </div>
-                  ))}
               </CardContent>
             </Card>
+
+            {/* URL de pedidos (webhook) + estado de la tienda */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <Link2 className="h-4 w-4" />
+                  {t("webhook_url_title")}
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">{t("webhook_url_desc")}</p>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {/* Estado de la tienda: activa / inactiva / sin verificar */}
+                {storeStatus === "on" ? (
+                  <div className="flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">
+                    <CheckCircle className="h-4 w-4 shrink-0" />
+                    {t("store_active")}
+                  </div>
+                ) : storeStatus !== null ? (
+                  <div className="flex items-center gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+                    <XCircle className="h-4 w-4 shrink-0" />
+                    {t("store_inactive")}
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
+                    <span className="flex items-center gap-2">
+                      {testMutation.isPending && <Spinner className="h-4 w-4" />}
+                      {testMutation.isPending ? t("checking_store") : t("store_status_unknown")}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleTestConnection}
+                      disabled={testMutation.isPending || !existingIntegration}
+                    >
+                      <RefreshCw className="mr-1 h-3.5 w-3.5" />
+                      {t("check_status")}
+                    </Button>
+                  </div>
+                )}
+
+                {/* Webhook de nuevas órdenes */}
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">{t("new_order_url")}</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      readOnly
+                      value={webhookUrl ?? ""}
+                      placeholder={t("webhook_url_placeholder")}
+                      className="font-mono text-xs"
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      disabled={!webhookUrl}
+                      onClick={() => webhookUrl && copyText(webhookUrl, "webhook_copied")}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Ping / health check */}
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">{t("ping_url")}</Label>
+                  <div className="flex items-center gap-2">
+                    <Input readOnly value={pingUrl} className="font-mono text-xs" />
+                    <Button variant="outline" size="icon" onClick={() => copyText(pingUrl, "ping_copied")}>
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <Button
+                  onClick={handleActivateStore}
+                  disabled={activateMutation.isPending || !existingIntegration}
+                  className="w-full"
+                >
+                  {activateMutation.isPending && <Spinner className="mr-2 h-4 w-4" />}
+                  {activateMutation.isPending ? t("setting_url") : t("set_webhook_url")}
+                </Button>
+                <p className="text-[11px] leading-4 text-muted-foreground">{t("webhook_url_hint")}</p>
+              </CardContent>
+            </Card>
+
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setStepOverride(0)}>
                 <ArrowLeft className="mr-2 h-4 w-4" />

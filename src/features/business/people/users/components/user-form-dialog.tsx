@@ -89,9 +89,16 @@ export function UserFormDialog({
     })
   }
 
+  const [prevOpen, setPrevOpen] = useState(open)
+  const [prevUserToEdit, setPrevUserToEdit] = useState(userToEdit)
+  if (open !== prevOpen || userToEdit !== prevUserToEdit) {
+    setPrevOpen(open)
+    setPrevUserToEdit(userToEdit)
+    if (open) setFoundPerson(null)
+  }
+
   useEffect(() => {
     if (!open) return
-    setFoundPerson(null)
 
     if (userToEdit) {
       form.reset({

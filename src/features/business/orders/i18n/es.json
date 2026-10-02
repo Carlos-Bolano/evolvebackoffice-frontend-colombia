@@ -168,5 +168,19 @@
   "open_detail": "Ver detalle",
   "all_branches": "Todas las sucursales",
   "int_configured": "Configurado (inactivo)",
-  "int_none": "No configurado"
+  "int_none": "No configurado",
+  "webhook_url_title": "URL de pedidos (webhook)",
+  "webhook_url_desc": "Al setear la URL se registra en la plataforma el webhook de nuevas órdenes y el ping de salud.",
+  "set_webhook_url": "Setear URL",
+  "setting_url": "Seteando URL...",
+  "webhook_url_hint": "Si la plataforma tiene otra URL guardada, este botón la reemplaza por la correcta.",
+  "new_order_url": "Webhook de nuevas órdenes",
+  "webhook_url_placeholder": "Completa el Store ID para ver la URL",
+  "ping_url": "Ping (health)",
+  "webhook_copied": "URL copiada al portapapeles",
+  "ping_copied": "URL de ping copiada",
+  "copy_failed": "No se pudo copiar la URL",
+  "checking_store": "Verificando estado de la tienda...",
+  "store_status_unknown": "Estado de la tienda sin verificar",
+  "check_status": "Verificar"
 }

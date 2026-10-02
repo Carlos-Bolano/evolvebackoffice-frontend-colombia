@@ -43,9 +43,11 @@ export function useNewOrderNotifications(enabled: boolean): void {
 
   // Establecer en refs para no reiniciar el loop por cambios de identidad.
   const navigateRef = useRef(navigate)
-  navigateRef.current = navigate
   const tRef = useRef(t)
-  tRef.current = t
+  useEffect(() => {
+    navigateRef.current = navigate
+    tRef.current = t
+  }, [navigate, t])
 
   useEffect(() => {
     if (!enabled) return
@@ -115,7 +117,7 @@ export function useNewOrderNotifications(enabled: boolean): void {
           if (cancelled) return
           cursor = result.nowUtc
           if (result.data.length > 0) handleOrders(result.data)
-        } catch (error) {
+        } catch {
           if (cancelled || controller.signal.aborted) return
           // Error de red,401 por sesión vencida, etc. → backoff y reintento.
           await sleep(RETRY_DELAY_MS)
