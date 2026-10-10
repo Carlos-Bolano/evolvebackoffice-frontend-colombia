@@ -856,6 +856,178 @@ test("E: foto válida se guarda atómicamente, formato falso no cobra y reintent
   expect(summary.shifts.find((s) => s.id === eShift.id)?.deliveredCount).toBe(2)
 })
 
+test("Lote: UI selecciona dos pedidos, los mueve con botón y arrastra el grupo", async ({ page }) => {
+  const create = async () =>
+    json<{ id: string; externalOrderId: string }>(
+      await api.post("/api/orders", {
+        data: {
+          branchId: branch.id,
+          status: "Confirmed",
+          origin: "Call",
+          paymentMethod: "cash",
+          items: [{ itemPublicId: item.id, quantity: 1 }],
+        },
+      })
+    )
+  const first = await create()
+  const second = await create()
+  await session(page)
+  await page.goto("/business/orders")
+  const select = (order: { id: string; externalOrderId: string }) =>
+    page.getByRole("checkbox", {
+      name: `Seleccionar pedido ${order.externalOrderId ?? order.id.slice(0, 8)}`,
+      exact: true,
+    })
+  await select(first).check()
+  await select(second).check()
+  await page.getByRole("button", { name: "Mover seleccionados", exact: true }).click()
+  await page.getByRole("combobox", { name: "Estado destino" }).selectOption("Preparing")
+  await page.getByRole("button", { name: "Aplicar cambio", exact: true }).click()
+  await expect(page.getByRole("dialog")).toHaveCount(0)
+  for (const order of [first, second]) {
+    const detail = await json<{ statusCode: string }>(await api.get(`/api/orders/${order.id}`))
+    expect(detail.statusCode).toBe("Preparing")
+    await expect(select(order)).not.toBeChecked()
+    await select(order).check()
+  }
+  const card = page.locator(`[data-rfd-draggable-id="${first.id}"]`)
+  await page.getByText("Listo", { exact: true }).scrollIntoViewIfNeeded()
+  await card.focus()
+  await card.press("Space")
+  const announcement = page.locator('[id^="rfd-announcement-"]')
+  await expect(announcement).toContainText("You have lifted")
+  await card.press("ArrowRight")
+  await expect(announcement).toContainText("Ready")
+  await card.press("Space")
+  await expect(page.getByRole("dialog")).toBeVisible()
+  await expect(page.getByRole("combobox", { name: "Estado destino" })).toHaveValue("Ready")
+  await page.getByRole("button", { name: "Aplicar cambio", exact: true }).click()
+  await expect(page.getByRole("dialog")).toHaveCount(0)
+  for (const order of [first, second])
+    expect((await json<{ statusCode: string }>(await api.get(`/api/orders/${order.id}`))).statusCode).toBe("Ready")
+  // Selecciones de otra plataforma no viajan ocultas al lote.
+  await select(first).check()
+  await page.getByRole("button", { name: /^Cluvi\s+\d+$/ }).click()
+  const move = page.getByRole("button", { name: "Mover seleccionados", exact: true })
+  await expect(async () => {
+    expect((await move.count()) === 0 || (await move.isDisabled())).toBeTruthy()
+  }).toPass()
+})
+
+test("Lote: API conserva reglas, resultados parciales, permisos y límite", async () => {
+  const create = async (status: string) =>
+    json<{ id: string }>(
+      await api.post("/api/orders", {
+        data: {
+          branchId: branch.id,
+          status,
+          origin: "Call",
+          paymentMethod: "cash",
+          items: [{ itemPublicId: item.id, quantity: 1 }],
+        },
+      })
+    )
+  const good = await create("Confirmed")
+  const invalid = await create("Pending")
+  const missing = randomUUID()
+  const body = { orderIds: [good.id, invalid.id, missing], status: "Preparing" }
+  expect((await cashier.put("/api/orders/status/bulk", { data: body })).status()).toBe(403)
+  expect(
+    (
+      await api.put("/api/orders/status/bulk", {
+        headers: { Authorization: `Bearer ${mobileToken || jwt("DELIVERY", tenant.id)}` },
+        data: body,
+      })
+    ).status()
+  ).toBe(403)
+  const result = await json<{
+    successCount: number
+    failureCount: number
+    results: { orderId: string; succeeded: boolean; statusCode: number }[]
+  }>(await api.put("/api/orders/status/bulk", { data: body }))
+  expect(result.successCount).toBe(1)
+  expect(result.failureCount).toBe(2)
+  expect(result.results.map((r) => r.statusCode)).toEqual([204, 400, 404])
+  expect((await json<{ statusCode: string }>(await api.get(`/api/orders/${invalid.id}`))).statusCode).toBe("Pending")
+  for (const orderIds of [[], [good.id, good.id], Array.from({ length: 51 }, () => randomUUID())])
+    expect((await api.put("/api/orders/status/bulk", { data: { orderIds, status: "Ready" } })).status()).toBe(400)
+})
+
+test("Lote: UI muestra errores individuales y conserva fallidos para reintentar", async ({ page }) => {
+  const create = async (status: string) =>
+    json<{ id: string; externalOrderId: string }>(
+      await api.post("/api/orders", {
+        data: {
+          branchId: branch.id,
+          status,
+          origin: "Call",
+          paymentMethod: "cash",
+          items: [{ itemPublicId: item.id, quantity: 1 }],
+        },
+      })
+    )
+  const good = await create("Confirmed")
+  const invalid = await create("Pending")
+  await session(page)
+  await page.goto("/business/orders")
+  const select = (order: { id: string; externalOrderId: string }) =>
+    page.getByRole("checkbox", {
+      name: `Seleccionar pedido ${order.externalOrderId ?? order.id.slice(0, 8)}`,
+      exact: true,
+    })
+  await select(good).check()
+  await select(invalid).check()
+  await page.getByRole("button", { name: "Mover seleccionados", exact: true }).click()
+  await page.getByRole("combobox", { name: "Estado destino" }).selectOption("Preparing")
+  await page.getByRole("button", { name: "Aplicar cambio", exact: true }).click()
+  const dialog = page.getByRole("dialog")
+  await expect(dialog.getByRole("alert")).toContainText("1 cambiados · 1 no pudieron cambiar")
+  await expect(dialog.getByRole("alert")).toContainText("Transición inválida")
+  // El diálogo hace inerte el tablero; consultar el estado DOM, no su árbol accesible oculto.
+  await expect(page.locator(`[data-rfd-draggable-id="${good.id}"] input[type="checkbox"]`)).not.toBeChecked()
+  await expect(page.locator(`[data-rfd-draggable-id="${invalid.id}"] input[type="checkbox"]`)).toBeChecked()
+  await dialog.getByRole("combobox", { name: "Estado destino" }).selectOption("Confirmed")
+  await dialog.getByRole("button", { name: "Reintentar fallidos", exact: true }).click()
+  const acknowledge = dialog.getByRole("checkbox", {
+    name: "Confirmar estos pedidos aunque el inventario sea insuficiente",
+  })
+  // Con stock suficiente cierra directamente; si falta, pide confirmación explícita.
+  await expect(async () => {
+    expect((await dialog.count()) === 0 || (await acknowledge.count()) > 0).toBeTruthy()
+  }).toPass()
+  if (await acknowledge.count()) {
+    await acknowledge.check()
+    await dialog.getByRole("button", { name: "Reintentar fallidos", exact: true }).click()
+  }
+  await expect(dialog).toHaveCount(0)
+  expect((await json<{ statusCode: string }>(await api.get(`/api/orders/${good.id}`))).statusCode).toBe("Preparing")
+  expect((await json<{ statusCode: string }>(await api.get(`/api/orders/${invalid.id}`))).statusCode).toBe("Confirmed")
+})
+
+test("Lote: despacha varios domicilios solo después de elegir un usuario DELIVERY", async ({ page }) => {
+  const orders = []
+  for (let index = 0; index < 2; index++) {
+    const id = (await webhook(`bulk-dispatch-${index}-${suffix}`)).orderId
+    orders.push(await json<{ id: string; externalOrderId: string }>(await api.get(`/api/orders/${id}`)))
+  }
+  await session(page)
+  await page.goto("/business/orders")
+  for (const order of orders)
+    await page.getByRole("checkbox", { name: `Seleccionar pedido ${order.externalOrderId}`, exact: true }).check()
+  await page.getByRole("button", { name: "Mover seleccionados", exact: true }).click()
+  const dialog = page.getByRole("dialog")
+  await dialog.getByRole("combobox", { name: "Estado destino" }).selectOption("Shipped")
+  await expect(dialog.getByRole("button", { name: "Aplicar cambio", exact: true })).toBeDisabled()
+  await dialog.getByRole("combobox").nth(1).selectOption(otherCourier.id)
+  await dialog.getByRole("button", { name: "Aplicar cambio", exact: true }).click()
+  await expect(dialog).toHaveCount(0)
+  for (const order of orders) {
+    const detail = await json<{ statusCode: string; courierId: string }>(await api.get(`/api/orders/${order.id}`))
+    expect(detail.statusCode).toBe("Shipped")
+    expect(detail.courierId).toBe(otherCourier.id)
+  }
+})
+
 test("DELIVERY no entrega pedidos ajenos y pierde acceso inmediato al desactivarse o cambiar de rol", async ({
   page,
 }) => {

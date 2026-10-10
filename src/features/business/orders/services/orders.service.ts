@@ -1,4 +1,5 @@
 import { api } from "@/config/axios-client"
+import type { BulkOrderStatusRequest, BulkOrderStatusResult } from "../types/bulk-status"
 import type {
   PagedOrders,
   OrderDetail,
@@ -51,6 +52,12 @@ export async function getOrderById(id: string): Promise<OrderDetail> {
  */
 export async function updateOrderStatus(id: string, status: string, courierId?: string | null): Promise<void> {
   await api.put(`/api/orders/${id}/status`, courierId ? { status, courierId } : { status })
+}
+
+export async function bulkUpdateOrderStatus(request: BulkOrderStatusRequest): Promise<BulkOrderStatusResult> {
+  // Cada pedido puede hacer un push externo de hasta 8s; no cortar un lote válido.
+  const { data } = await api.put<BulkOrderStatusResult>("/api/orders/status/bulk", request, { timeout: 600000 })
+  return data
 }
 
 /** Inventario de la orden contra la sucursal. Solo informativo, nunca bloquea. */
