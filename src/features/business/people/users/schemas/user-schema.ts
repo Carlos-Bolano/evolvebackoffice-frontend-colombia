@@ -20,6 +20,11 @@ export const createUserSchema = (t: TFunction) =>
       message: t("delivery_email_required"),
       path: ["email"],
     })
+    // El backend exige correo a todo usuario activo que no sea domiciliario.
+    .refine((data) => data.role.toUpperCase() === "DELIVERY" || data.isActive === false || !!data.email, {
+      message: t("user_email_required"),
+      path: ["email"],
+    })
 
 export const updateUserSchema = (t: TFunction) =>
   z.object({

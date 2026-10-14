@@ -27,7 +27,12 @@ export interface DeliveryProofInput {
   data: string
   receiverName?: string
 }
-export interface DeliveryProof extends DeliveryProofInput {
+/** Metadatos de la prueba; la imagen se pide aparte (endpoint autenticado). */
+export interface DeliveryProof {
   orderId: string
+  kind: "Photo" | "Signature"
+  contentType: string
+  receiverName?: string | null
+  sizeBytes: number
   createdAt: string
 }

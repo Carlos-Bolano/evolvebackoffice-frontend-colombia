@@ -54,5 +54,6 @@
   "web_password": "Password Web",
   "credentials_warning": "Estas credenciales NUNCA VOLVERÁN A MOSTRARSE desde el sistema. Asegúrate de escribirlas o imprimirlas.",
   "credentials_confirm": "Entregué las credenciales al usuario",
-  "go_to_list": "Ir a la lista de usuarios"
+  "go_to_list": "Ir a la lista de usuarios",
+  "user_email_required": "El usuario requiere un correo electrónico."
 }

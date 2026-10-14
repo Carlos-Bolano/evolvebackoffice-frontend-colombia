@@ -61,4 +61,19 @@ describe("DELIVERY identity", () => {
     expect(schema.safeParse(profile).success).toBe(false)
     expect(schema.safeParse({ ...profile, email: "delivery@example.test" }).success).toBe(true)
   })
+
+  it("requires email for active staff but not for inactive users", () => {
+    const schema = createUserSchema(i18n.getFixedT("es", "business-users-catalog"))
+    const cashier = {
+      firstName: "Caja",
+      lastName: "",
+      identificationTypeId: 1,
+      identificationNumber: "999",
+      role: "CASHIER",
+      email: null,
+    }
+    expect(schema.safeParse(cashier).success).toBe(false)
+    expect(schema.safeParse({ ...cashier, isActive: false }).success).toBe(true)
+    expect(schema.safeParse({ ...cashier, email: "caja@example.test" }).success).toBe(true)
+  })
 })

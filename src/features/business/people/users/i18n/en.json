@@ -54,5 +54,6 @@
   "web_password": "Web Password",
   "credentials_warning": "These credentials will NEVER BE SHOWN again from the system. Make sure to write them down or print them.",
   "credentials_confirm": "I have delivered the credentials to the user",
-  "go_to_list": "Go to user list"
+  "go_to_list": "Go to user list",
+  "user_email_required": "The user needs an email address."
 }

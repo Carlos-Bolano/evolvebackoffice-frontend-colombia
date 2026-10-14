@@ -31,3 +31,11 @@ export async function createDeliveryRun(shiftId: string, orderIds: string[]): Pr
 export async function getDeliveryProof(orderId: string): Promise<DeliveryProof> {
   return (await api.get<DeliveryProof>(`${root}/orders/${orderId}/proof`)).data
 }
+
+/**
+ * Imagen privada de la prueba de entrega. No está bajo /media: se descarga
+ * con el JWT (blob) y se muestra con un object URL que el llamador libera.
+ */
+export async function getDeliveryProofImage(orderId: string): Promise<Blob> {
+  return (await api.get<Blob>(`${root}/orders/${orderId}/proof/image`, { responseType: "blob" })).data
+}
