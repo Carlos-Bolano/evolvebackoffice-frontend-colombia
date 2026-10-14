@@ -1,14 +1,17 @@
 import { test, expect, request, type APIRequestContext, type APIResponse, type Page } from "@playwright/test"
 import { createServer, type Server } from "node:http"
 import { createHmac, randomUUID } from "node:crypto"
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
+import { homedir } from "node:os"
 import { join } from "node:path"
 
 // Run against a local Development backend with PostgreSQL. Each run owns its tenant.
 // E2E_BACKEND_DIR points to the BackendPOS repo; VITE_API_URL must match E2E_API_URL.
 const apiUrl = process.env.E2E_API_URL ?? "http://localhost:5285"
 const backendDir = process.env.E2E_BACKEND_DIR
-test.describe.configure({ mode: "serial" })
+// El webhook de Cluvi es asíncrono (gate → sandbox → worker cada 30 s): los
+// escenarios que esperan pedidos de Cluvi necesitan más que el timeout por defecto.
+test.describe.configure({ mode: "serial", timeout: 240_000 })
 test.skip(!backendDir, "Set E2E_BACKEND_DIR to run the real API/Playwright suite.")
 
 type Entity = { id: string; name: string }
@@ -45,6 +48,7 @@ let server: Server
 let fakeUrl: string
 let jwtCfg: { Secret: string; Issuer: string; Audience: string }
 const outbound: string[] = []
+const webhookToken = `e2e${randomUUID().replaceAll("-", "")}`
 const suffix = randomUUID().slice(0, 8)
 let manualOne: string
 let manualTwo: string
@@ -74,6 +78,25 @@ async function json<T>(response: APIResponse): Promise<T> {
   await check(response)
   return response.json() as Promise<T>
 }
+/** Lee JSON tolerando el BOM que escriben las herramientas de .NET. */
+const readJson = (file: string) => JSON.parse(readFileSync(file, "utf8").replace(/^﻿/, ""))
+/** Issuer/Audience de appsettings; el secreto de E2E_JWT_SECRET o de los user-secrets del backend. */
+function readJwtConfig(dir: string) {
+  const settings = readJson(join(dir, "BackendPOS/appsettings.Development.json")).Jwt
+  const csproj = readFileSync(join(dir, "BackendPOS/BackendPOS.csproj"), "utf8")
+  const secretsId = /<UserSecretsId>([^<]+)<\/UserSecretsId>/.exec(csproj)?.[1]
+  const secretsFile = secretsId
+    ? process.platform === "win32"
+      ? join(process.env.APPDATA ?? "", "Microsoft", "UserSecrets", secretsId, "secrets.json")
+      : join(homedir(), ".microsoft", "usersecrets", secretsId, "secrets.json")
+    : ""
+  const userSecret = secretsFile && existsSync(secretsFile) ? readJson(secretsFile)["Jwt:Secret"] : undefined
+  const secret = process.env.E2E_JWT_SECRET ?? userSecret ?? settings.Secret
+  if (!secret) throw new Error("Configure Jwt:Secret en user-secrets del backend o E2E_JWT_SECRET.")
+  return { ...settings, Secret: secret } as { Secret: string; Issuer: string; Audience: string }
+}
+/** tid centinela que identifica un JWT de plataforma (PlatformScopeRequirement). */
+const PLATFORM_TID = "11111111-1111-1111-1111-111111111111"
 function jwt(role: string, tenantId?: string) {
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url")
   const unsigned = `${encode({ alg: "HS256", typ: "JWT" })}.${encode({ iss: jwtCfg.Issuer, aud: jwtCfg.Audience, sub: randomUUID(), role, ...(tenantId ? { tid: tenantId } : {}), exp: Math.floor(Date.now() / 1000) + 3600 })}`
@@ -105,54 +128,77 @@ async function session(page: Page, accessToken = token, role = "BusinessAdmin") 
     { tenantId: tenant.tenantId, accessToken, role }
   )
 }
-async function webhook(reference: string, extras: Record<string, unknown> = {}, status = "done", products?: object[]) {
-  return json<{ orderId: string }>(
-    await platform.post(`/api/webhooks/cluvi/${tenant.tenantId}?storeId=phase2`, {
-      data: {
-        store_id: "phase2",
-        customer: {
-          name: "Rafael Pérez",
-          email: "rafael@example.test",
-          phone_code: "57",
-          phone_number: "3001234567",
-          document_number: "123456",
-        },
-        order_detail: {
-          order_id: reference,
-          created_at: new Date().toISOString(),
-          status,
-          service: "delivery",
-          payment_method: "cash",
-          payment_confirmed: false,
-          comment: "Sin cebolla",
-          delivery_information: {
-            complete_address: "Calle 10 # 20-30",
-            complement: "Apto 2",
-            coordinates: { lat: 4.61, lon: -74.08 },
-          },
-          totals: {
-            total_products: 20000,
-            total_discounts: 0,
-            total_delivery: 5000,
-            total_tip: 2000,
-            total_order: 27000,
-          },
-          products: products ?? [
-            {
-              pos_id: `unlinked-${reference}`,
-              sku: `unlinked-${reference}`,
-              label: "Hamburguesa Cluvi",
-              quantity: 1,
-              price: 20000,
-              total: 20000,
-              modifiers: [],
-            },
-          ],
-          ...extras,
-        },
-      },
-    })
+/**
+ * Envía un payload al webhook real (gate + sandbox) y espera a que el worker de
+ * reconciliación lo aplique. Devuelve el pedido creado o actualizado.
+ */
+async function postWebhook(data: Record<string, unknown>) {
+  const accepted = await json<{ inboundId?: number }>(
+    await platform.post(`/api/webhooks/cluvi/${tenant.tenantId}/${webhookToken}?storeId=phase2`, { data })
   )
+  expect(accepted.inboundId, "el gate debe encolar el payload").toBeTruthy()
+  let processed: {
+    validationStatus: number
+    producedOrderPublicId: string | null
+    validationErrorsJson: string | null
+  } | null = null
+  await expect
+    .poll(
+      async () => {
+        processed = await json(await platform.get(`/api/platform/cluvi-inbound/${accepted.inboundId}`))
+        return processed!.validationStatus
+      },
+      { timeout: 75_000, intervals: [2_000] }
+    )
+    .not.toBe(0)
+  expect(processed!.validationStatus, `inbound ${accepted.inboundId}: ${processed!.validationErrorsJson}`).toBe(1)
+  return { orderId: processed!.producedOrderPublicId! }
+}
+
+async function webhook(reference: string, extras: Record<string, unknown> = {}, status = "done", products?: object[]) {
+  return postWebhook({
+    store_id: "phase2",
+    customer: {
+      name: "Rafael Pérez",
+      email: "rafael@example.test",
+      phone_code: "57",
+      phone_number: "3001234567",
+      document_number: "123456",
+    },
+    order_detail: {
+      order_id: reference,
+      created_at: new Date().toISOString(),
+      status,
+      service: "delivery",
+      payment_method: "cash",
+      payment_confirmed: false,
+      comment: "Sin cebolla",
+      delivery_information: {
+        complete_address: "Calle 10 # 20-30",
+        complement: "Apto 2",
+        coordinates: { lat: 4.61, lon: -74.08 },
+      },
+      totals: {
+        total_products: 20000,
+        total_discounts: 0,
+        total_delivery: 5000,
+        total_tip: 2000,
+        total_order: 27000,
+      },
+      products: products ?? [
+        {
+          pos_id: `unlinked-${reference}`,
+          sku: `unlinked-${reference}`,
+          label: "Hamburguesa Cluvi",
+          quantity: 1,
+          price: 20000,
+          total: 20000,
+          modifiers: [],
+        },
+      ],
+      ...extras,
+    },
+  })
 }
 async function board(): Promise<Board> {
   return json<Board>(await api.get(`/api/orders/deliveries?branchId=${branch.id}`))
@@ -165,10 +211,10 @@ test.beforeAll(async () => {
   test.setTimeout(120000)
   if (!backendDir) return
   expect(["localhost", "127.0.0.1"]).toContain(new URL(apiUrl).hostname)
-  jwtCfg = JSON.parse(readFileSync(join(backendDir, "BackendPOS/appsettings.Development.json"), "utf8")).Jwt
+  jwtCfg = readJwtConfig(backendDir)
   platform = await request.newContext({
     baseURL: apiUrl,
-    extraHTTPHeaders: { Authorization: `Bearer ${jwt("ADMIN")}` },
+    extraHTTPHeaders: { Authorization: `Bearer ${jwt("ADMIN", PLATFORM_TID)}` },
   })
   tenant = await json<CreatedTenant>(
     await platform.post("/api/tenants", {
@@ -270,7 +316,7 @@ test.beforeAll(async () => {
         isActive: true,
         baseUrl: fakeUrl,
         apiKey: "fake-local-token",
-        settingsJson: '{"storeId":"phase2"}',
+        settingsJson: JSON.stringify({ storeId: "phase2", webhookToken }),
       },
     })
   )
@@ -527,7 +573,14 @@ test("Cajero puede despachar, pero no administrar domiciliarios ni turnos", asyn
   ).toBe(403)
   await check(await cashier.get("/api/orders/deliveries"))
   const id = (await webhook(`cashier-${suffix}`)).orderId
-  await check(await cashier.put(`/api/orders/${id}/courier`, { data: { courierId: otherCourier.id } }))
+  // Asignar domiciliario es de gestión (MR !1, H3), por cualquier vía.
+  expect((await cashier.put(`/api/orders/${id}/courier`, { data: { courierId: otherCourier.id } })).status()).toBe(403)
+  expect(
+    (
+      await cashier.put(`/api/orders/${id}/status`, { data: { status: "Shipped", courierId: otherCourier.id } })
+    ).status()
+  ).toBe(403)
+  await check(await api.put(`/api/orders/${id}/courier`, { data: { courierId: otherCourier.id } }))
   await check(await cashier.put(`/api/orders/${id}/status`, { data: { status: "Shipped" } }))
   expect((await cashier.put(`/api/orders/${id}/status`, { data: { status: "Cancelled" } })).status()).toBe(403)
   await check(await cashier.put(`/api/orders/${id}/status`, { data: { status: "Delivered" } }))
@@ -547,16 +600,12 @@ test("Long-poll muestra un pedido Listo sin recargar y change_payment no regresa
   await polling
   const reference = `realtime-${suffix}`
   const id = (await webhook(reference, {}, "cooking")).orderId
-  await json(
-    await platform.post(`/api/webhooks/cluvi/${tenant.tenantId}?storeId=phase2`, {
-      data: {
-        store_id: "phase2",
-        event: "change_payment",
-        order_detail: { order_id: reference },
-        event_content: { payment_method: "card", payment_confirmed: true, status: "pending" },
-      },
-    })
-  )
+  await postWebhook({
+    store_id: "phase2",
+    event: "change_payment",
+    order_detail: { order_id: reference },
+    event_content: { payment_method: "card", payment_confirmed: true, status: "pending" },
+  })
   expect((await json<{ statusCode: string }>(await api.get(`/api/orders/${id}`))).statusCode).toBe("Preparing")
   await webhook(reference, { payment_confirmed: true, payment_method: "card" }, "done")
   const card = page.locator("[data-rfd-draggable-id]").filter({ hasText: reference })
@@ -789,20 +838,27 @@ test("E: móvil firma entrega, no permite firma sin consentimiento y prueba solo
   expect(response.status()).toBe(204)
   const deliveredId = new URL(response.url()).pathname.split("/").at(-2)!
   expect(deliveredId).toBe(manualTwo)
-  const proof = await json<{ kind: string; receiverName: string; data: string }>(
+  // Metadatos sin la imagen; la imagen solo por el endpoint autenticado (MR !1, C2).
+  const proof = await json<{ kind: string; receiverName: string; sizeBytes: number; data?: string }>(
     await api.get(`/api/delivery-enhancements/orders/${deliveredId}/proof`)
   )
   expect(proof.kind).toBe("Signature")
   expect(proof.receiverName).toBe("Cliente firma")
-  expect(proof.data.length).toBeGreaterThan(100)
-  expect((await cashier.get(`/api/delivery-enhancements/orders/${deliveredId}/proof`)).status()).toBe(403)
-  expect(
-    (
-      await platform.get(`/api/delivery-enhancements/orders/${deliveredId}/proof`, {
-        headers: { Authorization: "", "X-Tenant-Id": tenant.tenantId },
-      })
-    ).status()
-  ).toBe(401)
+  expect(proof.data).toBeUndefined()
+  const signature = await api.get(`/api/delivery-enhancements/orders/${deliveredId}/proof/image`)
+  await check(signature)
+  expect(signature.headers()["content-type"]).toContain("image/png")
+  expect((await signature.body()).length).toBe(proof.sizeBytes)
+  for (const path of ["proof", "proof/image"]) {
+    expect((await cashier.get(`/api/delivery-enhancements/orders/${deliveredId}/${path}`)).status()).toBe(403)
+    expect(
+      (
+        await platform.get(`/api/delivery-enhancements/orders/${deliveredId}/${path}`, {
+          headers: { Authorization: "", "X-Tenant-Id": tenant.tenantId },
+        })
+      ).status()
+    ).toBe(401)
+  }
   await session(page)
   await page.goto("/business/orders/deliveries")
   await page.getByRole("button", { name: "Por domiciliario", exact: true }).click()
@@ -846,9 +902,10 @@ test("E: foto válida se guarda atómicamente, formato falso no cobra y reintent
   await page.getByRole("button", { name: "Confirmar entrega y cobro", exact: true }).click()
   expect((await delivered).status()).toBe(204)
   await check(await platform.post(url, { headers, data: payload }))
-  const proofResponse = await api.get(`/api/delivery-enhancements/orders/${remaining.id}/proof`)
+  const proofResponse = await api.get(`/api/delivery-enhancements/orders/${remaining.id}/proof/image`)
   expect(proofResponse.headers()["cache-control"]).toContain("no-store")
-  expect((await json<{ data: string }>(proofResponse)).data).toBe(proofPng)
+  await check(proofResponse)
+  expect((await proofResponse.body()).toString("base64")).toBe(proofPng)
   const summary = await json<{ shifts: { id: string; expectedCash: number; deliveredCount: number }[] }>(
     await api.get("/api/delivery-operations")
   )
