@@ -79,7 +79,8 @@ async function json<T>(response: APIResponse): Promise<T> {
   return response.json() as Promise<T>
 }
 /** Lee JSON tolerando el BOM que escriben las herramientas de .NET. */
-const readJson = (file: string) => JSON.parse(readFileSync(file, "utf8").replace(/^﻿/, ""))
+const BOM = String.fromCharCode(0xfeff)
+const readJson = (file: string) => JSON.parse(readFileSync(file, "utf8").replace(BOM, ""))
 /** Issuer/Audience de appsettings; el secreto de E2E_JWT_SECRET o de los user-secrets del backend. */
 function readJwtConfig(dir: string) {
   const settings = readJson(join(dir, "BackendPOS/appsettings.Development.json")).Jwt
