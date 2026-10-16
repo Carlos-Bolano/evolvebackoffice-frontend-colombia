@@ -82,7 +82,7 @@ export function TenantsPage() {
   const handleSubmit = (values: TenantFormValues) => {
     if (selectedTenant && token) {
       updateTenantMutation.mutate(
-        { id: selectedTenant.id, tenantSlug: selectedTenant.tenantId, values, token },
+        { id: selectedTenant.id, values, token },
         {
           onSuccess: () => {
             notify.success(t("tenant_updated"))

@@ -95,22 +95,13 @@ export function useUpdateTenant() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({
-      id,
-      tenantSlug,
-      values,
-      token,
-    }: {
-      id: string
-      // Slug del tenant (TenantId): X-Tenant-Id debe llevar el slug y no el
-      // PublicId, si no el middleware devuelve 404 tenant_not_found.
-      tenantSlug?: string
-      values: TenantFormValues
-      token: string
-    }) =>
+    mutationFn: ({ id, values, token }: { id: string; values: TenantFormValues; token: string }) =>
       updateTenant(id, toUpdateDto(values)).then(async (result) => {
         if (values.modules.length > 0) {
-          await bulkUpdateTenantModules(token, tenantSlug || id, toBulkModuleItems(values.modules))
+          // X-Tenant-Id debe llevar el PublicId (GUID) del tenant: el slug puede
+          // contener caracteres no ASCII (p. ej. "ñ") que el header HTTP mutila,
+          // dejando la resolución de tenant en 404. El backend acepta el GUID.
+          await bulkUpdateTenantModules(token, id, toBulkModuleItems(values.modules))
         }
         return result
       }),

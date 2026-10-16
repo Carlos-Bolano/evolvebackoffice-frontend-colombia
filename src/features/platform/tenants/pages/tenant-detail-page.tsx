@@ -69,7 +69,9 @@ export function TenantDetailPage() {
     enabled: Boolean(id),
   })
 
-  const tenantIdForModules = tenant?.tenantId
+  // X-Tenant-Id debe llevar el PublicId (GUID) del tenant, no el slug: el slug
+  // puede contener caracteres no ASCII (p. ej. "ñ") que el header HTTP mutila.
+  const tenantIdForModules = tenant?.id
 
   const {
     data: modules = [],
@@ -191,7 +193,7 @@ export function TenantDetailPage() {
     }
 
     updateTenantMutation.mutate(
-      { id, tenantSlug: tenant?.tenantId, values, token },
+      { id, values, token },
       {
         onSuccess: () => {
           notify.success(t("tenant_updated"))
@@ -214,7 +216,7 @@ export function TenantDetailPage() {
       {
         onSuccess: () => {
           updateTenantMutation.mutate(
-            { id, tenantSlug: tenant?.tenantId, values: pendingValues, token },
+            { id, values: pendingValues, token },
             {
               onSuccess: () => {
                 notify.success(t("tenant_updated"))
