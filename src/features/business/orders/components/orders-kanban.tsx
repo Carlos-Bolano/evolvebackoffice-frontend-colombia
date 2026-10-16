@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { useTranslation } from "@/i18n/use-i18n"
 import { KANBAN_COLUMNS, ORDER_STATUS_CONFIG } from "../types"
 import type { OrderListItem, OrderStatus } from "../types/api"
-import { Eye, Clock, MapPin } from "lucide-react"
+import { Bike, Eye, Clock, MapPin } from "lucide-react"
 
 interface OrdersKanbanProps {
   ordersByStatus: Record<string, OrderListItem[]>
@@ -14,13 +14,26 @@ interface OrdersKanbanProps {
   onViewDetail: (order: OrderListItem) => void
   /** En "todas las sucursales" cada tarjeta muestra su sucursal. */
   showBranch?: boolean
+  selectedIds: ReadonlySet<string>
+  onToggleSelection: (ids: string[]) => void
+  disabled?: boolean
 }
 
-export function OrdersKanban({ ordersByStatus, onDragEnd, onViewDetail, showBranch = false }: OrdersKanbanProps) {
+export function OrdersKanban({
+  ordersByStatus,
+  onDragEnd,
+  onViewDetail,
+  showBranch = false,
+  selectedIds,
+  onToggleSelection,
+  disabled = false,
+}: OrdersKanbanProps) {
   const { t } = useTranslation("business-orders")
 
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return
+    // Soltar en la misma columna no cambia el estado (evita un PUT inválido).
+    if (result.destination.droppableId === result.source.droppableId) return
     const newStatus = result.destination.droppableId as OrderStatus
     const orderId = result.draggableId
     onDragEnd(orderId, newStatus)
@@ -38,7 +51,25 @@ export function OrdersKanban({ ordersByStatus, onDragEnd, onViewDetail, showBran
               <Card className="h-full">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-semibold">{config?.label}</CardTitle>
+                    <div className="flex items-center gap-2">
+                      {status !== "Delivered" && orders.length > 0 && (
+                        <input
+                          type="checkbox"
+                          aria-label={t("bulk_select_column", { status: config?.label })}
+                          checked={orders.every((order) => selectedIds.has(order.id))}
+                          ref={(node) => {
+                            if (node)
+                              node.indeterminate =
+                                orders.some((order) => selectedIds.has(order.id)) &&
+                                !orders.every((order) => selectedIds.has(order.id))
+                          }}
+                          disabled={disabled}
+                          onChange={() => onToggleSelection(orders.map((order) => order.id))}
+                          className="size-4 accent-primary"
+                        />
+                      )}
+                      <CardTitle className="text-sm font-semibold">{config?.label}</CardTitle>
+                    </div>
                     <Badge tone={config?.color}>{orders.length}</Badge>
                   </div>
                 </CardHeader>
@@ -55,7 +86,7 @@ export function OrdersKanban({ ordersByStatus, onDragEnd, onViewDetail, showBran
                         <p className="py-8 text-center text-xs text-muted-foreground">{t("no_orders")}</p>
                       )}
                       {orders.map((order, index) => (
-                        <Draggable key={order.id} draggableId={order.id} index={index}>
+                        <Draggable key={order.id} draggableId={order.id} index={index} isDragDisabled={disabled}>
                           {(provided, snapshot) => (
                             <div
                               ref={provided.innerRef}
@@ -65,12 +96,25 @@ export function OrdersKanban({ ordersByStatus, onDragEnd, onViewDetail, showBran
                               // como CSSProperties para compatibilidad con los
                               // index signatures de custom properties (--radix-*).
                               style={provided.draggableProps.style as CSSProperties}
-                              className={`rounded-lg border bg-card p-3 shadow-sm transition-shadow ${
+                              className={`rounded-lg border bg-card p-3 shadow-sm transition-shadow ${selectedIds.has(order.id) ? "border-primary ring-2 ring-primary/30" : ""} ${
                                 snapshot.isDragging ? "shadow-md" : ""
                               }`}
                             >
                               <div className="mb-2 flex items-start justify-between gap-1">
-                                <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">
+                                {status !== "Delivered" && (
+                                  <input
+                                    type="checkbox"
+                                    aria-label={t("bulk_select_order", {
+                                      reference: order.externalOrderId ?? order.id.slice(0, 8),
+                                    })}
+                                    checked={selectedIds.has(order.id)}
+                                    disabled={disabled}
+                                    onClick={(event) => event.stopPropagation()}
+                                    onChange={() => onToggleSelection([order.id])}
+                                    className="size-4 shrink-0 accent-primary"
+                                  />
+                                )}
+                                <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">
                                   #{order.externalOrderId?.slice(0, 8) ?? order.id.slice(0, 8)}
                                 </span>
                                 <span className="flex shrink-0 items-center gap-1">
@@ -86,11 +130,23 @@ export function OrdersKanban({ ordersByStatus, onDragEnd, onViewDetail, showBran
                               </div>
 
                               <p className="mb-1 text-sm font-medium">${order.total.toFixed(2)}</p>
+                              <p className="mb-1 text-xs font-semibold">
+                                {order.paymentConfirmed
+                                  ? t("phase2_paid")
+                                  : t("phase2_collect", { amount: `$${order.total.toFixed(2)}` })}
+                              </p>
 
                               {order.shippingStreet && (
                                 <div className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
                                   <MapPin className="h-3 w-3" />
                                   <span className="truncate">{order.shippingStreet}</span>
+                                </div>
+                              )}
+
+                              {order.courierName && (
+                                <div className="mb-1 flex items-center gap-1 text-xs text-primary">
+                                  <Bike className="h-3 w-3" />
+                                  <span className="truncate">{order.courierName}</span>
                                 </div>
                               )}
 
