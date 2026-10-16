@@ -1,11 +1,7 @@
 import axios from "axios"
 
 import { appConfig } from "@/config/env"
-import type {
-  TenantModuleDto,
-  UpdateTenantModuleDto,
-  BulkUpdateTenantModuleItemDto,
-} from "@/features/platform/tenants/types/api"
+import type { TenantModuleDto, UpdateTenantModuleDto } from "@/features/platform/tenants/types/api"
 import type { TenantModule } from "@/features/platform/tenants/types"
 
 type PagedResponse<T> = {
@@ -61,21 +57,4 @@ export async function updateTenantModule(
   const client = createPlatformClient(token, tenantId)
   const { data } = await client.put<TenantModuleDto>(`/api/tenant-modules/${modulePublicId}`, body)
   return mapDtoToTenantModule(data)
-}
-
-export async function bulkUpdateTenantModules(
-  token: string,
-  tenantId: string,
-  modules: BulkUpdateTenantModuleItemDto[]
-): Promise<TenantModule[]> {
-  const client = createPlatformClient(token, tenantId)
-  const results = await Promise.all(
-    modules.map((mod) =>
-      client.put<TenantModuleDto>(`/api/tenant-modules/${mod.modulePublicId}`, {
-        isEnabled: mod.isEnabled,
-        quantity: mod.quantity,
-      })
-    )
-  )
-  return results.map((r) => mapDtoToTenantModule(r.data))
 }

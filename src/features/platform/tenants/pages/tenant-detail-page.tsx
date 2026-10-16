@@ -184,7 +184,7 @@ export function TenantDetailPage() {
   }
 
   const handleUpdateTenant = (values: TenantFormValues) => {
-    if (!id || !token) return
+    if (!id) return
 
     if (tenant && values.maxRegisters !== tenant.maxRegisters) {
       setPendingValues(values)
@@ -193,7 +193,7 @@ export function TenantDetailPage() {
     }
 
     updateTenantMutation.mutate(
-      { id, values, token },
+      { id, values },
       {
         onSuccess: () => {
           notify.success(t("tenant_updated"))
@@ -205,7 +205,7 @@ export function TenantDetailPage() {
   }
 
   const handleAdjustConfirm = (serialsToDecommission: string[]) => {
-    if (!id || !token || !pendingValues) return
+    if (!id || !pendingValues) return
 
     // 1) Ajustar el pool de seriales PRIMERO: genera/descomisiona según el nuevo
     //    máximo y persiste MaxRegisters en el backend. Así, el PUT posterior solo
@@ -216,7 +216,7 @@ export function TenantDetailPage() {
       {
         onSuccess: () => {
           updateTenantMutation.mutate(
-            { id, values: pendingValues, token },
+            { id, values: pendingValues },
             {
               onSuccess: () => {
                 notify.success(t("tenant_updated"))
