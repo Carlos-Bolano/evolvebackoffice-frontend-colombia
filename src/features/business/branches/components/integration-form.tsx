@@ -45,7 +45,7 @@ type Props = {
 }
 
 export function IntegrationForm({ branchId, platformCode, integration }: Props) {
-  const { t } = useTranslation("business-branches-config")
+  const { t } = useTranslation("business-branches")
   const [deleteOpen, setDeleteOpen] = useState(false)
 
   const isWoo = platformCode === "WOOCOMMERCE"
@@ -353,10 +353,10 @@ export function IntegrationForm({ branchId, platformCode, integration }: Props) 
             <AlertDialogDescription>{t("integration_delete_confirm_desc")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
+            <AlertDialogCancel>{t("config_cancel")}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} disabled={deleteMutation.isPending}>
               {deleteMutation.isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
-              {t("confirm")}
+              {t("config_confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

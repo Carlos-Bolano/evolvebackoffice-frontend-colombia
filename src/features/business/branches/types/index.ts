@@ -12,8 +12,6 @@ export interface Branch {
   adminUserId: string
   adminUserName: string
   createdAt: string
-  /** Zona horaria IANA (null = hereda la sede). */
-  timeZoneId?: string | null
 }
 
 export interface PagedBranches {

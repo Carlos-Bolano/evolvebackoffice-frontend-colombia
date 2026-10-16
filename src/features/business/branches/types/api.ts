@@ -15,8 +15,6 @@ export interface BranchResponseDto {
   adminUserPublicId: string
   adminUserName: string | null
   createdAt: string
-  /** Zona horaria IANA de la sucursal (null = hereda la sede). */
-  timeZoneId?: string | null
 }
 
 export interface CreateBranchDto {
@@ -26,8 +24,6 @@ export interface CreateBranchDto {
   address: string | null
   phone: string | null
   email: string | null
-  /** Zona horaria IANA (null/ausente = hereda la sede). */
-  timeZoneId?: string | null
 }
 
 export interface UpdateBranchDto {
@@ -36,8 +32,6 @@ export interface UpdateBranchDto {
   address: string | null
   phone: string | null
   email: string | null
-  /** Zona horaria IANA: null = no cambiar; '' = limpiar (hereda sede). */
-  timeZoneId?: string | null
   adminUserId: string | null
 }
 
