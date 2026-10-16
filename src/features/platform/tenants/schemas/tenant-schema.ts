@@ -8,7 +8,7 @@ export const tenantCreateSchema = (t: TFunction) =>
     phone: z.string().optional().default(""),
     address: z.string().optional().default(""),
     countryCode: z.string().optional().default(""),
-    maxRegisters: z.coerce.number().int().min(1, t("max_registers_min")),
+    maxRegisters: z.coerce.number().int().min(0, t("max_registers_min")).optional().default(0),
     adminIdentification: z.string().min(1, t("admin_identification_required")),
     subdomain: z.string().optional().default(""),
     identificationNumber: z.string().optional().default(""),

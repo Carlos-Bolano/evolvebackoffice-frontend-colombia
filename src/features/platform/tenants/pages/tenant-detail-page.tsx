@@ -1,38 +1,19 @@
 import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate, useParams } from "react-router-dom"
-import {
-  ArrowLeft,
-  Building2,
-  Eye,
-  Mail,
-  Phone,
-  MapPin,
-  Calendar,
-  Save,
-  Minus,
-  Plus,
-  Key,
-  Hash,
-  Shield,
-  AlertTriangle,
-  SquarePen,
-} from "lucide-react"
+import { ArrowLeft, Building2, Eye, Mail, Phone, MapPin, Calendar, Key, Hash, Shield, SquarePen } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Switch } from "@/components/ui/switch"
 import { ErrorState } from "@/components/ui/error-state"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { getTenant } from "@/features/platform/tenants/services/tenant.service"
-import { useTenantModules, useUpdateTenantModule } from "@/features/platform/tenants/hooks/use-tenant-modules"
+import { useTenantModules } from "@/features/platform/tenants/hooks/use-tenant-modules"
 import {
   useUpdateTenant,
   useSerialCodes,
-  useDecommissionSerial,
   useResetAdminCredentials,
   useAdjustSerialCodes,
 } from "@/features/platform/tenants/hooks/use-tenants"
@@ -43,8 +24,7 @@ import { notify } from "@/hooks/use-notify"
 import { formatDateTime } from "@/utils/format"
 import { isTenantOnlyModule } from "@/utils/module-scope"
 import { useTranslation } from "@/i18n/use-i18n"
-import type { TenantModule, TenantFormValues } from "../types"
-import type { UpdateTenantModuleDto } from "../types/api"
+import type { TenantFormValues } from "../types"
 
 export function TenantDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -53,8 +33,6 @@ export function TenantDetailPage() {
   const { t } = useTranslation("platform-tenants")
   const token = session?.accessToken
 
-  const [quantities, setQuantities] = useState<Record<string, number>>({})
-  const [decommissionReason, setDecommissionReason] = useState<Record<string, string>>({})
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [adjustDialogOpen, setAdjustDialogOpen] = useState(false)
   const [pendingValues, setPendingValues] = useState<TenantFormValues | null>(null)
@@ -81,85 +59,9 @@ export function TenantDetailPage() {
 
   const { data: serialCodes = [], isLoading: serialLoading } = useSerialCodes(id)
 
-  const updateModuleMutation = useUpdateTenantModule(token, tenantIdForModules)
-  const decommissionMutation = useDecommissionSerial()
   const resetAdminMutation = useResetAdminCredentials()
   const updateTenantMutation = useUpdateTenant()
   const adjustSerialsMutation = useAdjustSerialCodes()
-
-  const handleToggleEnabled = (moduleItem: TenantModule) => {
-    const newEnabled = !moduleItem.isEnabled
-    const body: UpdateTenantModuleDto = {
-      isEnabled: newEnabled,
-      // Los módulos de nivel tenant (p. ej. CREDITO) no tienen límite de
-      // sucursales, así que no se les fuerza una cantidad.
-      ...(newEnabled && !isTenantOnlyModule(moduleItem.moduleCode) && moduleItem.quantity < 1 ? { quantity: 1 } : {}),
-    }
-    updateModuleMutation.mutate(
-      // El endpoint PUT /api/tenant-modules/{moduleId} espera el PublicId del
-      // Module (no el del TenantModule): con el id del TenantModule el
-      // backend responde 404.
-      { modulePublicId: moduleItem.moduleId, body },
-      {
-        onSuccess: () => notify.success(t("module_updated")),
-        onError: (error) => notify.error(error instanceof Error ? error.message : t("module_update_error")),
-      }
-    )
-  }
-
-  const handleQuantityChange = (moduleId: string, value: number, isEnabled: boolean) => {
-    const minAllowed = isEnabled ? 1 : 0
-    const clamped = Math.max(minAllowed, value)
-    setQuantities((prev) => ({ ...prev, [moduleId]: clamped }))
-  }
-
-  const handleQuantityIncrement = (moduleId: string, current: number) => {
-    handleQuantityChange(moduleId, (quantities[moduleId] ?? current) + 1, true)
-  }
-
-  const handleQuantityDecrement = (moduleId: string, current: number, isEnabled: boolean) => {
-    const minAllowed = isEnabled ? 1 : 0
-    handleQuantityChange(moduleId, Math.max(minAllowed, (quantities[moduleId] ?? current) - 1), isEnabled)
-  }
-
-  const handleSaveQuantity = (moduleItem: TenantModule) => {
-    const newQuantity = quantities[moduleItem.id] ?? moduleItem.quantity
-    const body: UpdateTenantModuleDto = { quantity: newQuantity }
-    updateModuleMutation.mutate(
-      { modulePublicId: moduleItem.moduleId, body },
-      {
-        onSuccess: () => {
-          notify.success(t("module_updated"))
-          setQuantities((prev) => {
-            const next = { ...prev }
-            delete next[moduleItem.id]
-            return next
-          })
-        },
-        onError: (error) => notify.error(error instanceof Error ? error.message : t("module_update_error")),
-      }
-    )
-  }
-
-  const handleDecommission = (serialId: string) => {
-    if (!id) return
-    if (!window.confirm(t("decommission_confirm"))) return
-    const reason = decommissionReason[serialId] || undefined
-    decommissionMutation.mutate(
-      { tenantId: id, serialId, reason },
-      {
-        onSuccess: () => {
-          notify.success(t("decommission_success"))
-          setDecommissionReason((prev) => {
-            const next = { ...prev }
-            delete next[serialId]
-            return next
-          })
-        },
-        onError: (error) => notify.error(error instanceof Error ? error.message : t("decommission_error")),
-      }
-    )
-  }
 
   // Estados reales de PosSerialCode en el backend: Unassigned | Activated | Decommissioned.
   const serialStatusTone = (status: string) =>
@@ -242,11 +144,7 @@ export function TenantDetailPage() {
   }
 
   const isAnyMutating =
-    updateModuleMutation.isPending ||
-    decommissionMutation.isPending ||
-    resetAdminMutation.isPending ||
-    updateTenantMutation.isPending ||
-    adjustSerialsMutation.isPending
+    resetAdminMutation.isPending || updateTenantMutation.isPending || adjustSerialsMutation.isPending
 
   const summaryTiles = useMemo(() => {
     const enabled = modules.filter((m) => m.isEnabled).length
@@ -414,102 +312,15 @@ export function TenantDetailPage() {
                       <TableHead>{t("module_name")}</TableHead>
                       <TableHead>{t("module_enabled")}</TableHead>
                       <TableHead>{t("module_quantity")}</TableHead>
-                      <TableHead className="text-right">{t("actions")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {modules.map((moduleItem) => {
-                      const displayQuantity =
-                        quantities[moduleItem.id] ?? moduleItem.quantity ?? (moduleItem.isEnabled ? 1 : 0)
-                      const isDirty = quantities[moduleItem.id] !== undefined
-                      return (
-                        <TableRow key={moduleItem.id}>
-                          <TableCell>
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{moduleItem.moduleName}</span>
-                                <Badge tone="neutral" className="text-[10px]">
-                                  {moduleItem.moduleCode}
-                                </Badge>
-                              </div>
-                              {moduleItem.moduleDescription ? (
-                                <p className="text-sm text-muted-foreground">{moduleItem.moduleDescription}</p>
-                              ) : null}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Switch
-                              checked={moduleItem.isEnabled}
-                              onCheckedChange={() => handleToggleEnabled(moduleItem)}
-                              disabled={isAnyMutating}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            {isTenantOnlyModule(moduleItem.moduleCode) ? (
-                              <span className="text-xs text-muted-foreground">{t("module_scope_tenant")}</span>
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() =>
-                                    handleQuantityDecrement(moduleItem.id, moduleItem.quantity, moduleItem.isEnabled)
-                                  }
-                                  disabled={isAnyMutating}
-                                >
-                                  <Minus className="size-4" />
-                                </Button>
-                                <Input
-                                  type="number"
-                                  className="w-24 text-center"
-                                  min={moduleItem.isEnabled ? 1 : 0}
-                                  value={displayQuantity}
-                                  onChange={(e) =>
-                                    handleQuantityChange(moduleItem.id, Number(e.target.value), moduleItem.isEnabled)
-                                  }
-                                />
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() => handleQuantityIncrement(moduleItem.id, moduleItem.quantity)}
-                                  disabled={isAnyMutating}
-                                >
-                                  <Plus className="size-4" />
-                                </Button>
-                              </div>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {isTenantOnlyModule(moduleItem.moduleCode) ? null : (
-                              <Button
-                                size="sm"
-                                disabled={!isDirty || isAnyMutating}
-                                onClick={() => handleSaveQuantity(moduleItem)}
-                              >
-                                <Save className="size-4" />
-                                {t("save")}
-                              </Button>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-
-              <div className="grid gap-4 xl:hidden">
-                {modules.map((moduleItem) => {
-                  const displayQuantity =
-                    quantities[moduleItem.id] ?? moduleItem.quantity ?? (moduleItem.isEnabled ? 1 : 0)
-                  const isDirty = quantities[moduleItem.id] !== undefined
-                  return (
-                    <Card key={moduleItem.id} className="rounded-[24px] border-border/70 bg-background/45 shadow-none">
-                      <CardContent className="space-y-4 p-4 sm:p-5">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="space-y-2">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="text-base font-semibold text-foreground">{moduleItem.moduleName}</h3>
+                    {modules.map((moduleItem) => (
+                      <TableRow key={moduleItem.id}>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{moduleItem.moduleName}</span>
                               <Badge tone="neutral" className="text-[10px]">
                                 {moduleItem.moduleCode}
                               </Badge>
@@ -518,66 +329,59 @@ export function TenantDetailPage() {
                               <p className="text-sm text-muted-foreground">{moduleItem.moduleDescription}</p>
                             ) : null}
                           </div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm text-muted-foreground">{t("module_enabled")}</span>
-                            <Switch
-                              checked={moduleItem.isEnabled}
-                              onCheckedChange={() => handleToggleEnabled(moduleItem)}
-                              disabled={isAnyMutating}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="flex flex-wrap items-center justify-between gap-3">
+                        </TableCell>
+                        <TableCell>
+                          <Badge tone={moduleItem.isEnabled ? "success" : "neutral"}>
+                            {moduleItem.isEnabled ? t("status_active") : t("status_inactive")}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
                           {isTenantOnlyModule(moduleItem.moduleCode) ? (
-                            <span className="text-sm text-muted-foreground">{t("module_scope_tenant")}</span>
+                            <span className="text-xs text-muted-foreground">{t("module_scope_tenant")}</span>
                           ) : (
-                            <>
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm text-muted-foreground">{t("module_quantity")}:</span>
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() =>
-                                    handleQuantityDecrement(moduleItem.id, moduleItem.quantity, moduleItem.isEnabled)
-                                  }
-                                  disabled={isAnyMutating}
-                                >
-                                  <Minus className="size-4" />
-                                </Button>
-                                <Input
-                                  type="number"
-                                  className="w-24 text-center"
-                                  min={moduleItem.isEnabled ? 1 : 0}
-                                  value={displayQuantity}
-                                  onChange={(e) =>
-                                    handleQuantityChange(moduleItem.id, Number(e.target.value), moduleItem.isEnabled)
-                                  }
-                                />
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() => handleQuantityIncrement(moduleItem.id, moduleItem.quantity)}
-                                  disabled={isAnyMutating}
-                                >
-                                  <Plus className="size-4" />
-                                </Button>
-                              </div>
-                              <Button
-                                size="sm"
-                                disabled={!isDirty || isAnyMutating}
-                                onClick={() => handleSaveQuantity(moduleItem)}
-                              >
-                                <Save className="size-4" />
-                                {t("save")}
-                              </Button>
-                            </>
+                            <span className="text-sm text-foreground">
+                              {moduleItem.quantity ?? (moduleItem.isEnabled ? 1 : 0)}
+                            </span>
                           )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              <div className="grid gap-4 xl:hidden">
+                {modules.map((moduleItem) => (
+                  <Card key={moduleItem.id} className="rounded-[24px] border-border/70 bg-background/45 shadow-none">
+                    <CardContent className="space-y-4 p-4 sm:p-5">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-base font-semibold text-foreground">{moduleItem.moduleName}</h3>
+                            <Badge tone="neutral" className="text-[10px]">
+                              {moduleItem.moduleCode}
+                            </Badge>
+                          </div>
+                          {moduleItem.moduleDescription ? (
+                            <p className="text-sm text-muted-foreground">{moduleItem.moduleDescription}</p>
+                          ) : null}
                         </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
+                        <Badge tone={moduleItem.isEnabled ? "success" : "neutral"}>
+                          {moduleItem.isEnabled ? t("status_active") : t("status_inactive")}
+                        </Badge>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3 border-t pt-3">
+                        <span className="text-sm text-muted-foreground">{t("module_quantity")}</span>
+                        <span className="text-sm font-medium text-foreground">
+                          {isTenantOnlyModule(moduleItem.moduleCode)
+                            ? t("module_scope_tenant")
+                            : (moduleItem.quantity ?? (moduleItem.isEnabled ? 1 : 0))}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             </>
           )}
@@ -617,7 +421,6 @@ export function TenantDetailPage() {
                       <TableHead>{t("serial_activated")}</TableHead>
                       <TableHead>{t("serial_last_seen")}</TableHead>
                       <TableHead>{t("serial_created")}</TableHead>
-                      <TableHead className="text-right">{t("actions")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -643,34 +446,6 @@ export function TenantDetailPage() {
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {formatDateTime(serial.createdAt)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {serial.status !== "Decommissioned" && (
-                            <div className="flex items-center justify-end gap-2">
-                              <Input
-                                type="text"
-                                className="w-32 text-xs"
-                                placeholder={t("decommission_reason")}
-                                value={decommissionReason[serial.id] ?? ""}
-                                onChange={(e) =>
-                                  setDecommissionReason((prev) => ({
-                                    ...prev,
-                                    [serial.id]: e.target.value,
-                                  }))
-                                }
-                                disabled={isAnyMutating}
-                              />
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                disabled={isAnyMutating}
-                                onClick={() => handleDecommission(serial.id)}
-                              >
-                                <AlertTriangle className="size-4" />
-                                {t("decommission_serial")}
-                              </Button>
-                            </div>
-                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -707,31 +482,6 @@ export function TenantDetailPage() {
                           <span className="font-medium">{t("serial_created")}:</span> {formatDateTime(serial.createdAt)}
                         </div>
                       </div>
-                      {serial.status !== "Decommissioned" && (
-                        <div className="flex items-center gap-2 border-t pt-2">
-                          <Input
-                            type="text"
-                            className="flex-1 text-xs"
-                            placeholder={t("decommission_reason")}
-                            value={decommissionReason[serial.id] ?? ""}
-                            onChange={(e) =>
-                              setDecommissionReason((prev) => ({
-                                ...prev,
-                                [serial.id]: e.target.value,
-                              }))
-                            }
-                            disabled={isAnyMutating}
-                          />
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            disabled={isAnyMutating}
-                            onClick={() => handleDecommission(serial.id)}
-                          >
-                            <AlertTriangle className="size-4" />
-                          </Button>
-                        </div>
-                      )}
                     </CardContent>
                   </Card>
                 ))}

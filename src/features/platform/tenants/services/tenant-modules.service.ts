@@ -1,7 +1,7 @@
 import axios from "axios"
 
 import { appConfig } from "@/config/env"
-import type { TenantModuleDto, UpdateTenantModuleDto } from "@/features/platform/tenants/types/api"
+import type { TenantModuleDto } from "@/features/platform/tenants/types/api"
 import type { TenantModule } from "@/features/platform/tenants/types"
 
 type PagedResponse<T> = {
@@ -46,15 +46,4 @@ export async function getTenantModules(token: string, tenantId: string): Promise
   const { data } = await client.get<PagedResponse<TenantModuleDto> | TenantModuleDto[]>("/api/tenant-modules")
   const items = normalizeArray(data)
   return items.map(mapDtoToTenantModule)
-}
-
-export async function updateTenantModule(
-  token: string,
-  tenantId: string,
-  modulePublicId: string,
-  body: UpdateTenantModuleDto
-): Promise<TenantModule> {
-  const client = createPlatformClient(token, tenantId)
-  const { data } = await client.put<TenantModuleDto>(`/api/tenant-modules/${modulePublicId}`, body)
-  return mapDtoToTenantModule(data)
 }
