@@ -58,6 +58,8 @@ import businessBranchesConfigEs from "@/features/business/branches/config/i18n/e
 import businessBranchesConfigEn from "@/features/business/branches/config/i18n/en.json"
 import businessBranchesTerminalsEs from "@/features/business/branches/terminals/i18n/es.json"
 import businessBranchesTerminalsEn from "@/features/business/branches/terminals/i18n/en.json"
+import businessBranchesEs from "@/features/business/branches/i18n/es.json"
+import businessBranchesEn from "@/features/business/branches/i18n/en.json"
 import businessAiChatEs from "@/features/business/ai-chat/i18n/es.json"
 import businessAiChatEn from "@/features/business/ai-chat/i18n/en.json"
 
@@ -91,6 +93,7 @@ const resources = {
     "business-registers": businessRegistersEs,
     "business-branches-config": businessBranchesConfigEs,
     "business-branches-terminals": businessBranchesTerminalsEs,
+    "business-branches": businessBranchesEs,
     "business-ai-chat": businessAiChatEs,
   },
   en: {
@@ -122,6 +125,7 @@ const resources = {
     "business-registers": businessRegistersEn,
     "business-branches-config": businessBranchesConfigEn,
     "business-branches-terminals": businessBranchesTerminalsEn,
+    "business-branches": businessBranchesEn,
     "business-ai-chat": businessAiChatEn,
   },
 }
@@ -161,6 +165,7 @@ i18n.use(initReactI18next).init({
     "business-registers",
     "business-branches-config",
     "business-branches-terminals",
+    "business-branches",
     "business-ai-chat",
   ],
   defaultNS: "common",

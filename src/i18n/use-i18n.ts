@@ -28,6 +28,7 @@ export type Namespace =
   | "business-settings"
   | "business-branches-terminals"
   | "business-branches-config"
+  | "business-branches"
   | "business-users-catalog"
   | "business-customers"
   | "business-suppliers"
