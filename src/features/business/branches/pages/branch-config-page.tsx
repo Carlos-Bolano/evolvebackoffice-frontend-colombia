@@ -1,13 +1,12 @@
 import { useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
-import { ArrowLeft, CheckCircle2, Clock, Globe, Package, ShoppingCart, Tag, Trash2, Warehouse } from "lucide-react"
+import { Building2, CheckCircle2, Globe, MonitorCog, Package, ShoppingCart, Tag, Trash2, Warehouse } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ErrorState } from "@/components/ui/error-state"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -19,17 +18,13 @@ import {
   useRemoveModuleFromBranch,
   useTenantModules,
 } from "@/features/business/branches/hooks/use-branch-modules"
-import { useUpdateBranch } from "@/features/business/branches/hooks/use-branches"
 import { useBranchRegisters } from "@/features/business/branches/hooks/use-branch-terminals"
 import { useBranchIntegrationByPlatform } from "@/features/business/branches/hooks/use-branch-integrations"
 
-import { IntegrationForm } from "@/features/business/branches/config/components/integration-form"
+import { IntegrationForm } from "@/features/business/branches/components/integration-form"
 
 import { notify } from "@/hooks/use-notify"
 import { formatDateTime } from "@/utils/format"
-import { isTenantOnlyModule } from "@/utils/module-scope"
-import { getTimeZoneOptions, TIME_ZONE_AUTO } from "@/utils/timezones"
-import { getApiErrorMessage } from "@/utils/api-error"
 import { useTranslation } from "@/i18n/use-i18n"
 
 const MODULE_ICONS: Record<string, typeof Package> = {
@@ -44,36 +39,29 @@ function moduleIcon(code: string | null) {
   return MODULE_ICONS[code ?? ""] ?? Package
 }
 
-function registerStatusTone(status: string) {
+function serialStatusLabel(status: string, t: (key: string) => string) {
   switch (status) {
     case "Active":
-      return "success"
-    case "Locked":
-      return "danger"
+      return t("serials_status_active")
+    case "Activated":
+      return t("serials_status_activated")
+    case "Unassigned":
+      return t("serials_status_unassigned")
+    case "Decommissioned":
+      return t("serials_status_decommissioned")
     case "Maintenance":
-      return "warning"
-    default:
-      return "neutral"
-  }
-}
-
-function registerStatusKey(status: string) {
-  switch (status) {
-    case "Active":
-      return "serials_status_active"
-    case "Maintenance":
-      return "serials_status_maintenance"
+      return t("serials_status_maintenance")
     case "Locked":
-      return "serials_status_locked"
+      return t("serials_status_locked")
     default:
-      return "serials_status_inactive"
+      return status
   }
 }
 
 export function BranchConfigPage() {
   const { branchId } = useParams<{ branchId: string }>()
   const navigate = useNavigate()
-  const { t } = useTranslation("business-branches-config")
+  const { t } = useTranslation("business-branches")
 
   const [activeTab, setActiveTab] = useState("info")
 
@@ -89,12 +77,6 @@ export function BranchConfigPage() {
 
   const { data: tenantModules = [], isLoading: tenantModulesLoading } = useTenantModules()
 
-  // El tab Cluvi solo se muestra si el módulo CLUVI está habilitado para el
-  // tenant (licencia dada de baja en la consola de plataforma). Si la pestaña
-  // activa deja de existir se muestra "info" sin necesidad de un effect.
-  const cluviEnabled = !tenantModulesLoading && tenantModules.some((m) => m.moduleCode === "CLUVI" && m.isEnabled)
-  const effectiveTab = !cluviEnabled && activeTab === "cluvi" ? "info" : activeTab
-
   const { data: branchModules = [], isLoading: branchModulesLoading } = useBranchModules(branchId)
 
   const { data: registers = [], isLoading: registersLoading } = useBranchRegisters(branchId)
@@ -104,38 +86,6 @@ export function BranchConfigPage() {
 
   const assignMutation = useAssignModuleToBranch()
   const removeMutation = useRemoveModuleFromBranch()
-
-  // Zona horaria de la sucursal: draft con patrón "derived state" (sin effect)
-  // para no pisar el valor del servidor mientras carga ni violar reglas lint.
-  const updateBranchMutation = useUpdateBranch()
-  const [tzDraft, setTzDraft] = useState<string | null>(null)
-  const selectedTz = tzDraft ?? branch?.timeZoneId ?? ""
-  const tzDirty = tzDraft !== null && tzDraft !== (branch?.timeZoneId ?? "")
-
-  const handleSaveTimeZone = () => {
-    if (!branch || !branchId) return
-    updateBranchMutation.mutate(
-      {
-        id: branchId,
-        payload: {
-          name: branch.name,
-          identification: branch.identification,
-          address: branch.address,
-          phone: branch.phone,
-          email: branch.email,
-          adminUserId: branch.adminUserId,
-          timeZoneId: selectedTz,
-        },
-      },
-      {
-        onSuccess: () => {
-          setTzDraft(selectedTz)
-          notify.success(t("time_zone_saved"))
-        },
-        onError: (error) => notify.error(getApiErrorMessage(error, t("time_zone_error"))),
-      }
-    )
-  }
 
   const assignedTenantModuleIds = new Set(branchModules.map((bm) => bm.tenantModuleId))
 
@@ -163,81 +113,85 @@ export function BranchConfigPage() {
 
   if (branchError || (!branchLoading && !branch)) {
     return (
-      <div className="space-y-6">
-        <Button variant="ghost" onClick={() => navigate("/business/settings")}>
-          <ArrowLeft className="size-4" />
-          {t("back_to_branches")}
-        </Button>
-        <ErrorState
-          eyebrow="Branch"
-          title={t("branch_not_found")}
-          description={t("branch_not_found_desc")}
-          action={<Button onClick={() => navigate("/business/settings/registers")}>{t("back_to_branches")}</Button>}
-        />
-      </div>
+      <ErrorState
+        eyebrow="Branch"
+        title={t("config_branch_not_found")}
+        description={t("config_branch_not_found_desc")}
+        action={<Button onClick={() => navigate("/business/settings/branches")}>{t("config_back_to_branches")}</Button>}
+      />
     )
   }
 
   return (
-    <div className="space-y-6">
-      <Button variant="ghost" onClick={() => navigate(-1)}>
-        <ArrowLeft className="size-4" />
-        {t("back_to_branches")}
-      </Button>
-
-      <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-        <Button
-          type="button"
-          variant="link"
-          className="h-auto p-0 text-muted-foreground hover:text-foreground"
-          onClick={() => navigate("/business/settings/registers")}
-        >
-          {t("breadcrumb_branches")}
-        </Button>
-        <span>/</span>
-        <span>{branchLoading ? <Skeleton className="inline-block h-4 w-32" /> : branch?.name}</span>
-        <span>/</span>
-        <span className="font-medium text-foreground">{t("breadcrumb_config")}</span>
-      </div>
-
-      <Card className="overflow-hidden">
-        <CardContent className="p-5 sm:p-6 lg:p-8">
+    <div className="space-y-5">
+      <Card className="relative overflow-hidden border-border/80 bg-card/70 shadow-none">
+        <div className="pointer-events-none absolute -top-24 -right-20 size-80 rounded-full border border-primary/10 bg-primary/[0.035]" />
+        <CardContent className="relative grid gap-6 p-5 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center lg:p-8">
           {branchLoading ? (
-            <div className="space-y-3">
-              <Skeleton className="h-9 w-2/3" />
-              <Skeleton className="h-5 w-1/2" />
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-3xl font-semibold text-balance text-foreground">{branch?.name}</h1>
-                <Badge tone={branch?.isActive ? "success" : "warning"}>
-                  {branch?.isActive ? t("info_active") : t("info_inactive")}
-                </Badge>
+            <>
+              <div className="space-y-3">
+                <Skeleton className="h-9 w-2/3" />
+                <Skeleton className="h-5 w-1/2" />
               </div>
-              <p className="text-sm text-muted-foreground">{t("page_desc")}</p>
-            </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Skeleton className="h-20 w-24 rounded-2xl" />
+                <Skeleton className="h-20 w-24 rounded-2xl" />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-start gap-4">
+                <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl border border-primary/15 bg-primary/10 text-primary shadow-sm shadow-primary/10">
+                  <Building2 className="size-5" />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <h1 className="text-3xl font-semibold tracking-tight text-balance text-foreground">
+                      {branch?.name}
+                    </h1>
+                    <Badge tone={branch?.isActive ? "success" : "warning"}>
+                      {branch?.isActive ? t("info_active") : t("info_inactive")}
+                    </Badge>
+                  </div>
+                  <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{t("config_page_desc")}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                <HeroMetric
+                  icon={Package}
+                  label={t("tab_modules")}
+                  value={branchModules.length}
+                  loading={branchModulesLoading}
+                />
+                <HeroMetric
+                  icon={MonitorCog}
+                  label={t("tab_serials")}
+                  value={registers.length}
+                  loading={registersLoading}
+                />
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
 
-      <Tabs value={effectiveTab} onValueChange={setActiveTab}>
-        <TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5">
+        <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-2xl border border-border/70 bg-card/70 p-1">
           <TabsTrigger value="info">{t("tab_info")}</TabsTrigger>
           <TabsTrigger value="modules">{t("tab_modules")}</TabsTrigger>
           <TabsTrigger value="serials">{t("tab_serials")}</TabsTrigger>
           <TabsTrigger value="woocommerce">{t("tab_woocommerce")}</TabsTrigger>
-          {cluviEnabled && <TabsTrigger value="cluvi">{t("tab_cluvi")}</TabsTrigger>}
+          <TabsTrigger value="cluvi">{t("tab_cluvi")}</TabsTrigger>
         </TabsList>
 
         {/* ───── TAB: INFO ───── */}
-        <TabsContent value="info">
-          <Card>
-            <CardHeader>
+        <TabsContent value="info" className="mt-0 outline-none">
+          <Card className="border-border/80 bg-card/70 shadow-none">
+            <CardHeader className="border-b border-border/70 pb-5">
               <CardTitle>{t("info_title")}</CardTitle>
               <CardDescription>{t("info_desc")}</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4 sm:p-6">
               {branchLoading ? (
                 <div className="space-y-4">
                   {Array.from({ length: 5 }).map((_, i) => (
@@ -245,12 +199,13 @@ export function BranchConfigPage() {
                   ))}
                 </div>
               ) : (
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-3 sm:grid-cols-2">
                   <InfoRow label={t("info_name")} value={branch?.name} />
                   <InfoRow label={t("info_identification")} value={branch?.identification} />
                   <InfoRow label={t("info_address")} value={branch?.address} />
                   <InfoRow label={t("info_phone")} value={branch?.phone} />
                   <InfoRow label={t("info_email")} value={branch?.email} />
+                  <InfoRow label={t("info_admin")} value={branch?.adminUserName} />
                   <InfoRow
                     label={t("info_status")}
                     value={
@@ -267,57 +222,17 @@ export function BranchConfigPage() {
               )}
             </CardContent>
           </Card>
-
-          {/* ───── Zona horaria de la sucursal (día local para reportes/IA) ───── */}
-          {!branchLoading && branch ? (
-            <Card className="mt-6">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="size-5" />
-                  {t("time_zone")}
-                </CardTitle>
-                <CardDescription>{t("time_zone_hint")}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                <div className="w-full max-w-sm space-y-2">
-                  <Select
-                    value={selectedTz || TIME_ZONE_AUTO}
-                    onValueChange={(value) => setTzDraft(value === TIME_ZONE_AUTO ? "" : value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={t("time_zone_placeholder")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={TIME_ZONE_AUTO}>{t("time_zone_auto")}</SelectItem>
-                      {getTimeZoneOptions().map((zone) => (
-                        <SelectItem key={zone} value={zone}>
-                          {zone}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button
-                  type="button"
-                  onClick={handleSaveTimeZone}
-                  disabled={updateBranchMutation.isPending || !tzDirty}
-                >
-                  {updateBranchMutation.isPending ? t("time_zone_saving") : t("time_zone_save")}
-                </Button>
-              </CardContent>
-            </Card>
-          ) : null}
         </TabsContent>
 
         {/* ───── TAB: MODULES ───── */}
-        <TabsContent value="modules">
+        <TabsContent value="modules" className="mt-0 outline-none">
           <div className="grid gap-6 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
+            <Card className="border-border/80 bg-card/70 shadow-none">
+              <CardHeader className="border-b border-border/70 pb-5">
                 <CardTitle>{t("modules_assigned")}</CardTitle>
                 <CardDescription>{t("modules_desc")}</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 sm:p-5">
                 {branchModulesLoading ? (
                   <div className="space-y-3">
                     {Array.from({ length: 2 }).map((_, i) => (
@@ -337,7 +252,7 @@ export function BranchConfigPage() {
                       return (
                         <div
                           key={bm.id}
-                          className="flex items-center justify-between rounded-xl border border-border/70 bg-card/60 px-4 py-3"
+                          className="flex items-center justify-between rounded-2xl border border-border/70 bg-background/45 px-4 py-3 transition-colors hover:border-primary/20"
                         >
                           <div className="flex items-center gap-3">
                             <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -366,11 +281,11 @@ export function BranchConfigPage() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
+            <Card className="border-border/80 bg-card/70 shadow-none">
+              <CardHeader className="border-b border-border/70 pb-5">
                 <CardTitle>{t("modules_available")}</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 sm:p-5">
                 {tenantModulesLoading ? (
                   <div className="space-y-3">
                     {Array.from({ length: 3 }).map((_, i) => (
@@ -382,16 +297,14 @@ export function BranchConfigPage() {
                 ) : (
                   <div className="space-y-2">
                     {tenantModules
-                      // Los módulos de nivel tenant (p. ej. CREDITO) se habilitan
-                      // en la plataforma, nunca se asignan a una sucursal.
-                      .filter((tm) => tm.isEnabled && !isTenantOnlyModule(tm.moduleCode))
+                      .filter((tm) => tm.isEnabled)
                       .map((tm) => {
                         const Icon = moduleIcon(tm.moduleCode)
                         const isAssigned = assignedTenantModuleIds.has(Number(tm.id))
                         return (
                           <div
                             key={tm.id}
-                            className="flex items-center justify-between rounded-xl border border-border/70 bg-card/60 px-4 py-3"
+                            className="flex items-center justify-between rounded-2xl border border-border/70 bg-background/45 px-4 py-3 transition-colors hover:border-primary/20"
                           >
                             <div className="flex items-center gap-3">
                               <div className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
@@ -428,13 +341,13 @@ export function BranchConfigPage() {
         </TabsContent>
 
         {/* ───── TAB: SERIALS ───── */}
-        <TabsContent value="serials">
-          <Card>
-            <CardHeader>
+        <TabsContent value="serials" className="mt-0 outline-none">
+          <Card className="border-border/80 bg-card/70 shadow-none">
+            <CardHeader className="border-b border-border/70 pb-5">
               <CardTitle>{t("serials_title")}</CardTitle>
               <CardDescription>{t("serials_desc")}</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4 sm:p-5">
               {registersLoading ? (
                 <div className="space-y-3">
                   {Array.from({ length: 3 }).map((_, i) => (
@@ -454,7 +367,6 @@ export function BranchConfigPage() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>{t("serials_code")}</TableHead>
-                          <TableHead>{t("serials_device")}</TableHead>
                           <TableHead>{t("serials_status")}</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -462,9 +374,10 @@ export function BranchConfigPage() {
                         {registers.map((r) => (
                           <TableRow key={r.id}>
                             <TableCell className="font-mono text-sm">{r.serialCode ?? r.code}</TableCell>
-                            <TableCell className="text-muted-foreground">{r.deviceIdentifier || "—"}</TableCell>
                             <TableCell>
-                              <Badge tone={registerStatusTone(r.status)}>{t(registerStatusKey(r.status))}</Badge>
+                              <Badge tone={r.status === "Active" ? "success" : "warning"}>
+                                {serialStatusLabel(r.status, t)}
+                              </Badge>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -475,13 +388,12 @@ export function BranchConfigPage() {
                     {registers.map((r) => (
                       <Card key={r.id} className="rounded-2xl border-border/70 bg-background/45 shadow-none">
                         <CardContent className="p-4">
-                          <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center justify-between">
                             <span className="font-mono text-sm">{r.serialCode ?? r.code}</span>
-                            <Badge tone={registerStatusTone(r.status)}>{t(registerStatusKey(r.status))}</Badge>
+                            <Badge tone={r.status === "Active" ? "success" : "warning"}>
+                              {serialStatusLabel(r.status, t)}
+                            </Badge>
                           </div>
-                          <p className="mt-2 text-xs text-muted-foreground">
-                            {t("serials_device")}: {r.deviceIdentifier || "—"}
-                          </p>
                         </CardContent>
                       </Card>
                     ))}
@@ -493,7 +405,7 @@ export function BranchConfigPage() {
         </TabsContent>
 
         {/* ───── TAB: WOOCOMMERCE ───── */}
-        <TabsContent value="woocommerce">
+        <TabsContent value="woocommerce" className="mt-0 outline-none">
           {wooLoading ? (
             <Card>
               <CardContent className="p-8">
@@ -506,19 +418,17 @@ export function BranchConfigPage() {
         </TabsContent>
 
         {/* ───── TAB: CLUVI ───── */}
-        {cluviEnabled && (
-          <TabsContent value="cluvi">
-            {cluviLoading ? (
-              <Card>
-                <CardContent className="p-8">
-                  <Skeleton className="h-64 w-full rounded-xl" />
-                </CardContent>
-              </Card>
-            ) : (
-              <IntegrationForm branchId={branchId!} platformCode="CLUVI" integration={cluviIntegration} />
-            )}
-          </TabsContent>
-        )}
+        <TabsContent value="cluvi" className="mt-0 outline-none">
+          {cluviLoading ? (
+            <Card>
+              <CardContent className="p-8">
+                <Skeleton className="h-64 w-full rounded-xl" />
+              </CardContent>
+            </Card>
+          ) : (
+            <IntegrationForm branchId={branchId!} platformCode="CLUVI" integration={cluviIntegration} />
+          )}
+        </TabsContent>
       </Tabs>
     </div>
   )
@@ -528,9 +438,35 @@ export function BranchConfigPage() {
 
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-border/70 bg-card/60 px-4 py-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 text-sm font-medium text-foreground">{value ?? "—"}</p>
+    <div className="rounded-2xl border border-border/70 bg-background/40 px-4 py-3.5 transition-colors hover:border-primary/20">
+      <p className="text-[10px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">{label}</p>
+      <p className="mt-2 text-sm font-medium text-foreground">{value ?? "—"}</p>
+    </div>
+  )
+}
+
+function HeroMetric({
+  icon: Icon,
+  label,
+  value,
+  loading = false,
+}: {
+  icon: typeof Package
+  label: string
+  value: number
+  loading?: boolean
+}) {
+  return (
+    <div className="min-w-24 rounded-2xl border border-border/70 bg-background/45 px-3 py-3 sm:min-w-28 sm:px-4">
+      <Icon className="size-3.5 text-primary" />
+      <p className="mt-2 truncate text-[9px] font-semibold tracking-[0.14em] text-muted-foreground uppercase sm:text-[10px]">
+        {label}
+      </p>
+      {loading ? (
+        <Skeleton className="mt-2 h-5 w-6" />
+      ) : (
+        <p className="mt-1 text-xl font-semibold tracking-tight">{value}</p>
+      )}
     </div>
   )
 }

@@ -28,8 +28,9 @@ import { DeliveriesPage } from "@/features/business/orders/pages/deliveries-page
 import { CourierMobilePage } from "@/features/business/orders/pages/courier-mobile-page"
 import { DeliveryOperationsPage } from "@/features/business/orders/pages/delivery-operations-page"
 import { DeliveryRoutesPage } from "@/features/business/orders/pages/delivery-routes-page"
-import { BranchTerminalSettingsPage } from "@/features/business/branches/terminals/pages/branch-terminal-settings-page"
-import { BranchConfigPage } from "@/features/business/branches/config/pages/branch-config-page"
+import { BranchTerminalSettingsPage } from "@/features/business/branches/pages/branch-terminal-settings-page"
+import { BranchConfigPage } from "@/features/business/branches/pages/branch-config-page"
+import { BranchesPage } from "@/features/business/branches/pages/branches-page"
 import { AiChatPage } from "@/features/business/ai-chat/pages/ai-chat-page"
 import { MarketingPage } from "@/features/marketing/pages/marketing-page"
 import { TenantsPage } from "@/features/platform/tenants/pages/tenants-page"
@@ -119,6 +120,7 @@ function AppRoutesContent() {
             <Route path="/business/reports" element={<ReportsPage />} />
             <Route path="/business/ai-chat" element={<AiChatPage />} />
             <Route path="/business/settings" element={<SettingsPage />} />
+            <Route path="/business/settings/branches" element={<BranchesPage />} />
             <Route path="/business/settings/registers" element={<RegistersPage />} />
             <Route path="/business/settings/payment-methods" element={<PaymentMethodsPage />} />
             <Route path="/business/branches/:branchId/settings/terminals" element={<BranchTerminalSettingsPage />} />
