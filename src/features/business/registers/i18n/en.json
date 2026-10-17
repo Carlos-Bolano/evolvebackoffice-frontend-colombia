@@ -42,6 +42,7 @@
   "choose_status": "Select status",
   "search_placeholder": "Search terminal by name, code or branch...",
   "no_results": "No terminals found",
+  "search_desc": "Try another name.",
   "results": "results",
   "previous": "Previous",
   "next": "Next",
