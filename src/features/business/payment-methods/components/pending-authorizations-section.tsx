@@ -19,7 +19,7 @@ export function PendingAuthorizationsSection() {
   const items = data ?? []
 
   return (
-    <section className="mt-6 space-y-3 rounded-xl border border-border/60 p-4">
+    <section className="space-y-3 rounded-xl border border-border/60 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
