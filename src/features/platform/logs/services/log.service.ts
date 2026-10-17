@@ -1,7 +1,9 @@
 import { api } from "@/config/axios-client"
 import type {
+  ExplainLogResult,
   LogsFilters,
   PagedLogsResponse,
+  SystemLogAiExplanation,
   SystemLogDetail,
   SystemLogTenantOption,
   SystemLogsSummary,
@@ -49,7 +51,19 @@ export async function getLog(id: number): Promise<SystemLogDetail> {
   return response.data
 }
 
-export async function explainLog(id: number): Promise<string> {
-  const response = await api.post<{ explanation: string }>(`/api/logs/${id}/explain`)
-  return response.data.explanation
+/** Explicación de IA ya guardada del evento, sin consumir el proveedor (null si aún no existe). */
+export async function getLogExplanation(id: number): Promise<SystemLogAiExplanation | null> {
+  const response = await api.get<SystemLogAiExplanation | "">(`/api/logs/${id}/explanation`)
+  return response.data ? (response.data as SystemLogAiExplanation) : null
+}
+
+/**
+ * Explica un evento con IA. Por defecto devuelve la explicación guardada si ya
+ * existe (cached=true); con refresh=true la regenera y la sobrescribe.
+ */
+export async function explainLog(id: number, refresh = false): Promise<ExplainLogResult> {
+  const response = await api.post<ExplainLogResult>(`/api/logs/${id}/explain`, null, {
+    params: refresh ? { refresh: true } : undefined,
+  })
+  return response.data
 }

@@ -20,6 +20,16 @@ import type { ChartSpec } from "../types"
 
 const SERIES_COLORS = ["#2563eb", "#8b5cf6", "#06b6d4", "#f59e0b", "#ef4444"]
 
+// Estilo compartido de los tooltips para que combinen con el tema.
+const TOOLTIP_STYLE = {
+  borderRadius: 10,
+  border: "1px solid hsl(var(--border))",
+  background: "hsl(var(--background))",
+  fontSize: 11,
+  padding: "6px 10px",
+  boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+} as const
+
 interface ChatChartBlockProps {
   chart: ChartSpec
   className?: string
@@ -45,10 +55,19 @@ export function ChatChartBlock({ chart, className }: ChatChartBlockProps) {
   const isPie = chart.type === "pie"
 
   return (
-    <div className={cn("rounded-xl border border-border/70 bg-background/80 p-3 shadow-sm", className)}>
-      {chart.title ? <p className="mb-2 text-xs font-semibold text-foreground">{chart.title}</p> : null}
+    <div
+      className={cn(
+        "overflow-hidden rounded-xl border border-border/70 bg-gradient-to-b from-background to-muted/30 shadow-sm",
+        className
+      )}
+    >
+      {chart.title ? (
+        <div className="border-b border-border/60 px-3 py-2">
+          <p className="text-xs font-semibold text-foreground">{chart.title}</p>
+        </div>
+      ) : null}
 
-      <div className="h-56 w-full">
+      <div className="h-56 w-full p-2">
         <ResponsiveContainer width="100%" height="100%">
           {isPie ? (
             <PieChart>
@@ -58,15 +77,17 @@ export function ChatChartBlock({ chart, className }: ChatChartBlockProps) {
                 nameKey="label"
                 cx="50%"
                 cy="50%"
+                innerRadius={45}
                 outerRadius={80}
+                paddingAngle={2}
                 label={(entry) => `${entry.name}`}
               >
                 {data.map((_, index) => (
                   <Cell key={index} fill={SERIES_COLORS[index % SERIES_COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip formatter={(value) => formatCurrencyCompact(Number(value))} />
-              <Legend />
+              <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(value) => formatCurrencyCompact(Number(value))} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
             </PieChart>
           ) : chart.type === "bar" ? (
             <BarChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
@@ -87,8 +108,8 @@ export function ChatChartBlock({ chart, className }: ChatChartBlockProps) {
                 fontSize={10}
                 tickFormatter={(v: number) => formatCurrencyCompact(v)}
               />
-              <Tooltip formatter={(value) => formatCurrencyCompact(Number(value))} />
-              <Legend />
+              <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(value) => formatCurrencyCompact(Number(value))} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
               {chart.series.map((series, index) => (
                 <Bar
                   key={series.name}
@@ -117,8 +138,8 @@ export function ChatChartBlock({ chart, className }: ChatChartBlockProps) {
                 fontSize={10}
                 tickFormatter={(v: number) => formatCurrencyCompact(v)}
               />
-              <Tooltip formatter={(value) => formatCurrencyCompact(Number(value))} />
-              <Legend />
+              <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(value) => formatCurrencyCompact(Number(value))} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
               {chart.series.map((series, index) => (
                 <Line
                   key={series.name}

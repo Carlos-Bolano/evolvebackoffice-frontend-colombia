@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Markdown } from "@/components/ui/markdown"
-import { useExplainLog, useLogDetail } from "../hooks/use-logs"
+import { useExplainLog, useLogDetail, useLogExplanation } from "../hooks/use-logs"
 import { LEVEL_LABEL_KEY, LEVEL_TONE } from "../constants"
 import { notify } from "@/hooks/use-notify"
 import { cn } from "@/lib/utils"
@@ -22,16 +22,20 @@ interface LogDetailDialogProps {
 export function LogDetailDialog({ eventId, onOpenChange }: LogDetailDialogProps) {
   const { t } = useTranslation("platform-logs")
   const { data, isLoading } = useLogDetail(eventId)
+  // Explicación YA guardada del evento: se muestra sin consumir el proveedor
+  // de IA. Solo se regenera si el administrador pulsa "Explicar de nuevo".
+  const cachedExplanation = useLogExplanation(eventId)
   const explainLog = useExplainLog()
   // Estado indexado por evento: cambiar de evento descarta automáticamente
-  // la explicación anterior sin necesidad de un effect con setState.
+  // la explicación recién generada sin necesidad de un effect con setState.
   const [explanationByEvent, setExplanationByEvent] = useState<{ id: number | null; text: string | null }>({
     id: null,
     text: null,
   })
 
-  const explanation = explanationByEvent.id === eventId ? explanationByEvent.text : null
-  const isExplaining = explainLog.isPending && explainLog.variables === eventId
+  const generated = explanationByEvent.id === eventId ? explanationByEvent.text : null
+  const explanation = generated ?? cachedExplanation.data?.explanation ?? null
+  const isExplaining = explainLog.isPending && explainLog.variables?.id === eventId
   // Panel lateral visible mientras se genera o cuando ya hay explicación.
   const showExplanationPanel = isExplaining || explanation !== null
 
@@ -53,10 +57,15 @@ export function LogDetailDialog({ eventId, onOpenChange }: LogDetailDialogProps)
   const handleExplain = () => {
     if (eventId === null) return
     const targetId = eventId
-    explainLog.mutate(targetId, {
-      onSuccess: (text) => setExplanationByEvent({ id: targetId, text }),
-      onError: (error) => notify.error(getApiErrorMessage(error, t("explain_error"))),
-    })
+    // Si ya hay una explicación guardada, este clic la regenera y sobrescribe.
+    const refresh = explanation !== null
+    explainLog.mutate(
+      { id: targetId, refresh },
+      {
+        onSuccess: (result) => setExplanationByEvent({ id: targetId, text: result.explanation }),
+        onError: (error) => notify.error(getApiErrorMessage(error, t("explain_error"))),
+      }
+    )
   }
 
   // El componente no se desmonta al cerrar el modal: sin este reset, la

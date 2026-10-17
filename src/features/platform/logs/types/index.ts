@@ -84,3 +84,19 @@ export interface PagedLogsResponse {
   totalCount: number
   totalPages: number
 }
+
+/** Explicación de IA guardada de un evento (GET /api/logs/{id}/explanation). */
+export interface SystemLogAiExplanation {
+  systemLogId: number
+  explanation: string
+  createdUtc: string
+  updatedUtc: string
+}
+
+/** Resultado de explicar un evento con IA (POST /api/logs/{id}/explain). */
+export interface ExplainLogResult {
+  explanation: string
+  /** true = se devolvió la explicación guardada sin consumir el proveedor. */
+  cached: boolean
+  generatedAtUtc: string
+}
