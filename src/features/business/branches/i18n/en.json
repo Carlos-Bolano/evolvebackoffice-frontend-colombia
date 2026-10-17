@@ -56,7 +56,7 @@
   "results": "{{count}} results",
   "previous": "Previous",
   "next": "Next",
-  "page_info": "Page {{page}} of {{totalPages}}",
+  "list_total": "{{total}} branches",
   "empty_title": "No branches yet",
   "empty_desc": "Create the first branch to organize operations and its POS terminals.",
   "empty_search_title": "No branches found",
