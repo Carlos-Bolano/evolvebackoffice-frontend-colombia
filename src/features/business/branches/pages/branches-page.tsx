@@ -1,18 +1,6 @@
 import { useDeferredValue, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import {
-  Building2,
-  CheckCircle2,
-  CircleEllipsis,
-  MonitorCog,
-  Plus,
-  Power,
-  RefreshCw,
-  Search,
-  Settings2,
-  SquarePen,
-  XCircle,
-} from "lucide-react"
+import { Building2, CheckCircle2, Plus, RefreshCw, XCircle } from "lucide-react"
 
 import {
   AlertDialog,
@@ -24,22 +12,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { BackLink } from "@/components/ui/back-link"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { ErrorState } from "@/components/ui/error-state"
-import { Input } from "@/components/ui/input"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { DataTable } from "@/components/data-table"
+import { EntityListLayout } from "@/components/share"
 import { BranchFormDialog } from "@/features/business/branches/components/branch-form-dialog"
+import { buildBranchColumns, type BranchPendingAction } from "@/features/business/branches/components/branches-columns"
 import {
   useActivateBranch,
   useBranches,
@@ -55,8 +33,6 @@ import { notify } from "@/hooks/use-notify"
 
 const PAGE_SIZE = 10
 
-type PendingAction = "activate" | "deactivate"
-
 export function BranchesPage() {
   const { t } = useTranslation("business-branches")
   const navigate = useNavigate()
@@ -65,7 +41,7 @@ export function BranchesPage() {
   const deferredSearch = useDeferredValue(search.trim())
   const [formOpen, setFormOpen] = useState(false)
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null)
-  const [pendingAction, setPendingAction] = useState<{ branch: Branch; type: PendingAction } | null>(null)
+  const [pendingAction, setPendingAction] = useState<{ branch: Branch; type: BranchPendingAction } | null>(null)
 
   const listOptions = useMemo(
     () => (deferredSearch ? { searchField: "name", searchValue: deferredSearch } : {}),
@@ -150,6 +126,13 @@ export function BranchesPage() {
     setSelectedBranch(null)
   }
 
+  const columns = buildBranchColumns(t, {
+    isMutating,
+    onEdit: openEdit,
+    onNavigate: navigate,
+    onRequestAction: (branch, type) => setPendingAction({ branch, type }),
+  })
+
   if (isError && !isLoading) {
     return (
       <ErrorState
@@ -167,205 +150,53 @@ export function BranchesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <Card className="overflow-hidden border-border/80 bg-card/70 shadow-none">
-        <CardHeader className="relative overflow-hidden border-b border-border/70 px-5 pt-6 pb-5 sm:px-7 sm:pt-7">
-          <div className="pointer-events-none absolute -top-16 -right-14 size-64 rounded-full border border-primary/10 bg-primary/[0.035]" />
-          <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-            <div className="relative min-w-0 space-y-3 xl:flex-1">
-              <BackLink to="/business/settings">{t("back_to_settings")}</BackLink>
-              <div className="space-y-1">
-                <CardTitle className="text-3xl font-semibold tracking-tight text-balance text-foreground">
-                  {t("page_title")}
-                </CardTitle>
-                <CardDescription className="max-w-2xl text-sm leading-6 text-muted-foreground">
-                  {t("page_desc")}
-                </CardDescription>
-              </div>
-            </div>
-            <div className="z-10 grid shrink-0 grid-cols-3 gap-2.5 sm:gap-3 xl:w-fit">
-              <SummaryStat
-                icon={Building2}
-                tone="info"
-                label={t("total_branches")}
-                value={totalCount}
-                loading={isLoading}
-              />
-              <SummaryStat
-                icon={CheckCircle2}
-                tone="success"
-                label={t("active_on_page")}
-                value={activeOnPage}
-                loading={isLoading}
-              />
-              <SummaryStat
-                icon={XCircle}
-                tone="warning"
-                label={t("inactive_on_page")}
-                value={inactiveOnPage}
-                loading={isLoading}
-              />
-            </div>
-          </div>
-        </CardHeader>
-
-        <CardContent className="space-y-5 p-4 sm:p-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative max-w-xl flex-1">
-              <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder={t("search_placeholder")}
-                className="pl-9"
-              />
-            </div>
-
+    <>
+      <EntityListLayout
+        back={{ to: "/business/settings", label: t("back_to_settings") }}
+        title={t("page_title")}
+        description={t("page_desc")}
+        stats={[
+          { icon: Building2, tone: "info", label: t("total_branches"), value: totalCount },
+          { icon: CheckCircle2, tone: "success", label: t("active_on_page"), value: activeOnPage },
+          { icon: XCircle, tone: "warning", label: t("inactive_on_page"), value: inactiveOnPage },
+        ]}
+        toolbar={{
+          search: { value: search, onChange: setSearch, placeholder: t("search_placeholder") },
+          actions: (
             <Button onClick={openCreate} disabled={isMutating} className="relative shadow-sm shadow-primary/20">
               <Plus className="size-4" />
               {t("create")}
             </Button>
-          </div>
-
-          {isLoading ? (
-            <BranchesSkeleton />
-          ) : branches.length === 0 ? (
-            <EmptyState hasSearch={Boolean(deferredSearch)} onCreate={openCreate} t={t} />
-          ) : (
-            <>
-              <div className="hidden overflow-hidden rounded-2xl border border-border/70 xl:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("branch_label")}</TableHead>
-                      <TableHead>{t("contact_label")}</TableHead>
-                      <TableHead>{t("admin_label")}</TableHead>
-                      <TableHead>{t("status_label")}</TableHead>
-                      <TableHead className="text-right">{t("actions")}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {branches.map((branch) => (
-                      <TableRow key={branch.id} className="group transition-colors hover:bg-muted/40">
-                        <TableCell>
-                          <BranchIdentity branch={branch} />
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          <div className="space-y-1">
-                            <p>{branch.email || branch.phone || "—"}</p>
-                            {branch.address ? <p className="max-w-64 truncate text-xs">{branch.address}</p> : null}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">{branch.adminUserName || "—"}</TableCell>
-                        <TableCell>
-                          <BranchStatus active={branch.isActive} t={t} />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <BranchActions
-                            branch={branch}
-                            disabled={isMutating}
-                            onEdit={openEdit}
-                            onNavigate={navigate}
-                            onRequestAction={(target, type) => setPendingAction({ branch: target, type })}
-                            t={t}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-
-              <div className="grid gap-4 xl:hidden">
-                {branches.map((branch) => (
-                  <Card
-                    key={branch.id}
-                    className="rounded-[24px] border-border/70 bg-background/45 shadow-none transition-colors hover:border-primary/25"
-                  >
-                    <CardContent className="space-y-4 p-4 sm:p-5">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <BranchIdentity branch={branch} />
-                        <BranchStatus active={branch.isActive} t={t} />
-                      </div>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <Meta label={t("contact_label")} value={branch.email || branch.phone || "—"} />
-                        <Meta label={t("admin_label")} value={branch.adminUserName || "—"} />
-                        {branch.address ? <Meta label={t("address_label")} value={branch.address} /> : null}
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openEdit(branch)}
-                          disabled={isMutating}
-                        >
-                          <SquarePen className="size-4" />
-                          {t("edit")}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => navigate(`/business/branches/${branch.id}/config`)}
-                        >
-                          <Settings2 className="size-4" />
-                          {t("configure")}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => navigate(`/business/branches/${branch.id}/settings/terminals`)}
-                        >
-                          <MonitorCog className="size-4" />
-                          {t("terminals")}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant={branch.isActive ? "destructive" : "outline"}
-                          size="sm"
-                          onClick={() =>
-                            setPendingAction({ branch, type: branch.isActive ? "deactivate" : "activate" })
-                          }
-                          disabled={isMutating}
-                        >
-                          <Power className="size-4" />
-                          {branch.isActive ? t("deactivate") : t("activate")}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </>
-          )}
-
-          {totalPages > 1 ? (
-            <div className="flex items-center justify-between pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={page <= 1}
-                onClick={() => setPage((value) => value - 1)}
-              >
-                {t("previous")}
+          ),
+        }}
+      >
+        <DataTable
+          columns={columns}
+          data={branches}
+          isLoading={isLoading}
+          page={page}
+          totalPages={totalPages}
+          totalCount={totalCount}
+          onPageChange={setPage}
+          skeletonRows={5}
+          emptyState={{
+            icon: Building2,
+            title: deferredSearch ? t("empty_search_title") : t("empty_title"),
+            description: deferredSearch ? t("empty_search_desc") : t("empty_desc"),
+            action: deferredSearch ? null : (
+              <Button onClick={openCreate}>
+                <Plus className="size-4" />
+                {t("create")}
               </Button>
-              <span className="text-sm text-muted-foreground">{t("page_info", { page, totalPages })}</span>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages}
-                onClick={() => setPage((value) => value + 1)}
-              >
-                {t("next")}
-              </Button>
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
+            ),
+          }}
+          labels={{
+            previous: t("previous"),
+            next: t("next"),
+            paginationTotal: (count) => t("list_total", { total: count }),
+          }}
+        />
+      </EntityListLayout>
 
       <BranchFormDialog
         open={formOpen}
@@ -401,160 +232,6 @@ export function BranchesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
-  )
-}
-
-function BranchIdentity({ branch }: { branch: Branch }) {
-  return (
-    <div className="flex items-start gap-3">
-      <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl border border-primary/15 bg-primary/10 text-primary shadow-sm shadow-primary/5">
-        <Building2 className="size-4.5" />
-      </div>
-      <div className="min-w-0">
-        <p className="font-medium text-foreground group-hover:text-primary">{branch.name}</p>
-        <p className="mt-0.5 truncate text-xs text-muted-foreground">{branch.identification || "—"}</p>
-      </div>
-    </div>
-  )
-}
-
-function BranchStatus({ active, t }: { active: boolean; t: (key: string) => string }) {
-  return <Badge tone={active ? "success" : "neutral"}>{active ? t("status_active") : t("status_inactive")}</Badge>
-}
-
-function BranchActions({
-  branch,
-  disabled,
-  onEdit,
-  onNavigate,
-  onRequestAction,
-  t,
-}: {
-  branch: Branch
-  disabled: boolean
-  onEdit: (branch: Branch) => void
-  onNavigate: (path: string) => void
-  onRequestAction: (branch: Branch, type: PendingAction) => void
-  t: (key: string) => string
-}) {
-  return (
-    <div className="flex justify-end gap-2">
-      <Button type="button" variant="outline" size="sm" onClick={() => onEdit(branch)} disabled={disabled}>
-        <SquarePen className="size-4" />
-        {t("edit")}
-      </Button>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button type="button" variant="outline" size="icon-sm" aria-label={t("more_actions")} disabled={disabled}>
-            <CircleEllipsis className="size-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-52">
-          <DropdownMenuItem onSelect={() => onNavigate(`/business/branches/${branch.id}/config`)}>
-            <Settings2 className="size-4" />
-            {t("configure")}
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => onNavigate(`/business/branches/${branch.id}/settings/terminals`)}>
-            <MonitorCog className="size-4" />
-            {t("terminals")}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            variant={branch.isActive ? "destructive" : "default"}
-            onSelect={() => onRequestAction(branch, branch.isActive ? "deactivate" : "activate")}
-          >
-            <Power className="size-4" />
-            {branch.isActive ? t("deactivate") : t("activate")}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  )
-}
-
-const STAT_TONES = {
-  info: "border-sky-400/30 bg-sky-500/10 text-sky-500",
-  success: "border-emerald-400/30 bg-emerald-500/10 text-emerald-500",
-  warning: "border-amber-400/30 bg-amber-500/10 text-amber-500",
-  purple: "border-purple-400/30 bg-purple-500/10 text-purple-500",
-} as const
-
-function SummaryStat({
-  icon: Icon,
-  tone,
-  label,
-  value,
-  loading,
-}: {
-  icon: typeof Building2
-  tone: keyof typeof STAT_TONES
-  label: string
-  value: number
-  loading: boolean
-}) {
-  return (
-    <div className="min-w-0 rounded-2xl border border-border/70 bg-background/45 px-3.5 py-3 sm:min-w-32">
-      <div className={`flex size-7 items-center justify-center rounded-lg border ${STAT_TONES[tone]}`}>
-        <Icon className="size-3.5" />
-      </div>
-      <div className="flex min-w-0 justify-between gap-2">
-        <p className="mt-2.5 text-[9px] font-semibold tracking-[0.14em] text-muted-foreground uppercase sm:text-[10px]">
-          {label}
-        </p>
-        {loading ? (
-          <Skeleton className="mt-1.5 h-5 w-6" />
-        ) : (
-          <p className="mt-1 text-lg font-semibold tracking-tight">{value}</p>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function Meta({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-border/70 bg-card/60 px-4 py-3">
-      <p className="text-[11px] font-semibold tracking-[0.22em] text-muted-foreground uppercase">{label}</p>
-      <p className="mt-2 truncate text-sm font-medium text-foreground">{value}</p>
-    </div>
-  )
-}
-
-function EmptyState({
-  hasSearch,
-  onCreate,
-  t,
-}: {
-  hasSearch: boolean
-  onCreate: () => void
-  t: (key: string) => string
-}) {
-  return (
-    <Card className="p-8 text-center">
-      <div className="mx-auto flex size-14 items-center justify-center rounded-3xl border border-border/70 bg-accent/60 text-muted-foreground">
-        {hasSearch ? <Search className="size-6" /> : <Building2 className="size-6" />}
-      </div>
-      <h2 className="mt-4 text-lg font-semibold text-foreground">
-        {hasSearch ? t("empty_search_title") : t("empty_title")}
-      </h2>
-      <p className="mt-2 text-sm text-muted-foreground">{hasSearch ? t("empty_search_desc") : t("empty_desc")}</p>
-      {!hasSearch ? (
-        <Button onClick={onCreate} className="mt-5">
-          <Plus className="size-4" />
-          {t("create")}
-        </Button>
-      ) : null}
-    </Card>
-  )
-}
-
-function BranchesSkeleton() {
-  return (
-    <div className="space-y-3">
-      {Array.from({ length: 5 }).map((_, index) => (
-        <Skeleton key={index} className="h-16 w-full rounded-xl" />
-      ))}
-    </div>
+    </>
   )
 }

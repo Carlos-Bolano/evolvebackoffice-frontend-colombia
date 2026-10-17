@@ -42,6 +42,7 @@
   "choose_status": "Seleccionar estado",
   "search_placeholder": "Buscar terminal por nombre, código o sucursal...",
   "no_results": "No se encontraron terminales",
+  "search_desc": "Prueba con otro nombre.",
   "results": "resultados",
   "previous": "Anterior",
   "next": "Siguiente",
