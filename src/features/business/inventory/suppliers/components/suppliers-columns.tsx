@@ -86,6 +86,7 @@ export function buildSupplierColumns(
       header: t("actions"),
       minWidth: "min-w-[90px]",
       align: "right",
+      stickyRight: true,
       render: (supplier) => (
         <div className="flex justify-end gap-1">
           <Button
