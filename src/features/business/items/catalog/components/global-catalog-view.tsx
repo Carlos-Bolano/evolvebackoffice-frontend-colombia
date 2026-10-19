@@ -1,4 +1,5 @@
 import { useRef, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { Pencil, Power, CheckSquare, Square, Package, SearchX } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -20,7 +21,6 @@ import { useTranslation } from "@/i18n/use-i18n"
 import { useItems, useSetItemActive } from "../hooks/use-items"
 import type { ItemResponseDto } from "../types"
 import { ConfirmActionDialog } from "@/components/confirm-action-dialog"
-import { ItemFormDialog } from "./item-form-dialog"
 
 type GlobalCatalogViewProps = {
   onAssignToBranch: (items: ItemResponseDto[]) => void
@@ -28,13 +28,12 @@ type GlobalCatalogViewProps = {
 
 export function GlobalCatalogView({ onAssignToBranch }: GlobalCatalogViewProps) {
   const { t } = useTranslation("business-items-catalog")
+  const navigate = useNavigate()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState("")
   const [debouncedSearch, setDebouncedSearch] = useState("")
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [formOpen, setFormOpen] = useState(false)
-  const [itemToEdit, setItemToEdit] = useState<ItemResponseDto | null>(null)
   const [deactivateTarget, setDeactivateTarget] = useState<ItemResponseDto | null>(null)
 
   const { data, isLoading } = useItems({
@@ -88,11 +87,6 @@ export function GlobalCatalogView({ onAssignToBranch }: GlobalCatalogViewProps) 
     setSelectedIds(new Set())
   }
 
-  const handleEdit = (item: ItemResponseDto) => {
-    setItemToEdit(item)
-    setFormOpen(true)
-  }
-
   // Activar es directo; desactivar pide confirmación visual (afecta a todas las sucursales).
   const handleToggleStatus = (item: ItemResponseDto) => {
     if (item.isActive) {
@@ -100,11 +94,6 @@ export function GlobalCatalogView({ onAssignToBranch }: GlobalCatalogViewProps) 
     } else {
       setItemActive.mutate({ id: item.id, active: true, name: item.name ?? "" })
     }
-  }
-
-  const handleDialogClose = () => {
-    setFormOpen(false)
-    setItemToEdit(null)
   }
 
   return (
@@ -132,7 +121,11 @@ export function GlobalCatalogView({ onAssignToBranch }: GlobalCatalogViewProps) 
               <span className="hidden sm:inline">{t("assign_to_branch")}</span>
             </Button>
           )}
-          <Button size="sm" onClick={() => setFormOpen(true)} className="h-8 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm">
+          <Button
+            size="sm"
+            onClick={() => navigate("/business/items/catalog/new")}
+            className="h-8 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm"
+          >
             <span className="sm:hidden">{t("new")}</span>
             <span className="hidden sm:inline">{t("new_item")}</span>
           </Button>
@@ -183,7 +176,12 @@ export function GlobalCatalogView({ onAssignToBranch }: GlobalCatalogViewProps) 
                         <>
                           <Package className="mb-3 size-10 opacity-40" />
                           <p className="text-sm">{t("no_items")}</p>
-                          <Button variant="outline" size="sm" className="mt-4" onClick={() => setFormOpen(true)}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-4"
+                            onClick={() => navigate("/business/items/catalog/new")}
+                          >
                             {t("new_item")}
                           </Button>
                         </>
@@ -230,7 +228,7 @@ export function GlobalCatalogView({ onAssignToBranch }: GlobalCatalogViewProps) 
                           variant="secondary"
                           size="icon"
                           className="size-7 sm:size-8"
-                          onClick={() => handleEdit(item)}
+                          onClick={() => navigate(`/business/items/catalog/${item.id}`)}
                           aria-label={t("edit_item")}
                         >
                           <Pencil className="size-3.5 sm:size-4" />
@@ -298,9 +296,6 @@ export function GlobalCatalogView({ onAssignToBranch }: GlobalCatalogViewProps) 
           </Pagination>
         )}
       </div>
-
-      {/* Form Dialog */}
-      <ItemFormDialog open={formOpen} onOpenChange={handleDialogClose} itemToEdit={itemToEdit} />
 
       {/* Confirmación visual: desactivar en todas las sucursales */}
       <ConfirmActionDialog
