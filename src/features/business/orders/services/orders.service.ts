@@ -4,12 +4,6 @@ import type {
   PagedOrders,
   OrderDetail,
   OrderStockCheck,
-  BranchIntegration,
-  CreateIntegrationDto,
-  UpdateIntegrationDto,
-  SyncMenuResponse,
-  TestConnectionResult,
-  ActivateStoreResult,
   NewOrdersUpdate,
   CreateManualOrderDto,
   UpdateOrderDetailsDto,
@@ -85,55 +79,6 @@ export async function addOrderProduct(
 
 export async function removeOrderProduct(orderId: string, productId: string): Promise<{ totalOrder: number }> {
   const { data } = await api.delete(`/api/orders/${orderId}/products/${productId}`)
-  return data
-}
-
-export async function getBranchIntegrations(branchId: string): Promise<BranchIntegration[]> {
-  const { data } = await api.get(`/api/branches/${branchId}/integrations`)
-  return Array.isArray(data) ? data : (data.data ?? [])
-}
-
-export async function createIntegration(branchId: string, dto: CreateIntegrationDto): Promise<BranchIntegration> {
-  const { data } = await api.post(`/api/branches/${branchId}/integrations`, dto)
-  return data
-}
-
-export async function updateIntegration(
-  branchId: string,
-  integrationId: string,
-  dto: UpdateIntegrationDto
-): Promise<BranchIntegration> {
-  const { data } = await api.put(`/api/branches/${branchId}/integrations/${integrationId}`, dto)
-  return data
-}
-
-/** Prueba la conexión; la respuesta incluye storeStatus ("on"/"off"). */
-export async function testConnection(branchId: string, integrationId: string): Promise<TestConnectionResult> {
-  const { data } = await api.post<TestConnectionResult>(
-    `/api/branches/${branchId}/integrations/${integrationId}/test-connection`
-  )
-  return data
-}
-
-/**
- * Activa la tienda en Cluvi para aceptar pedidos. El backend configura los
- * webhooks (new_order → webhook del backend, ping → /health) que Cluvi
- * exige al activar.
- */
-export async function activateStore(branchId: string, integrationId: string): Promise<ActivateStoreResult> {
-  const { data } = await api.post<ActivateStoreResult>(
-    `/api/branches/${branchId}/integrations/${integrationId}/activate-store`
-  )
-  return data
-}
-
-/**
- * Sincroniza el menú de la sucursal hacia Cluvi. El backend construye el menú
- * desde los artículos con IsPublishedForWeb y sus modificadores — no se
- * envían productos en la petición.
- */
-export async function syncMenu(branchId: string, integrationId: string): Promise<SyncMenuResponse> {
-  const { data } = await api.put<SyncMenuResponse>(`/api/branches/${branchId}/integrations/${integrationId}/sync-menu`)
   return data
 }
 

@@ -1,9 +1,8 @@
-import { useCallback, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import { notify } from "@/hooks/use-notify"
 import { getApiErrorMessage } from "@/utils/api-error"
-import { deleteConversation, getConversation, getConversations, streamChatMessage } from "../services/ai-chat.service"
+import { deleteConversation, getConversation, getConversations, sendChatMessage } from "../services/ai-chat.service"
 import type { AiChatResponse, SendChatPayload } from "../types"
 
 export const aiChatKeys = {
@@ -30,91 +29,49 @@ export function useConversation(id: string | null) {
   })
 }
 
-interface SendStreamOptions {
+interface SendChatVariables {
+  payload: SendChatPayload
   /** Se invoca cuando la respuesta terminó y ya está persistida en el servidor. */
   onReady?: (result: AiChatResponse) => void
-  /** Mensaje mostrado si la petición falla antes de recibir eventos. */
+  /** Mensaje mostrado si la petición falla. */
   errorMessage: string
 }
 
 /**
- * Envía mensajes al asistente en modo streaming (SSE) manteniendo el texto
- * parcial en `draft` para renderizarlo en vivo. Al terminar refresca el
- * historial y la conversación para mostrar la versión persistida.
+ * Envía un mensaje al asistente y espera la respuesta completa (sin streaming).
+ * Al terminar refresca el detalle de la conversación y el historial para mostrar
+ * la versión ya persistida en el servidor.
  */
-export function useChatStream() {
+export function useSendChatMessage() {
   const qc = useQueryClient()
-  const [draft, setDraft] = useState<string | null>(null)
-  const abortRef = useRef<AbortController | null>(null)
 
-  const cancel = useCallback(() => {
-    abortRef.current?.abort()
-    abortRef.current = null
-    setDraft(null)
-  }, [])
-
-  const send = useCallback(
-    async (payload: SendChatPayload, options: SendStreamOptions): Promise<void> => {
-      abortRef.current?.abort()
-      const controller = new AbortController()
-      abortRef.current = controller
-      setDraft("")
-
-      // Se usa un objeto mutable porque TS no rastrea asignaciones hechas
-      // dentro de callbacks sobre variables `let`.
-      const outcome: { result: AiChatResponse | null } = { result: null }
-
-      try {
-        await streamChatMessage(
-          payload,
-          {
-            onDelta: (text) => setDraft((prev) => (prev ?? "") + text),
-            onReset: () => setDraft(""),
-            onDone: (result) => {
-              outcome.result = result
-            },
-            onError: (message) => notify.error(message),
-          },
-          controller.signal
-        )
-      } catch (error) {
-        if (!(error instanceof DOMException && error.name === "AbortError")) {
-          notify.error(getApiErrorMessage(error, options.errorMessage))
-        }
-      } finally {
-        abortRef.current = null
-      }
-
-      const result = outcome.result
+  return useMutation({
+    mutationFn: ({ payload }: SendChatVariables) => sendChatMessage(payload),
+    onSuccess: async (result, variables) => {
       const newConversationId =
-        result?.conversationId && result.conversationId !== payload.conversationId ? result.conversationId : null
+        result.conversationId && result.conversationId !== variables.payload.conversationId
+          ? result.conversationId
+          : null
 
-      // El detalle de una conversación nueva se precarga antes de activarla para
-      // que el panel no muestre un spinner al reemplazar la previsualización.
-      if (result && newConversationId) {
+      if (newConversationId) {
+        // El detalle de una conversación nueva se precarga antes de activarla
+        // para que el panel no muestre un spinner al cambiar de conversación.
         await qc.fetchQuery({
           queryKey: aiChatKeys.conversation(newConversationId),
           queryFn: () => getConversation(newConversationId),
-          staleTime: 15_000,
+          staleTime: 0,
         })
-        options.onReady?.(result)
       } else {
-        const conversationId = result?.conversationId ?? payload.conversationId
-        if (conversationId) {
-          await qc.invalidateQueries({ queryKey: aiChatKeys.conversation(conversationId) })
-        }
-        if (result) options.onReady?.(result)
+        await qc.invalidateQueries({ queryKey: aiChatKeys.conversation(result.conversationId) })
       }
 
-      // La previsualización se oculta en el mismo tick en que el historial ya
-      // está actualizado (evita ver la respuesta duplicada por un instante).
-      setDraft(null)
+      variables.onReady?.(result)
       void qc.invalidateQueries({ queryKey: aiChatKeys.conversations() })
     },
-    [qc]
-  )
-
-  return { draft, send, cancel, isStreaming: draft !== null }
+    onError: (error, variables) => {
+      notify.error(getApiErrorMessage(error, variables.errorMessage))
+    },
+  })
 }
 
 export function useDeleteConversation() {

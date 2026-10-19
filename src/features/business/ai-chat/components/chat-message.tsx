@@ -76,7 +76,7 @@ export function ChatMessage({ message, userInitials, onRegenerate, busy }: ChatM
           ) : null}
 
           {isUser ? (
-            <p className="text-sm [overflow-wrap:anywhere] whitespace-pre-wrap">{message.content}</p>
+            <p className="text-sm wrap-anywhere whitespace-pre-wrap">{message.content}</p>
           ) : (
             <Markdown id={message.id} className={ASSISTANT_MARKDOWN_CLASS}>
               {message.content}
@@ -149,12 +149,8 @@ function MessageActions({ content, onRegenerate, busy }: MessageActionsProps) {
   )
 }
 
-interface ChatStreamingMessageProps {
-  content: string
-}
-
-/** Respuesta en vivo: se renderiza mientras llegan los fragmentos por SSE. */
-export function ChatStreamingMessage({ content }: ChatStreamingMessageProps) {
+/** Indicador de escritura mostrado mientras el backend prepara la respuesta. */
+export function ChatWritingIndicator() {
   const { t } = useTranslation("business-ai-chat")
 
   return (
@@ -166,20 +162,10 @@ export function ChatStreamingMessage({ content }: ChatStreamingMessageProps) {
             <Sparkles className="size-3" />
             {t("assistant")}
           </div>
-
-          {content ? (
-            <>
-              <Markdown id="streaming" className={ASSISTANT_MARKDOWN_CLASS}>
-                {content}
-              </Markdown>
-              <span className="mt-0.5 inline-block h-4 w-[2px] animate-pulse rounded-full bg-primary align-middle" />
-            </>
-          ) : (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Loader2 className="size-3.5 animate-spin text-primary" />
-              {t("thinking")}
-            </div>
-          )}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Loader2 className="size-3.5 animate-spin text-primary" />
+            {t("thinking")}
+          </div>
         </div>
       </div>
     </div>

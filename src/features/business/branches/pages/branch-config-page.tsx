@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useNavigate, useParams } from "react-router-dom"
+import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { Building2, CheckCircle2, Globe, MonitorCog, Package, ShoppingCart, Tag, Trash2, Warehouse } from "lucide-react"
 
@@ -19,9 +19,8 @@ import {
   useTenantModules,
 } from "@/features/business/branches/hooks/use-branch-modules"
 import { useBranchRegisters } from "@/features/business/branches/hooks/use-branch-terminals"
-import { useBranchIntegrationByPlatform } from "@/features/business/branches/hooks/use-branch-integrations"
 
-import { IntegrationForm } from "@/features/business/branches/components/integration-form"
+import { IntegrationPanel } from "@/features/business/branches/components/integration-panel"
 
 import { notify } from "@/hooks/use-notify"
 import { formatDateTime } from "@/utils/format"
@@ -63,7 +62,27 @@ export function BranchConfigPage() {
   const navigate = useNavigate()
   const { t } = useTranslation("business-branches")
 
-  const [activeTab, setActiveTab] = useState("info")
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabParam = searchParams.get("tab")
+  const [activeTab, setActiveTabState] = useState(
+    tabParam === "woocommerce" || tabParam === "cluvi" || tabParam === "modules" || tabParam === "serials"
+      ? tabParam
+      : "info"
+  )
+
+  /** Cambia de pestaña y la refleja en la URL (deep-link desde Órdenes). */
+  const setActiveTab = (tab: string) => {
+    setActiveTabState(tab)
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (tab === "info") next.delete("tab")
+        else next.set("tab", tab)
+        return next
+      },
+      { replace: true }
+    )
+  }
 
   const {
     data: branch,
@@ -80,9 +99,6 @@ export function BranchConfigPage() {
   const { data: branchModules = [], isLoading: branchModulesLoading } = useBranchModules(branchId)
 
   const { data: registers = [], isLoading: registersLoading } = useBranchRegisters(branchId)
-
-  const { data: wooIntegration, isLoading: wooLoading } = useBranchIntegrationByPlatform(branchId, "WOOCOMMERCE")
-  const { data: cluviIntegration, isLoading: cluviLoading } = useBranchIntegrationByPlatform(branchId, "CLUVI")
 
   const assignMutation = useAssignModuleToBranch()
   const removeMutation = useRemoveModuleFromBranch()
@@ -406,28 +422,12 @@ export function BranchConfigPage() {
 
         {/* ───── TAB: WOOCOMMERCE ───── */}
         <TabsContent value="woocommerce" className="mt-0 outline-none">
-          {wooLoading ? (
-            <Card>
-              <CardContent className="p-8">
-                <Skeleton className="h-64 w-full rounded-xl" />
-              </CardContent>
-            </Card>
-          ) : (
-            <IntegrationForm branchId={branchId!} platformCode="WOOCOMMERCE" integration={wooIntegration} />
-          )}
+          {branchId && <IntegrationPanel branchId={branchId} platform="WOOCOMMERCE" />}
         </TabsContent>
 
         {/* ───── TAB: CLUVI ───── */}
         <TabsContent value="cluvi" className="mt-0 outline-none">
-          {cluviLoading ? (
-            <Card>
-              <CardContent className="p-8">
-                <Skeleton className="h-64 w-full rounded-xl" />
-              </CardContent>
-            </Card>
-          ) : (
-            <IntegrationForm branchId={branchId!} platformCode="CLUVI" integration={cluviIntegration} />
-          )}
+          {branchId && <IntegrationPanel branchId={branchId} platform="CLUVI" />}
         </TabsContent>
       </Tabs>
     </div>

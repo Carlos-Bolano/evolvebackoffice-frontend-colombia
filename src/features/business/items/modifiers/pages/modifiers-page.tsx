@@ -1,21 +1,18 @@
 import { useMemo, useState } from "react"
-import { Layers, Package, Pencil, Plus, RefreshCw, SearchX, Trash2 } from "lucide-react"
+import { CheckCircle2, Layers, Package, Plus, RefreshCw, SearchX } from "lucide-react"
 
-import { Badge } from "@/components/ui/badge"
+import { DataTable } from "@/components/data-table"
+import { EntityListLayout } from "@/components/share"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ErrorState } from "@/components/ui/error-state"
-import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ConfirmActionDialog } from "@/components/confirm-action-dialog"
 import { notify } from "@/hooks/use-notify"
 import { useTranslation } from "@/i18n/use-i18n"
-import { formatCurrency } from "@/utils/format"
 import { ItemModifierFormDialog } from "../components/item-modifier-form-dialog"
 import { ModifierGroupFormDialog } from "../components/modifier-group-form-dialog"
+import { buildItemModifierColumns, buildModifierGroupColumns } from "../components/modifiers-columns"
 import {
   useDeleteItemModifier,
   useDeleteModifierGroup,
@@ -23,8 +20,9 @@ import {
   useItemsForPicker,
   useModifierGroups,
 } from "../hooks/use-modifiers"
-import { modifierTypeLabelKey, type ItemModifier, type ModifierGroup } from "../types"
+import type { ItemModifier, ModifierGroup } from "../types"
 
+const PAGE_SIZE = 20
 const TAB_GROUPS = "groups"
 const TAB_BY_ITEM = "by-item"
 
@@ -33,10 +31,13 @@ export function ModifiersPage() {
 
   const [activeTab, setActiveTab] = useState(TAB_GROUPS)
   const [query, setQuery] = useState("")
+  const [page, setPage] = useState(1)
+  const [byItemPage, setByItemPage] = useState(1)
 
   const [groupDialogOpen, setGroupDialogOpen] = useState(false)
   const [groupToEdit, setGroupToEdit] = useState<ModifierGroup | null>(null)
 
+  // Vive en la página para no perder el producto seleccionado al cambiar de pestaña
   const [parentItemId, setParentItemId] = useState("")
   const [modifierDialogOpen, setModifierDialogOpen] = useState(false)
   const [modifierToEdit, setModifierToEdit] = useState<ItemModifier | null>(null)
@@ -64,7 +65,32 @@ export function ModifiersPage() {
   const items = useMemo(() => itemsQuery.data ?? [], [itemsQuery.data])
   const modifiers = useMemo(() => modifiersQuery.data ?? [], [modifiersQuery.data])
 
+  const hasQuery = query.trim().length > 0
+  const totalPages = Math.max(1, Math.ceil(filteredGroups.length / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
+  const visibleGroups = useMemo(
+    () => filteredGroups.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [filteredGroups, safePage]
+  )
+
+  const byItemTotalPages = Math.max(1, Math.ceil(modifiers.length / PAGE_SIZE))
+  const byItemSafePage = Math.min(byItemPage, byItemTotalPages)
+  const visibleModifiers = useMemo(
+    () => modifiers.slice((byItemSafePage - 1) * PAGE_SIZE, byItemSafePage * PAGE_SIZE),
+    [modifiers, byItemSafePage]
+  )
+
   const isMutating = deleteGroupMutation.isPending || deleteModifierMutation.isPending
+
+  const handleSearchChange = (value: string) => {
+    setQuery(value)
+    setPage(1)
+  }
+
+  const handleParentItemChange = (value: string) => {
+    setParentItemId(value)
+    setByItemPage(1)
+  }
 
   const openCreateGroup = () => {
     setGroupToEdit(null)
@@ -98,56 +124,47 @@ export function ModifiersPage() {
     setDeleteModifierTarget(modifier)
   }
 
+  const groupColumns = buildModifierGroupColumns(t, {
+    isMutating,
+    onEdit: openEditGroup,
+    onDelete: handleDeleteGroup,
+  })
+
+  const modifierColumns = buildItemModifierColumns(t, {
+    isMutating,
+    onEdit: openEditModifier,
+    onDelete: handleDeleteModifier,
+  })
+
   if (groupsQuery.isError && !groupsQuery.isLoading) {
     return (
-      <div className="space-y-6">
-        <ErrorState
-          eyebrow={t("page_title")}
-          title={t("error_load_title")}
-          description={t("error_load_desc")}
-          action={
-            <Button onClick={() => groupsQuery.refetch()}>
-              <RefreshCw className="size-4" />
-              {t("retry")}
-            </Button>
-          }
-        />
-      </div>
+      <ErrorState
+        eyebrow={t("page_title")}
+        title={t("error_load_title")}
+        description={t("error_load_desc")}
+        action={
+          <Button onClick={() => groupsQuery.refetch()}>
+            <RefreshCw className="size-4" />
+            {t("retry")}
+          </Button>
+        }
+      />
     )
   }
 
   return (
-    <div className="space-y-6">
-      <Card className="overflow-hidden">
-        <CardContent className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[1.2fr_0.8fr] lg:p-8">
-          <div className="space-y-4">
-            <Badge tone="primary">{t("summary")}</Badge>
-            <div>
-              <h1 className="text-3xl font-semibold text-balance text-foreground">{t("page_title")}</h1>
-              <p className="max-w-2xl text-sm leading-7 text-muted-foreground">{t("page_desc")}</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <SummaryTile label={t("total_groups")} value={totalCount} loading={groupsQuery.isLoading} />
-            <SummaryTile label={t("active_groups")} value={activeCount} loading={groupsQuery.isLoading} />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-0">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="space-y-1">
-              <CardTitle>{t("page_title")}</CardTitle>
-              <CardDescription>{t("card_desc")}</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-
-        <CardContent className="pt-6">
+    <>
+      <EntityListLayout
+        back={{ to: "/business/items", label: t("back_to_items") }}
+        title={t("page_title")}
+        description={t("page_desc")}
+        stats={[
+          { icon: Layers, tone: "primary", label: t("total_groups"), value: totalCount },
+          { icon: CheckCircle2, tone: "success", label: t("active_groups"), value: activeCount },
+        ]}
+        tabs={
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="mb-5">
+            <TabsList>
               <TabsTrigger value={TAB_GROUPS} className="gap-1.5">
                 <Layers className="size-4" />
                 {t("tab_groups")}
@@ -157,272 +174,168 @@ export function ModifiersPage() {
                 {t("tab_by_item")}
               </TabsTrigger>
             </TabsList>
-
-            {/* ── Tab: Grupos ─────────────────────────────────────────── */}
-            <TabsContent value={TAB_GROUPS} className="space-y-4">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div className="max-w-xl flex-1">
-                  <Input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder={t("search_placeholder")}
-                    className="h-8 w-full max-w-sm px-3 text-sm sm:h-9"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge tone="neutral" className="w-fit">
-                    {filteredGroups.length} {t("results")}
-                  </Badge>
+          </Tabs>
+        }
+        toolbar={
+          activeTab === TAB_GROUPS
+            ? {
+                search: { value: query, onChange: handleSearchChange, placeholder: t("search_placeholder") },
+                actions: (
                   <Button
                     onClick={openCreateGroup}
                     disabled={isMutating}
-                    size="sm"
-                    className="h-8 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm"
+                    className="relative shadow-sm shadow-primary/20"
                   >
                     <Plus className="size-4" />
                     {t("create_group")}
                   </Button>
-                </div>
+                ),
+              }
+            : undefined
+        }
+      >
+        {activeTab === TAB_GROUPS ? (
+          <DataTable
+            columns={groupColumns}
+            data={visibleGroups}
+            isLoading={groupsQuery.isLoading}
+            page={safePage}
+            totalPages={totalPages}
+            totalCount={filteredGroups.length}
+            onPageChange={setPage}
+            skeletonRows={5}
+            emptyState={{
+              icon: hasQuery ? SearchX : Layers,
+              title: hasQuery ? t("no_results") : t("empty_title"),
+              description: hasQuery ? t("search_desc") : t("empty_desc"),
+              action: hasQuery ? null : (
+                <Button variant="outline" onClick={openCreateGroup}>
+                  <Plus className="size-4" />
+                  {t("create_group")}
+                </Button>
+              ),
+            }}
+            labels={{
+              previous: t("previous"),
+              next: t("next"),
+              paginationTotal: (count) => t("list_total", { total: count }),
+            }}
+          />
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col gap-4">
+            <div className="flex shrink-0 flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <div className="w-full space-y-1.5 md:max-w-xl">
+                <label htmlFor="modifier-parent-item" className="text-sm font-medium text-foreground">
+                  {t("product_label")}
+                </label>
+                <Select value={parentItemId} onValueChange={handleParentItemChange} disabled={itemsQuery.isLoading}>
+                  <SelectTrigger id="modifier-parent-item" className="w-full">
+                    <SelectValue placeholder={t("product_placeholder")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {items.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.name ?? item.sku ?? item.id}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
-              {groupsQuery.isLoading ? (
-                <ModifiersSkeleton />
-              ) : filteredGroups.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                  <SearchX className="mb-3 size-10 opacity-40" />
-                  <p className="text-sm">{query ? t("no_results") : t("empty_desc")}</p>
-                  {!query && (
-                    <Button variant="outline" size="sm" className="mt-4" onClick={openCreateGroup}>
-                      {t("create_group")}
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("name_label")}</TableHead>
-                      <TableHead className="hidden sm:table-cell">{t("selection_label")}</TableHead>
-                      <TableHead className="hidden md:table-cell">{t("sort_order_label")}</TableHead>
-                      <TableHead>{t("status_label")}</TableHead>
-                      <TableHead className="text-right">{t("actions")}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredGroups.map((group) => (
-                      <TableRow key={group.id}>
-                        <TableCell>
-                          <p className="font-medium">{group.name}</p>
-                          {group.description ? (
-                            <p className="hidden max-w-64 truncate text-xs text-muted-foreground sm:block">
-                              {group.description}
-                            </p>
-                          ) : null}
-                        </TableCell>
-                        <TableCell className="hidden text-muted-foreground sm:table-cell">
-                          {group.minSelection}–{group.maxSelection}
-                        </TableCell>
-                        <TableCell className="hidden text-muted-foreground md:table-cell">{group.sortOrder}</TableCell>
-                        <TableCell>
-                          <Badge tone={group.isActive ? "success" : "neutral"}>
-                            {group.isActive ? t("active") : t("inactive")}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="px-1 text-right sm:px-4">
-                          <div className="flex justify-end gap-1 sm:gap-2">
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              size="icon"
-                              className="size-7 sm:size-8"
-                              onClick={() => openEditGroup(group)}
-                              disabled={isMutating}
-                              aria-label={t("edit")}
-                              title={t("edit")}
-                            >
-                              <Pencil className="size-3.5 sm:size-4" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="destructive"
-                              size="icon"
-                              className="size-7 sm:size-8"
-                              onClick={() => handleDeleteGroup(group)}
-                              disabled={isMutating}
-                              aria-label={t("delete")}
-                              title={t("delete")}
-                            >
-                              <Trash2 className="size-3.5 sm:size-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </TabsContent>
+              <Button
+                onClick={handleAddModifier}
+                disabled={isMutating}
+                size="sm"
+                className="h-8 w-fit px-2 text-xs sm:h-9 sm:px-3 sm:text-sm"
+              >
+                <Plus className="size-4" />
+                {t("add_modifier")}
+              </Button>
+            </div>
 
-            {/* ── Tab: Por producto ───────────────────────────────────── */}
-            <TabsContent value={TAB_BY_ITEM} className="space-y-4">
-              <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-                <div className="w-full space-y-1.5 md:max-w-xl">
-                  <label htmlFor="modifier-parent-item" className="text-sm font-medium text-foreground">
-                    {t("product_label")}
-                  </label>
-                  <Select value={parentItemId} onValueChange={setParentItemId} disabled={itemsQuery.isLoading}>
-                    <SelectTrigger id="modifier-parent-item" className="w-full">
-                      <SelectValue placeholder={t("product_placeholder")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {items.map((item) => (
-                        <SelectItem key={item.id} value={item.id}>
-                          {item.name ?? item.sku ?? item.id}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {parentItemId ? (
-                    <Badge tone="neutral" className="w-fit">
-                      {modifiers.length} {t("results")}
-                    </Badge>
-                  ) : null}
-                  <Button
-                    onClick={handleAddModifier}
-                    disabled={isMutating}
-                    size="sm"
-                    className="h-8 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm"
-                  >
-                    <Plus className="size-4" />
-                    {t("add_modifier")}
+            {itemsQuery.isError && !itemsQuery.isLoading ? (
+              <ErrorState
+                variant="inline"
+                eyebrow={t("tab_by_item")}
+                title={t("error_items_load_title")}
+                description={t("error_items_load_desc")}
+                action={
+                  <Button type="button" variant="outline" size="sm" onClick={() => itemsQuery.refetch()}>
+                    <RefreshCw className="size-4" />
+                    {t("retry")}
                   </Button>
-                </div>
+                }
+              />
+            ) : itemsQuery.isLoading ? (
+              <DataTable
+                columns={modifierColumns}
+                data={[]}
+                isLoading
+                page={1}
+                totalPages={1}
+                totalCount={0}
+                onPageChange={() => undefined}
+                skeletonRows={5}
+              />
+            ) : !parentItemId ? (
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <Package className="mb-3 size-10 opacity-40" />
+                <p className="text-sm">{t("select_product_desc")}</p>
               </div>
-
-              {itemsQuery.isError && !itemsQuery.isLoading ? (
-                <ErrorState
-                  variant="inline"
-                  eyebrow={t("tab_by_item")}
-                  title={t("error_items_load_title")}
-                  description={t("error_items_load_desc")}
-                  action={
-                    <Button type="button" variant="outline" size="sm" onClick={() => itemsQuery.refetch()}>
-                      <RefreshCw className="size-4" />
-                      {t("retry")}
-                    </Button>
-                  }
-                />
-              ) : itemsQuery.isLoading ? (
-                <ModifiersSkeleton />
-              ) : !parentItemId ? (
-                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                  <Package className="mb-3 size-10 opacity-40" />
-                  <p className="text-sm">{t("select_product_desc")}</p>
-                </div>
-              ) : modifiersQuery.isError && !modifiersQuery.isLoading ? (
-                <ErrorState
-                  variant="inline"
-                  eyebrow={t("tab_by_item")}
-                  title={t("error_modifiers_load_title")}
-                  description={t("error_modifiers_load_desc")}
-                  action={
-                    <Button type="button" variant="outline" size="sm" onClick={() => modifiersQuery.refetch()}>
-                      <RefreshCw className="size-4" />
-                      {t("retry")}
-                    </Button>
-                  }
-                />
-              ) : modifiersQuery.isLoading ? (
-                <ModifiersSkeleton />
-              ) : modifiers.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                  <Layers className="mb-3 size-10 opacity-40" />
-                  <p className="text-sm">{t("empty_modifiers_desc")}</p>
-                  <Button variant="outline" size="sm" className="mt-4" onClick={handleAddModifier}>
-                    {t("add_modifier")}
+            ) : modifiersQuery.isError && !modifiersQuery.isLoading ? (
+              <ErrorState
+                variant="inline"
+                eyebrow={t("tab_by_item")}
+                title={t("error_modifiers_load_title")}
+                description={t("error_modifiers_load_desc")}
+                action={
+                  <Button type="button" variant="outline" size="sm" onClick={() => modifiersQuery.refetch()}>
+                    <RefreshCw className="size-4" />
+                    {t("retry")}
                   </Button>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("child_item_header")}</TableHead>
-                      <TableHead className="hidden sm:table-cell">{t("group_label")}</TableHead>
-                      <TableHead>{t("modifier_type_label")}</TableHead>
-                      <TableHead className="hidden md:table-cell">{t("quantity_label")}</TableHead>
-                      <TableHead className="hidden md:table-cell">{t("extra_price_label")}</TableHead>
-                      <TableHead className="hidden sm:table-cell">{t("status_label")}</TableHead>
-                      <TableHead className="text-right">{t("actions")}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {modifiers.map((modifier) => (
-                      <TableRow key={modifier.id}>
-                        <TableCell>
-                          <p className="font-medium">{modifier.childItemName ?? modifier.childItemSku ?? "—"}</p>
-                          <p className="hidden font-mono text-xs text-muted-foreground sm:block">
-                            {modifier.childItemSku ?? "—"}
-                          </p>
-                        </TableCell>
-                        <TableCell className="hidden text-muted-foreground sm:table-cell">
-                          {modifier.modifierGroupName ?? t("no_group")}
-                        </TableCell>
-                        <TableCell>
-                          <Badge tone={modifierTypeTone(modifier.modifierTypeCode)}>
-                            {t(modifierTypeLabelKey(modifier.modifierTypeCode))}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="hidden text-muted-foreground md:table-cell">
-                          {modifier.minQuantity}–{modifier.maxQuantity}
-                        </TableCell>
-                        <TableCell className="hidden text-muted-foreground md:table-cell">
-                          {formatCurrency(modifier.extraPrice)}
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell">
-                          <Badge tone={modifier.isActive ? "success" : "neutral"}>
-                            {modifier.isActive ? t("active") : t("inactive")}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="px-1 text-right sm:px-4">
-                          <div className="flex justify-end gap-1 sm:gap-2">
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              size="icon"
-                              className="size-7 sm:size-8"
-                              onClick={() => openEditModifier(modifier)}
-                              disabled={isMutating}
-                              aria-label={t("edit")}
-                              title={t("edit")}
-                            >
-                              <Pencil className="size-3.5 sm:size-4" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="destructive"
-                              size="icon"
-                              className="size-7 sm:size-8"
-                              onClick={() => handleDeleteModifier(modifier)}
-                              disabled={isMutating}
-                              aria-label={t("delete")}
-                              title={t("delete")}
-                            >
-                              <Trash2 className="size-3.5 sm:size-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+                }
+              />
+            ) : modifiersQuery.isLoading ? (
+              <DataTable
+                columns={modifierColumns}
+                data={[]}
+                isLoading
+                page={1}
+                totalPages={1}
+                totalCount={0}
+                onPageChange={() => undefined}
+                skeletonRows={5}
+              />
+            ) : (
+              <DataTable
+                columns={modifierColumns}
+                data={visibleModifiers}
+                isLoading={false}
+                page={byItemSafePage}
+                totalPages={byItemTotalPages}
+                totalCount={modifiers.length}
+                onPageChange={setByItemPage}
+                skeletonRows={5}
+                emptyState={{
+                  icon: Layers,
+                  title: t("empty_modifiers_desc"),
+                  action: (
+                    <Button variant="outline" onClick={handleAddModifier}>
+                      <Plus className="size-4" />
+                      {t("add_modifier")}
+                    </Button>
+                  ),
+                }}
+                labels={{
+                  previous: t("previous"),
+                  next: t("next"),
+                  paginationTotal: (count) => t("list_total_modifiers", { total: count }),
+                }}
+              />
+            )}
+          </div>
+        )}
+      </EntityListLayout>
 
       <ModifierGroupFormDialog
         open={groupDialogOpen}
@@ -483,44 +396,6 @@ export function ModifiersPage() {
           )
         }}
       />
-    </div>
-  )
-}
-
-function modifierTypeTone(code: string | number): "info" | "warning" | "purple" | "orange" {
-  switch (modifierTypeLabelKey(code)) {
-    case "modifier_required":
-      return "warning"
-    case "modifier_group_single":
-      return "purple"
-    case "modifier_group_multiple":
-      return "orange"
-    default:
-      return "info"
-  }
-}
-
-function SummaryTile({ label, value, loading = false }: { label: string; value: number | string; loading?: boolean }) {
-  return (
-    <Card className="max-h-min rounded-3xl">
-      <CardContent className="p-5">
-        <p className="text-[11px] font-semibold tracking-[0.24em] text-muted-foreground uppercase">{label}</p>
-        {loading ? (
-          <Skeleton className="mt-3 h-9 w-16" />
-        ) : (
-          <p className="mt-3 text-3xl font-semibold text-foreground">{value}</p>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-function ModifiersSkeleton() {
-  return (
-    <div className="space-y-3">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <Skeleton key={i} className="h-14 w-full rounded-xl" />
-      ))}
-    </div>
+    </>
   )
 }

@@ -117,44 +117,6 @@ export interface OrderStockCheck {
 
 export type OrderStatus = "Pending" | "Confirmed" | "Preparing" | "Ready" | "Shipped" | "Delivered" | "Cancelled"
 
-export interface BranchIntegration {
-  id: string
-  branchId: string
-  platformCode: string
-  isActive: boolean
-  baseUrl: string
-  settingsJson: string | null
-  lastSyncedAtUtc: string | null
-  lastSyncStatus: string
-  lastError: string | null
-}
-
-export interface CreateIntegrationDto {
-  platformCode: string
-  isActive: boolean
-  baseUrl: string
-  apiKey?: string
-  apiSecret?: string
-  consumerKey?: string
-  consumerSecret?: string
-  settingsJson?: string
-}
-
-/** Actualización de una integración existente (los secretos solo se envían con su flag SetNew*). */
-export interface UpdateIntegrationDto {
-  isActive?: boolean | null
-  baseUrl?: string | null
-  setNewApiKey: boolean
-  apiKey?: string | null
-  setNewApiSecret: boolean
-  apiSecret?: string | null
-  setNewConsumerKey: boolean
-  consumerKey?: string | null
-  setNewConsumerSecret: boolean
-  consumerSecret?: string | null
-  settingsJson?: string | null
-}
-
 export interface CluviStoreInfo {
   id: number
   label: string
@@ -199,31 +161,6 @@ export interface CluviModifierItem {
   price: number
   sku: string
   order: number
-}
-
-export interface SyncMenuResponse {
-  success: boolean
-  message: string | null
-  products: number
-  categories: number
-  modifiers: number
-}
-
-/** Respuesta de POST .../integrations/{id}/test-connection */
-export interface TestConnectionResult {
-  success: boolean
-  message: string
-  /** Estado de la tienda en Cluvi: "on" | "off" (null cuando no aplica). */
-  storeStatus?: string | null
-}
-
-/** Respuesta de POST .../integrations/{id}/activate-store */
-export interface ActivateStoreResult {
-  success: boolean
-  message: string | null
-  storeStatus: string | null
-  newOrderWebhookUrl: string | null
-  pingWebhookUrl: string | null
 }
 
 /** Orden nueva detectada por el long-poll de notificaciones. */

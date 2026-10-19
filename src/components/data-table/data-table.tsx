@@ -2,6 +2,7 @@ import { CheckSquare, Square } from "lucide-react"
 
 import { EmptyState } from "@/components/share/empty-state"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { cn } from "@/lib/utils"
 import type { DataTableProps } from "./types"
 import { DataTableSkeleton } from "./data-table-skeleton"
 import { DataTablePagination } from "./data-table-pagination"
@@ -19,6 +20,21 @@ function responsiveClass(breakpoint?: string): string {
     default:
       return ""
   }
+}
+
+// Ancla una columna al borde derecho del contenedor scrolleable. La sombra
+// izquierda da la señal visual de que hay contenido scrolleable debajo.
+const STICKY_SHADOW = "shadow-[-10px_0_10px_-10px_rgba(0,0,0,0.25)]"
+
+function stickyRightHeadClass(sticky?: boolean): string {
+  return sticky ? `sticky right-0 z-20 bg-muted ${STICKY_SHADOW}` : ""
+}
+
+function stickyRightCellClass(sticky?: boolean): string {
+  // bg-card calza exacto con el contenedor de la tabla (bg-card) y con hover de
+  // la fila (group-hover accent) — sin la franja de tono distinto que causaba
+  // bg-background en dark theme.
+  return sticky ? `sticky right-0 z-10 bg-card group-hover:bg-accent/50 ${STICKY_SHADOW}` : ""
 }
 
 // ─── DataTable ───────────────────────────────────────────────────────────────
@@ -81,7 +97,7 @@ export function DataTable<T>({
             key={col.key}
             className={`sticky top-0 z-10 ${col.minWidth ?? ""} ${responsiveClass(col.responsive)} ${
               col.align === "right" ? "text-right" : ""
-            }`}
+            } ${stickyRightHeadClass(col.stickyRight)}`}
           >
             {col.header}
           </TableHead>
@@ -100,10 +116,10 @@ export function DataTable<T>({
         <DataTableSkeleton columns={columns} rows={skeletonRows} selectable={selectable} />
       ) : data.length === 0 ? (
         <div className="min-h-0 flex-1">
-          <Table containerClassName="h-full" className="h-full min-w-175">
+          <Table containerClassName="h-full bg-card" className="h-full min-w-175">
             {tableHeader}
             <TableBody>
-              <TableRow className="h-full border-b-0 hover:bg-transparent">
+              <TableRow className="h-full border-b-0 bg-card hover:bg-transparent">
                 <TableCell colSpan={colSpan} className="h-full">
                   <div className="flex h-full flex-col items-center justify-center">
                     {emptyState ? <EmptyState {...emptyState} /> : null}
@@ -115,13 +131,16 @@ export function DataTable<T>({
         </div>
       ) : (
         <div className="min-h-0 flex-1">
-          <Table containerClassName="h-full" className="min-w-175">
+          <Table containerClassName="h-full bg-card" className="min-w-175">
             {tableHeader}
             <TableBody>
               {data.map((row, rowIndex) => (
                 <TableRow
                   key={rowIndex}
-                  className={rowClassName?.(row) ?? (selectedIds?.has(String(rowIndex)) ? "bg-primary/8" : undefined)}
+                  className={cn(
+                    "group bg-card",
+                    rowClassName?.(row) ?? (selectedIds?.has(String(rowIndex)) ? "bg-primary/8" : undefined)
+                  )}
                 >
                   {selectable && (
                     <TableCell>
@@ -140,7 +159,7 @@ export function DataTable<T>({
                   {columns.map((col) => (
                     <TableCell
                       key={col.key}
-                      className={`${responsiveClass(col.responsive)} ${col.align === "right" ? "text-right" : ""}`}
+                      className={`${responsiveClass(col.responsive)} ${col.align === "right" ? "text-right" : ""} ${stickyRightCellClass(col.stickyRight)}`}
                     >
                       {col.render(row)}
                     </TableCell>

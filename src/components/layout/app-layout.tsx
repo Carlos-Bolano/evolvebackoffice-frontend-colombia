@@ -17,8 +17,7 @@ export function AppLayout() {
   // la sesión de plataforma no tiene tenantId). Sonido + toast + escritorio.
   useNewOrderNotifications(Boolean(session?.tenantId))
 
-  const mustChangePassword =
-    session?.user.role === "BusinessAdmin" && session?.forcePasswordChange === true && !passwordChanged
+  const mustChangePassword = session?.forcePasswordChange === true && !passwordChanged
 
   return (
     <div className="relative h-svh overflow-hidden bg-background text-foreground">
