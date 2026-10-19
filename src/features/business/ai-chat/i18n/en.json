@@ -26,7 +26,7 @@
   "copy": "Copy answer",
   "copied": "Copied",
   "regenerate": "Regenerate answer",
-  "thinking": "Thinking…",
+  "thinking": "Generating answer…",
   "send_error": "Could not send the message",
   "disclaimer": "AI can make mistakes; verify important data.",
   "open_assistant": "Open AI assistant"

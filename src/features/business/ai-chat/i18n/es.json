@@ -26,7 +26,7 @@
   "copy": "Copiar respuesta",
   "copied": "Copiada",
   "regenerate": "Regenerar respuesta",
-  "thinking": "Pensando…",
+  "thinking": "Generando respuesta…",
   "send_error": "No se pudo enviar el mensaje",
   "disclaimer": "La IA puede cometer errores; verifica los datos importantes.",
   "open_assistant": "Abrir asistente IA"

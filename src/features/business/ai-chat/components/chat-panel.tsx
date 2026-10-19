@@ -21,8 +21,8 @@ import { cn } from "@/lib/utils"
 import { getApiErrorMessage } from "@/utils/api-error"
 import { useAuth } from "@/features/auth/hooks/use-auth"
 import { useTranslation } from "@/i18n/use-i18n"
-import { useChatStream, useConversation, useConversations, useDeleteConversation } from "../hooks/use-ai-chat"
-import { ChatMessage, ChatStreamingMessage } from "./chat-message"
+import { useSendChatMessage, useConversation, useConversations, useDeleteConversation } from "../hooks/use-ai-chat"
+import { ChatMessage, ChatWritingIndicator } from "./chat-message"
 
 interface ChatPanelProps {
   /** page = layout completo con lista lateral; sheet = panel compacto para el widget. */
@@ -56,15 +56,17 @@ export function ChatPanel({ variant = "page" }: ChatPanelProps) {
 
   const conversationsQuery = useConversations()
   const conversationQuery = useConversation(activeId)
-  const stream = useChatStream()
+  const sendMessage = useSendChatMessage()
   const deleteMutation = useDeleteConversation()
 
   const conversations = conversationsQuery.data ?? []
   const messages = conversationQuery.data?.messages ?? []
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  const isStreaming = stream.isStreaming
-  const draft = stream.draft
+  // Identificador de la "vista" actual: evita que una respuesta en vuelo cambie
+  // de conversación si el usuario empezó una nueva mientras esperaba.
+  const viewRef = useRef(0)
+  const isSending = sendMessage.isPending
 
   // Mientras cambia de conversación el detalle aún no llega: NO mostrar el
   // welcome (parecería vacía) sino un estado de carga; si el fetch falla,
@@ -73,8 +75,8 @@ export function ChatPanel({ variant = "page" }: ChatPanelProps) {
   const conversationError = activeId !== null && conversationQuery.isError
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: isStreaming ? "auto" : "smooth" })
-  }, [messages.length, isStreaming, draft])
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages.length, isSending])
 
   // Último turno usuario/asistente: habilita "regenerar" y reenvía el mismo texto.
   const lastUserMessage = [...messages].reverse().find((message) => message.role === "user")
@@ -82,40 +84,50 @@ export function ChatPanel({ variant = "page" }: ChatPanelProps) {
 
   const handleSend = (rawText?: string) => {
     const text = (rawText ?? input).trim()
-    if (!text || isStreaming) return
+    if (!text || isSending) return
 
     setInput("")
-    void stream.send(
-      { conversationId: activeId, message: text },
-      {
-        errorMessage: t("send_error"),
-        onReady: (response) => {
-          if (response.conversationId !== activeId) setActiveId(response.conversationId)
-        },
-      }
-    )
+    const view = viewRef.current
+    sendMessage.mutate({
+      payload: { conversationId: activeId, message: text },
+      errorMessage: t("send_error"),
+      onReady: (response) => {
+        if (viewRef.current !== view) return
+        if (response.conversationId !== activeId) setActiveId(response.conversationId)
+      },
+    })
   }
 
   const handleRegenerate = () => {
-    if (!activeId || !lastUserMessage || isStreaming) return
+    if (!activeId || !lastUserMessage || isSending) return
 
-    void stream.send(
-      { conversationId: activeId, message: lastUserMessage.content, regenerate: true },
-      { errorMessage: t("send_error") }
-    )
+    sendMessage.mutate({
+      payload: { conversationId: activeId, message: lastUserMessage.content, regenerate: true },
+      errorMessage: t("send_error"),
+    })
   }
 
   const handleNewChat = () => {
-    stream.cancel()
+    viewRef.current += 1
     setActiveId(null)
     setInput("")
+  }
+
+  // Cambiar de conversación invalida la vista: una respuesta en vuelo ya no
+  // debe reemplazar el panel que el usuario está viendo.
+  const selectConversation = (id: string) => {
+    viewRef.current += 1
+    setActiveId(id)
   }
 
   const handleDelete = (id: string) => {
     if (!window.confirm(t("delete_confirm"))) return
     deleteMutation.mutate(id, {
       onSuccess: () => {
-        if (activeId === id) setActiveId(null)
+        if (activeId === id) {
+          viewRef.current += 1
+          setActiveId(null)
+        }
         notify.success(t("conversation_deleted"))
       },
       onError: (error) => notify.error(getApiErrorMessage(error, t("delete_error"))),
@@ -124,8 +136,8 @@ export function ChatPanel({ variant = "page" }: ChatPanelProps) {
 
   const activeTitle = activeId ? conversations.find((c) => c.id === activeId)?.title : null
 
-  // Con una respuesta en vivo se conserva el historial + la burbuja temporal.
-  const showWelcome = messages.length === 0 && !isStreaming && !isLoadingMessages && !conversationError
+  // Con una respuesta en curso se conserva el historial + el indicador de escritura.
+  const showWelcome = messages.length === 0 && !isSending && !isLoadingMessages && !conversationError
 
   return (
     <div className="flex h-full min-h-0">
@@ -155,7 +167,7 @@ export function ChatPanel({ variant = "page" }: ChatPanelProps) {
                   <button
                     type="button"
                     className="min-w-0 flex-1 truncate rounded-xl px-1.5 py-2 text-left text-xs text-foreground"
-                    onClick={() => setActiveId(conversation.id)}
+                    onClick={() => selectConversation(conversation.id)}
                     title={conversation.title}
                   >
                     {conversation.title}
@@ -209,7 +221,7 @@ export function ChatPanel({ variant = "page" }: ChatPanelProps) {
                     <DropdownMenuItem
                       key={conversation.id}
                       className="truncate"
-                      onClick={() => setActiveId(conversation.id)}
+                      onClick={() => selectConversation(conversation.id)}
                     >
                       {conversation.title}
                     </DropdownMenuItem>
@@ -232,7 +244,7 @@ export function ChatPanel({ variant = "page" }: ChatPanelProps) {
         </div>
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 sm:p-4">
-          {isLoadingMessages && !isStreaming ? (
+          {isLoadingMessages && !isSending ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
               <Loader2 className="size-6 animate-spin text-primary" />
               <p className="text-xs text-muted-foreground">{t("loading_conversation")}</p>
@@ -254,7 +266,7 @@ export function ChatPanel({ variant = "page" }: ChatPanelProps) {
             </div>
           ) : showWelcome ? (
             <div className="flex h-full flex-col items-center justify-center gap-5 text-center">
-              <div className="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 ring-1 ring-primary/15">
+              <div className="flex size-14 items-center justify-center rounded-2xl bg-linear-to-br from-primary/20 to-primary/5 ring-1 ring-primary/15">
                 <Sparkles className="size-7 text-primary" />
               </div>
               <div>
@@ -287,15 +299,15 @@ export function ChatPanel({ variant = "page" }: ChatPanelProps) {
                   key={message.id}
                   message={message}
                   userInitials={userInitials}
-                  busy={isStreaming}
+                  busy={isSending}
                   onRegenerate={
-                    !isStreaming && message.id === lastAssistantMessage?.id && lastUserMessage
+                    !isSending && message.id === lastAssistantMessage?.id && lastUserMessage
                       ? handleRegenerate
                       : undefined
                   }
                 />
               ))}
-              {isStreaming ? <ChatStreamingMessage content={draft ?? ""} /> : null}
+              {isSending ? <ChatWritingIndicator /> : null}
             </>
           )}
           <div ref={bottomRef} />
@@ -320,14 +332,14 @@ export function ChatPanel({ variant = "page" }: ChatPanelProps) {
               }}
               placeholder={t("input_placeholder")}
               rows={1}
-              className="max-h-32 min-h-[44px] resize-none"
+              className="max-h-32 min-h-11 resize-none"
               aria-label={t("input_placeholder")}
             />
             <Button
               type="submit"
               size="icon"
               className="size-11 shrink-0"
-              disabled={!input.trim() || isStreaming}
+              disabled={!input.trim() || isSending}
               aria-label={t("send")}
             >
               <Send className="size-4" />

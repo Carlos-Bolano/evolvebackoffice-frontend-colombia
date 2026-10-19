@@ -173,7 +173,7 @@ export function LogDetailDialog({ eventId, onOpenChange }: LogDetailDialogProps)
                     "dark:border-violet-900/50 dark:bg-violet-950/25",
                     // En pantallas anchas el panel pasa al costado derecho;
                     // en resoluciones pequeñas queda arriba (junto al botón).
-                    "lg:order-none"
+                    "lg:order-0"
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -234,7 +234,7 @@ function Meta({
     <div className="min-w-0">
       <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{label}</p>
       <div className="mt-0.5 flex items-start gap-1">
-        <span className="min-w-0 [overflow-wrap:anywhere] text-foreground">{value}</span>
+        <span className="min-w-0 wrap-anywhere text-foreground">{value}</span>
         {copyValue && onCopy ? (
           <Button
             type="button"
@@ -297,7 +297,7 @@ function Section({
       </div>
       <pre
         className={cn(
-          "max-h-48 overflow-auto rounded-xl border border-border/70 bg-muted/40 p-3 text-xs [overflow-wrap:anywhere] whitespace-pre-wrap",
+          "max-h-48 overflow-auto rounded-xl border border-border/70 bg-muted/40 p-3 text-xs wrap-anywhere whitespace-pre-wrap",
           danger && "border-red-200 bg-red-50 text-red-800 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300"
         )}
       >

@@ -48,15 +48,3 @@ export interface SendChatPayload {
   /** Solicita al backend regenerar la última respuesta del asistente. */
   regenerate?: boolean
 }
-
-/** Evento emitido por el endpoint SSE (POST /api/ai/chat/stream). */
-export interface AiChatStreamEvent {
-  type: "delta" | "reset" | "done" | "error"
-  /** Fragmento incremental (type = "delta") o contenido final (type = "done"). */
-  content?: string | null
-  /** Mensaje de error legible (type = "error"). */
-  message?: string | null
-  conversationId?: string | null
-  conversationTitle?: string | null
-  chart?: ChartSpec | null
-}

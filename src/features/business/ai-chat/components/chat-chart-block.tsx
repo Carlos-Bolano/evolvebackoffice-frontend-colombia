@@ -57,7 +57,7 @@ export function ChatChartBlock({ chart, className }: ChatChartBlockProps) {
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-xl border border-border/70 bg-gradient-to-b from-background to-muted/30 shadow-sm",
+        "overflow-hidden rounded-xl border border-border/70 bg-linear-to-b from-background to-muted/30 shadow-sm",
         className
       )}
     >
