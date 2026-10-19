@@ -210,5 +210,8 @@
   "go_registers": "Ir a Registers",
   "switch_on": "SÍ",
   "switch_off": "NO",
-  "terminals_breadcrumb_config": "Configuración"
+  "terminals_breadcrumb_config": "Configuración",
+  "supplier_label": "Sucursal proveedora",
+  "supplier_hint": "Abastece a otras sucursales: recibe sus pedidos y les envía mercancía. Solo las sucursales proveedoras pueden hacer envíos.",
+  "supplier_badge": "Proveedora"
 }

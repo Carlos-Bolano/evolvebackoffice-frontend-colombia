@@ -24,6 +24,10 @@ export interface ItemResponseDto {
   createdAt: string
   priceMustBeEntered: boolean
   taxRates?: ItemTaxRateDto[]
+  /** false = ingrediente: no se vende en POS ni plataformas. */
+  isSellable: boolean
+  /** Unidad base de inventario: 0 und, 1 g, 2 ml. */
+  baseUnit: number
 }
 
 export interface ItemTaxRateDto {
@@ -52,6 +56,9 @@ export interface CreateItemDto {
   brandId: number
   itemPresentationId: number
   askQuantity: number
+  trackInventory: boolean
+  isSellable: boolean
+  baseUnit: number
 }
 
 export interface UpdateItemDto {
@@ -72,6 +79,9 @@ export interface UpdateItemDto {
   brandId: number | null
   itemPresentationId: number | null
   askQuantity: number | null
+  trackInventory: boolean | null
+  isSellable: boolean | null
+  baseUnit: number | null
 }
 
 // ─── Branch Items Types ──────────────────────────────────────────────────────

@@ -19,6 +19,7 @@ export const branchFormSchema = (t: TFunction) =>
       .max(254, t("email_max_length", { max: 254 }))
       .refine((value) => !value || z.string().email().safeParse(value).success, t("email_invalid")),
     adminUserId: z.string(),
+    isSupplier: z.boolean(),
   })
 
 export type BranchFormSchemaValues = z.infer<ReturnType<typeof branchFormSchema>>

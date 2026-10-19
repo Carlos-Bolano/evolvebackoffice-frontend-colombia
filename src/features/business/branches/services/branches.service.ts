@@ -25,6 +25,7 @@ function mapBranchResponseToBranch(dto: BranchResponseDto): Branch {
     adminUserId: dto.adminUserPublicId,
     adminUserName: dto.adminUserName ?? "",
     createdAt: dto.createdAt,
+    isSupplier: dto.isSupplier ?? false,
   }
 }
 

@@ -31,6 +31,7 @@ const dto: BranchResponseDto = {
   adminUserPublicId: "22222222-2222-2222-2222-222222222222",
   adminUserName: "Ana Admin",
   createdAt: "2026-09-15T12:00:00Z",
+  isSupplier: true,
 }
 
 describe("branches.service", () => {
@@ -69,6 +70,7 @@ describe("branches.service", () => {
           adminUserId: "22222222-2222-2222-2222-222222222222",
           adminUserName: "Ana Admin",
           createdAt: "2026-09-15T12:00:00Z",
+          isSupplier: true,
         },
       ],
       pageNumber: 2,

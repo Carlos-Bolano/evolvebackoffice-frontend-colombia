@@ -93,6 +93,7 @@ export function BranchesPage() {
     address: values.address || null,
     phone: values.phone || null,
     email: values.email || null,
+    isSupplier: values.isSupplier,
   })
 
   const handleCreate = (values: BranchFormValues) => {
@@ -258,7 +259,7 @@ export function BranchesPage() {
                         </TableCell>
                         <TableCell className="text-muted-foreground">{branch.adminUserName || "—"}</TableCell>
                         <TableCell>
-                          <BranchStatus active={branch.isActive} t={t} />
+                          <BranchStatus active={branch.isActive} supplier={branch.isSupplier} t={t} />
                         </TableCell>
                         <TableCell className="text-right">
                           <BranchActions
@@ -285,7 +286,7 @@ export function BranchesPage() {
                     <CardContent className="space-y-4 p-4 sm:p-5">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <BranchIdentity branch={branch} />
-                        <BranchStatus active={branch.isActive} t={t} />
+                        <BranchStatus active={branch.isActive} supplier={branch.isSupplier} t={t} />
                       </div>
                       <div className="grid gap-3 sm:grid-cols-2">
                         <Meta label={t("contact_label")} value={branch.email || branch.phone || "—"} />
@@ -419,8 +420,13 @@ function BranchIdentity({ branch }: { branch: Branch }) {
   )
 }
 
-function BranchStatus({ active, t }: { active: boolean; t: (key: string) => string }) {
-  return <Badge tone={active ? "success" : "neutral"}>{active ? t("status_active") : t("status_inactive")}</Badge>
+function BranchStatus({ active, supplier, t }: { active: boolean; supplier: boolean; t: (key: string) => string }) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      <Badge tone={active ? "success" : "neutral"}>{active ? t("status_active") : t("status_inactive")}</Badge>
+      {supplier ? <Badge tone="primary">{t("supplier_badge")}</Badge> : null}
+    </div>
+  )
 }
 
 function BranchActions({

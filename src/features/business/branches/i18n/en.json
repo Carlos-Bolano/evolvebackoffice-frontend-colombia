@@ -210,5 +210,8 @@
   "go_registers": "Go to Registers",
   "switch_on": "YES",
   "switch_off": "NO",
-  "terminals_breadcrumb_config": "Configuration"
+  "terminals_breadcrumb_config": "Configuration",
+  "supplier_label": "Supplier branch",
+  "supplier_hint": "Supplies other branches: receives their orders and ships goods to them. Only supplier branches can send transfers.",
+  "supplier_badge": "Supplier"
 }

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import toast from "react-hot-toast"
 
 import { useTranslation } from "@/i18n/use-i18n"
+import { getApiErrorMessage } from "@/utils/api-error"
 import { activateItem, createItem, deleteItem, getItems, updateItem } from "../services/items.service"
 import type { CreateItemDto, ItemListParams, UpdateItemDto } from "../types"
 
@@ -22,8 +23,8 @@ export function useCreateItem() {
       queryClient.invalidateQueries({ queryKey: ["items"] })
       toast.success(t("toast_item_created", { name: variables.name }))
     },
-    onError: () => {
-      toast.error(t("toast_error_create"))
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, t("toast_error_create")))
     },
   })
 }
@@ -38,8 +39,8 @@ export function useUpdateItem() {
       queryClient.invalidateQueries({ queryKey: ["items"] })
       toast.success(t("toast_item_updated", { name: variables.payload.name }))
     },
-    onError: () => {
-      toast.error(t("toast_error_update"))
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, t("toast_error_update")))
     },
   })
 }

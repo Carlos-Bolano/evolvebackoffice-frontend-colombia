@@ -15,6 +15,8 @@ export interface BranchResponseDto {
   adminUserPublicId: string
   adminUserName: string | null
   createdAt: string
+  /** Sucursal proveedora: abastece a otras sucursales. */
+  isSupplier?: boolean
 }
 
 export interface CreateBranchDto {
@@ -24,6 +26,7 @@ export interface CreateBranchDto {
   address: string | null
   phone: string | null
   email: string | null
+  isSupplier?: boolean
 }
 
 export interface UpdateBranchDto {
@@ -33,6 +36,7 @@ export interface UpdateBranchDto {
   phone: string | null
   email: string | null
   adminUserId: string | null
+  isSupplier?: boolean | null
 }
 
 /**

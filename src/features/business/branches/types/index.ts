@@ -12,6 +12,7 @@ export interface Branch {
   adminUserId: string
   adminUserName: string
   createdAt: string
+  isSupplier: boolean
 }
 
 export interface PagedBranches {
@@ -29,4 +30,5 @@ export interface BranchFormValues {
   phone: string
   email: string
   adminUserId: string
+  isSupplier: boolean
 }

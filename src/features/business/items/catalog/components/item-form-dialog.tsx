@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 
 import { Button } from "@/components/ui/button"
@@ -14,6 +14,7 @@ import {
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useTranslation } from "@/i18n/use-i18n"
@@ -22,6 +23,13 @@ import { useCreateItem, useUpdateItem } from "../hooks/use-items"
 import { useDepartmentsAll } from "../../departments/hooks/use-departments"
 import { ItemTaxEditor } from "./item-tax-editor"
 import { ItemModifierEditor } from "./item-modifier-editor"
+import { ItemPackagingEditor } from "./item-packaging-editor"
+import {
+  BASE_UNIT_OPTIONS,
+  INVENTORY_USES,
+  inventoryUseOf,
+  type InventoryUse,
+} from "@/features/business/inventory/utils/units"
 import type { ItemResponseDto } from "../types"
 
 type ItemFormDialogProps = {
@@ -48,6 +56,9 @@ const defaultValues: CreateItemFormValues = {
   brandId: 0,
   itemPresentationId: 0,
   askQuantity: 0,
+  trackInventory: true,
+  isSellable: true,
+  baseUnit: 0,
 }
 
 export function ItemFormDialog({ open, onOpenChange, itemToEdit }: ItemFormDialogProps) {
@@ -93,6 +104,9 @@ export function ItemFormDialog({ open, onOpenChange, itemToEdit }: ItemFormDialo
         brandId: itemToEdit.brandId,
         itemPresentationId: itemToEdit.itemPresentationId,
         askQuantity: itemToEdit.askQuantity,
+        trackInventory: itemToEdit.trackInventory,
+        isSellable: itemToEdit.isSellable ?? true,
+        baseUnit: itemToEdit.baseUnit ?? 0,
       })
       return
     }
@@ -124,6 +138,8 @@ export function ItemFormDialog({ open, onOpenChange, itemToEdit }: ItemFormDialo
   }
 
   const isSubmitting = createItem.isPending || updateItem.isPending
+  const [trackInventory, isSellable] = useWatch({ control: form.control, name: ["trackInventory", "isSellable"] })
+  const inventoryUse = inventoryUseOf(trackInventory, isSellable)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -135,10 +151,11 @@ export function ItemFormDialog({ open, onOpenChange, itemToEdit }: ItemFormDialo
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           {isEditMode && (
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="info">{t("tab_info")}</TabsTrigger>
               <TabsTrigger value="taxes">{t("tab_taxes")}</TabsTrigger>
               <TabsTrigger value="modifiers">{t("tab_modifiers")}</TabsTrigger>
+              <TabsTrigger value="packagings">{t("tab_packagings")}</TabsTrigger>
             </TabsList>
           )}
 
@@ -319,6 +336,62 @@ export function ItemFormDialog({ open, onOpenChange, itemToEdit }: ItemFormDialo
                   />
                 </div>
 
+                {/* Inventario: uso del producto y unidad base */}
+                <div className="grid gap-4 rounded-lg border p-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="item-uso-inventario">{t("inventory_use")}</Label>
+                    <Select
+                      value={inventoryUse}
+                      onValueChange={(value) => {
+                        const flags = INVENTORY_USES[value as InventoryUse]
+                        form.setValue("trackInventory", flags.trackInventory, { shouldDirty: true })
+                        form.setValue("isSellable", flags.isSellable, { shouldDirty: true })
+                      }}
+                    >
+                      <SelectTrigger id="item-uso-inventario">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(Object.keys(INVENTORY_USES) as InventoryUse[]).map((use) => (
+                          <SelectItem key={use} value={use}>
+                            {t(`inventory_use_${use}`)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs leading-5 text-muted-foreground">{t(`inventory_use_${inventoryUse}_hint`)}</p>
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="baseUnit"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t("base_unit")}</FormLabel>
+                        <Select
+                          value={String(field.value ?? 0)}
+                          onValueChange={(value) => field.onChange(Number(value))}
+                        >
+                          <FormControl>
+                            <SelectTrigger id="item-unidad-base">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {BASE_UNIT_OPTIONS.map((option) => (
+                              <SelectItem key={option.value} value={String(option.value)}>
+                                {t(option.labelKey)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs leading-5 text-muted-foreground">{t("base_unit_hint")}</p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
                 {/* Boolean Toggles */}
                 <div className="grid gap-4 sm:grid-cols-3">
                   <FormField
@@ -384,6 +457,9 @@ export function ItemFormDialog({ open, onOpenChange, itemToEdit }: ItemFormDialo
               </TabsContent>
               <TabsContent value="modifiers">
                 <ItemModifierEditor item={itemToEdit} />
+              </TabsContent>
+              <TabsContent value="packagings">
+                <ItemPackagingEditor item={itemToEdit} />
               </TabsContent>
             </>
           )}
