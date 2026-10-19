@@ -73,7 +73,10 @@ export function Container({ children, className, ...props }: ContainerProps) {
 export function Toolbar({ children, className, ...props }: ToolbarProps) {
   return (
     <div
-      className={cn("flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between", className)}
+      className={cn(
+        "flex shrink-0 flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between",
+        className
+      )}
       {...props}
     >
       {children}
@@ -109,7 +112,13 @@ function renderStatsZone(stats: EntityListLayoutProps["stats"]): ReactNode {
   if (Array.isArray(stats)) {
     if (stats.length === 0) return null
     return (
-      <div className={cn("z-10 grid shrink-0 gap-2.5 sm:gap-3 xl:w-fit", statsGridColumns(stats.length))}>
+      <div
+        className={cn(
+          // Móvil: chips en fila que fluyen (flex). sm+: grid con las columnas configuradas.
+          "z-10 flex shrink-0 flex-wrap gap-2 sm:grid sm:gap-2.5 xl:w-fit",
+          statsGridColumns(stats.length)
+        )}
+      >
         {stats.map((stat: StatConfig, index: number) => (
           <StatTile key={index} label={stat.label} value={stat.value} icon={stat.icon} tone={stat.tone} />
         ))}
@@ -137,13 +146,19 @@ function renderToolbarZone(toolbar: EntityListLayoutProps["toolbar"]): ReactNode
               value={search.value}
               onChange={(event) => search.onChange(event.target.value)}
               placeholder={search.placeholder}
-              className="pl-9"
+              className="h-8 pl-9 sm:h-9"
             />
           </div>
         ) : (
           <div className="flex-1" />
         )}
-        {hasActions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+        {hasActions ? (
+          // En móvil los botones de acción se compactan (h-8, texto-xs) como en
+          // el catálogo de items, y w-fit evita que se estiren por el flex-col.
+          <div className="flex w-fit shrink-0 items-center gap-2 max-sm:[&_button]:h-8 max-sm:[&_button]:px-2.5 max-sm:[&_button]:text-xs">
+            {actions}
+          </div>
+        ) : null}
       </Toolbar>
     )
   }
@@ -188,7 +203,7 @@ export function EntityListLayout(props: EntityListLayoutProps): ReactElement {
               {title || description ? (
                 <div className="space-y-1">
                   {title ? (
-                    <CardTitle className="text-3xl font-semibold tracking-tight text-balance text-foreground">
+                    <CardTitle className="text-2xl font-semibold tracking-tight text-balance text-foreground sm:text-3xl">
                       {title}
                     </CardTitle>
                   ) : null}
