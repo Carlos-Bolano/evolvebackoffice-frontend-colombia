@@ -27,12 +27,12 @@ import {
 } from "@/features/business/branches/hooks/use-branch-modules"
 import { getBranchModules } from "@/features/business/branches/services/branch-modules.service"
 import { BranchSelector } from "@/features/business/items/catalog/components/branch-selector"
-import { useOrders, useBranchIntegrations, useUpdateOrderStatus } from "../hooks/use-orders"
+import { useBranchIntegrations } from "@/features/business/branches/hooks/use-branch-integrations"
+import { useOrders, useUpdateOrderStatus } from "../hooks/use-orders"
 import { OrdersKanban } from "../components/orders-kanban"
 import { BulkOrderStatusDialog } from "../components/bulk-order-status-dialog"
 import { MAX_BULK_ORDERS } from "../utils/bulk-status"
 import { OrderDetailDialog } from "../components/order-detail-dialog"
-import { IntegrationConfigDialog } from "../components/integration-config-dialog"
 import { ManualOrderDialog } from "../components/manual-order-dialog"
 import { EditOrderDialog } from "../components/edit-order-dialog"
 import { CourierPickerDialog } from "../components/courier-picker-dialog"
@@ -51,8 +51,6 @@ export function OrdersPage() {
   const notify = useNotify()
   const [selectedOrder, setSelectedOrder] = useState<OrderListItem | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
-  const [configOpen, setConfigOpen] = useState(false)
-  const [configPlatform, setConfigPlatform] = useState<string>("CLUVI")
   const [createOrderOpen, setCreateOrderOpen] = useState(false)
   const [editOrderOpen, setEditOrderOpen] = useState(false)
   const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all")
@@ -241,9 +239,10 @@ export function OrdersPage() {
     setDetailOpen(true)
   }
 
-  const openConfig = (platform: string) => {
-    setConfigPlatform(platform)
-    setConfigOpen(true)
+  /** Navega a la pestaña de integración de la sucursal en Sucursales. */
+  const goToIntegration = (tab: "cluvi" | "woocommerce") => {
+    if (!branchId) return
+    navigate(`/business/branches/${branchId}/config?tab=${tab}`)
   }
 
   return (
@@ -284,7 +283,7 @@ export function OrdersPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => openConfig("CLUVI")}
+              onClick={() => goToIntegration("cluvi")}
               disabled={!hasOrdersModule || showAllBranches}
               title={integrationTitle(integrationState("CLUVI"), t)}
             >
@@ -296,7 +295,7 @@ export function OrdersPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => openConfig("WOOCOMMERCE")}
+            onClick={() => goToIntegration("woocommerce")}
             disabled={!hasOrdersModule || showAllBranches}
             title={integrationTitle(integrationState("WOOCOMMERCE"), t)}
           >
@@ -313,11 +312,8 @@ export function OrdersPage() {
           <CardContent className="flex items-center gap-3 py-3">
             <AlertTriangle className="h-5 w-5 text-amber-600" />
             <div>
-              <p className="text-sm font-medium text-amber-800">Módulo Órdenes no activo</p>
-              <p className="text-xs text-amber-700">
-                Activa el módulo "Órdenes" en la configuración de la sucursal para habilitar integraciones con Cluvi y
-                WooCommerce.
-              </p>
+              <p className="text-sm font-medium text-amber-800">{t("orders_module_warning_title")}</p>
+              <p className="text-xs text-amber-700">{t("orders_module_warning_desc")}</p>
             </div>
           </CardContent>
         </Card>
@@ -433,12 +429,6 @@ export function OrdersPage() {
         onEdit={() => setEditOrderOpen(true)}
       />
       <EditOrderDialog open={editOrderOpen} onOpenChange={setEditOrderOpen} orderId={selectedOrder?.id ?? null} />
-      <IntegrationConfigDialog
-        open={configOpen}
-        onOpenChange={setConfigOpen}
-        branchId={branchId}
-        platform={configPlatform}
-      />
 
       {/* Advertencia de inventario insuficiente antes de confirmar la orden */}
       <AlertDialog
