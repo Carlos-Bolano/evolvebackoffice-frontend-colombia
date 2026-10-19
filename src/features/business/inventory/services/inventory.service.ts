@@ -5,6 +5,8 @@ import type {
   InventoryMovementDto,
   ItemPackagingDto,
   PagedResult,
+  RecipeDto,
+  SaveRecipeDto,
   SaveItemPackagingDto,
   SetStockQuantityDto,
   StockAdjustmentDto,
@@ -80,4 +82,23 @@ export async function createItemPackaging(itemId: string, payload: SaveItemPacka
 
 export async function deleteItemPackaging(itemId: string, packagingId: string): Promise<void> {
   await api.delete(`/api/items/${itemId}/packagings/${packagingId}`)
+}
+
+// ─── Recetas ─────────────────────────────────────────────────────────────────
+
+/** Receta del producto (null si no tiene). Con sucursal trae costos de esa sucursal. */
+export async function getRecipe(itemId: string, branchId: string | null): Promise<RecipeDto | null> {
+  const response = await api.get<RecipeDto>(`/api/items/${itemId}/recipe`, {
+    params: { branchId: branchId ?? undefined },
+  })
+  return response.status === 204 ? null : response.data
+}
+
+export async function saveRecipe(itemId: string, payload: SaveRecipeDto): Promise<RecipeDto> {
+  const { data } = await api.put<RecipeDto>(`/api/items/${itemId}/recipe`, payload)
+  return data
+}
+
+export async function deleteRecipe(itemId: string): Promise<void> {
+  await api.delete(`/api/items/${itemId}/recipe`)
 }

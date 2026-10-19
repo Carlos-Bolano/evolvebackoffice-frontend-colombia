@@ -28,6 +28,8 @@ export interface ItemResponseDto {
   isSellable: boolean
   /** Unidad base de inventario: 0 und, 1 g, 2 ml. */
   baseUnit: number
+  /** Tiene receta (plato, semielaborado o producto terminado). */
+  hasRecipe?: boolean
 }
 
 export interface ItemTaxRateDto {

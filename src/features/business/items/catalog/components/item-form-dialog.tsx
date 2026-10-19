@@ -24,6 +24,7 @@ import { useDepartmentsAll } from "../../departments/hooks/use-departments"
 import { ItemTaxEditor } from "./item-tax-editor"
 import { ItemModifierEditor } from "./item-modifier-editor"
 import { ItemPackagingEditor } from "./item-packaging-editor"
+import { ItemRecipeEditor } from "./item-recipe-editor"
 import {
   BASE_UNIT_OPTIONS,
   INVENTORY_USES,
@@ -151,10 +152,11 @@ export function ItemFormDialog({ open, onOpenChange, itemToEdit }: ItemFormDialo
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           {isEditMode && (
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5">
               <TabsTrigger value="info">{t("tab_info")}</TabsTrigger>
               <TabsTrigger value="taxes">{t("tab_taxes")}</TabsTrigger>
               <TabsTrigger value="modifiers">{t("tab_modifiers")}</TabsTrigger>
+              <TabsTrigger value="recipe">{t("tab_recipe")}</TabsTrigger>
               <TabsTrigger value="packagings">{t("tab_packagings")}</TabsTrigger>
             </TabsList>
           )}
@@ -360,6 +362,9 @@ export function ItemFormDialog({ open, onOpenChange, itemToEdit }: ItemFormDialo
                       </SelectContent>
                     </Select>
                     <p className="text-xs leading-5 text-muted-foreground">{t(`inventory_use_${inventoryUse}_hint`)}</p>
+                    {itemToEdit?.hasRecipe ? (
+                      <p className="text-xs leading-5 text-primary">{t(`inventory_recipe_${inventoryUse}`)}</p>
+                    ) : null}
                   </div>
 
                   <FormField
@@ -457,6 +462,9 @@ export function ItemFormDialog({ open, onOpenChange, itemToEdit }: ItemFormDialo
               </TabsContent>
               <TabsContent value="modifiers">
                 <ItemModifierEditor item={itemToEdit} />
+              </TabsContent>
+              <TabsContent value="recipe">
+                <ItemRecipeEditor item={itemToEdit} />
               </TabsContent>
               <TabsContent value="packagings">
                 <ItemPackagingEditor item={itemToEdit} />

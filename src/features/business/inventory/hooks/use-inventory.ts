@@ -3,16 +3,19 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import {
   createItemPackaging,
   createWriteoff,
+  deleteRecipe,
   deleteItemPackaging,
   getInventoryInbox,
   getItemPackagings,
   getMovements,
+  getRecipe,
   getStock,
+  saveRecipe,
   setStockQuantity,
   updateStockLevels,
   voidAdjustment,
 } from "../services/inventory.service"
-import type { CreateWriteoffDto, SaveItemPackagingDto, SetStockQuantityDto } from "../types"
+import type { CreateWriteoffDto, SaveItemPackagingDto, SaveRecipeDto, SetStockQuantityDto } from "../types"
 
 const INVENTORY_KEYS = ["inventory-stock", "inventory-movements", "inventory-inbox"]
 
@@ -98,5 +101,37 @@ export function useDeleteItemPackaging(itemId: string) {
   return useMutation({
     mutationFn: (packagingId: string) => deleteItemPackaging(itemId, packagingId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["item-packagings", itemId] }),
+  })
+}
+
+// ─── Recetas ─────────────────────────────────────────────────────────────────
+
+export function useRecipe(itemId: string | null, branchId: string | null) {
+  return useQuery({
+    queryKey: ["item-recipe", itemId, branchId],
+    queryFn: () => getRecipe(itemId!, branchId),
+    enabled: Boolean(itemId),
+  })
+}
+
+export function useSaveRecipe(itemId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: SaveRecipeDto) => saveRecipe(itemId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["item-recipe", itemId] })
+      queryClient.invalidateQueries({ queryKey: ["items"] })
+    },
+  })
+}
+
+export function useDeleteRecipe(itemId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => deleteRecipe(itemId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["item-recipe", itemId] })
+      queryClient.invalidateQueries({ queryKey: ["items"] })
+    },
   })
 }

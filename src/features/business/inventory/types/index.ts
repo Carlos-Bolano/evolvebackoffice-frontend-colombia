@@ -107,3 +107,36 @@ export interface PagedResult<T> {
   items: T[]
   totalCount: number
 }
+
+// ─── Recetas ─────────────────────────────────────────────────────────────────
+
+export interface RecipeLineDto {
+  ingredientItemId: string
+  ingredientName: string
+  ingredientSku: string | null
+  baseUnit: number
+  quantity: number
+  ingredientIsStockTracked: boolean
+  ingredientHasRecipe: boolean
+  unitCost: number | null
+  lineCost: number | null
+}
+
+export interface RecipeDto {
+  itemId: string
+  itemName: string
+  baseUnit: number
+  /** Cuánto rinde una tanda, en la unidad del producto. */
+  yieldQuantity: number
+  notes: string | null
+  lines: RecipeLineDto[]
+  batchCost: number | null
+  unitCost: number | null
+  warnings: string[]
+}
+
+export interface SaveRecipeDto {
+  yieldQuantity: number
+  notes: string | null
+  lines: { ingredientItemId: string; quantity: number }[]
+}
