@@ -1,22 +1,24 @@
-import { useState } from "react"
-import { Search, Users, Plus } from "lucide-react"
+import { useMemo, useState } from "react"
+import { Plus, UserCheck, UserX, Users } from "lucide-react"
 
-import { Badge } from "@/components/ui/badge"
+import { DataTable } from "@/components/data-table"
+import { EntityListLayout } from "@/components/share"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { notify } from "@/hooks/use-notify"
 import { useTranslation } from "@/i18n/use-i18n"
 import { useCustomers, useCreateCustomer, useUpdateCustomer, useToggleCustomerActive } from "../hooks/use-customers"
-import { CustomersTable } from "../components/customers-table"
+import { buildCustomerColumns } from "../components/customers-columns"
 import { CustomerFormDialog } from "../components/customer-form-dialog"
 import { CreditDialog } from "../../credit/components/credit-dialog"
 import type { CreateCustomerFormValues } from "../schemas/customer-schema"
 import type { CustomerResponseDto } from "../types"
 
+const PAGE_SIZE = 20
+
 export function CustomersPage() {
   const { t } = useTranslation("business-customers")
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
   const [formOpen, setFormOpen] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerResponseDto | null>(null)
   const [creditCustomer, setCreditCustomer] = useState<CustomerResponseDto | null>(null)
@@ -26,21 +28,34 @@ export function CustomersPage() {
   const updateMutation = useUpdateCustomer()
   const toggleActiveMutation = useToggleCustomerActive()
 
-  const customers = data?.items ?? []
-  const totalCount = data?.totalCount ?? customers.length
+  const customers = useMemo(() => data?.items ?? [], [data])
+  const totalCount = data?.totalCount ?? 0
 
-  const filteredCustomers = search
-    ? customers.filter((customer) => {
-        const term = search.toLowerCase()
-        return (
-          [customer.firstName, customer.lastName].filter(Boolean).join(" ").toLowerCase().includes(term) ||
-          customer.emailAddress?.toLowerCase().includes(term) ||
-          customer.identificationNumber?.toLowerCase().includes(term) ||
-          customer.city?.toLowerCase().includes(term) ||
-          customer.phoneNumber?.toLowerCase().includes(term)
-        )
-      })
-    : customers
+  const filteredCustomers = useMemo(() => {
+    if (!search) return customers
+    const term = search.toLowerCase()
+    return customers.filter((customer) => {
+      return (
+        [customer.firstName, customer.lastName].filter(Boolean).join(" ").toLowerCase().includes(term) ||
+        customer.emailAddress?.toLowerCase().includes(term) ||
+        customer.identificationNumber?.toLowerCase().includes(term) ||
+        customer.city?.toLowerCase().includes(term) ||
+        customer.phoneNumber?.toLowerCase().includes(term)
+      )
+    })
+  }, [customers, search])
+
+  const activeCount = filteredCustomers.filter((customer) => customer.isActive).length
+  const inactiveCount = filteredCustomers.length - activeCount
+
+  const totalPages = Math.max(1, Math.ceil(filteredCustomers.length / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
+  const visibleCustomers = filteredCustomers.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value)
+    setPage(1)
+  }
 
   const handleCreate = (values: CreateCustomerFormValues) => {
     createMutation.mutate(values, {
@@ -92,79 +107,74 @@ export function CustomersPage() {
     setSelectedCustomer(null)
   }
 
+  const columns = buildCustomerColumns(t, {
+    onEdit: openEditDialog,
+    onToggleActive: handleToggleActive,
+    onCredit: setCreditCustomer,
+  })
+
   return (
-    <Card className="overflow-hidden shadow-none">
-      <CardContent className="p-4 sm:p-6 lg:p-8">
-        <div className="relative flex flex-col gap-2">
-          <Badge className="max-w-fit" tone="primary">
-            {t("customers")}
-          </Badge>
-          <h1 className="text-xl font-semibold text-foreground sm:text-2xl">{t("customer_catalog")}</h1>
-          <p className="max-w-4xl text-sm leading-5 text-muted-foreground">{t("customer_catalog_desc")}</p>
-          <Users
-            color="#58626b"
-            className="absolute -top-10 -right-20 -z-10 size-50 shrink-0 animate-float opacity-5 md:-top-10 md:-right-10 md:size-70 lg:-top-20 lg:-right-30 lg:size-100"
-          />
-        </div>
-
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative flex-1 sm:max-w-sm">
-            <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder={t("search_customers")}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <Button onClick={openCreateDialog} className="w-full sm:w-auto">
-            <Plus className="mr-2 size-4" />
-            {t("new_customer")}
-          </Button>
-        </div>
-
-        <div className="mt-4">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <p className="text-sm text-muted-foreground">{t("loading")}</p>
-            </div>
-          ) : (
-            <>
-              <CustomersTable
-                customers={filteredCustomers}
-                onEdit={openEditDialog}
-                onToggleActive={handleToggleActive}
-                onCredit={setCreditCustomer}
-              />
-              {totalCount > customers.length && (
-                <p className="mt-3 text-xs text-muted-foreground">
-                  {t("showing_of", { shown: customers.length, total: totalCount })}
-                </p>
-              )}
-            </>
-          )}
-        </div>
-
-        <CustomerFormDialog
-          open={formOpen}
-          onOpenChange={handleDialogClose}
-          customerToEdit={selectedCustomer}
-          onSubmit={selectedCustomer ? handleEdit : handleCreate}
-          isSubmitting={createMutation.isPending || updateMutation.isPending}
-        />
-
-        <CreditDialog
-          open={creditCustomer != null}
-          onOpenChange={(open) => {
-            if (!open) setCreditCustomer(null)
+    <>
+      <EntityListLayout
+        back={{ to: "/business/people", label: t("back_to_people") }}
+        title={t("customer_catalog")}
+        description={t("customer_catalog_desc")}
+        stats={[
+          { icon: Users, tone: "info", label: t("stats_total"), value: totalCount },
+          { icon: UserCheck, tone: "success", label: t("stats_active"), value: activeCount },
+          { icon: UserX, tone: "warning", label: t("stats_inactive"), value: inactiveCount },
+        ]}
+        toolbar={{
+          search: { value: search, onChange: handleSearchChange, placeholder: t("search_customers") },
+          actions: (
+            <Button onClick={openCreateDialog} className="relative shadow-sm shadow-primary/20">
+              <Plus className="size-4" />
+              {t("new_customer")}
+            </Button>
+          ),
+        }}
+      >
+        <DataTable
+          columns={columns}
+          data={visibleCustomers}
+          isLoading={isLoading}
+          page={safePage}
+          totalPages={totalPages}
+          totalCount={filteredCustomers.length}
+          onPageChange={setPage}
+          skeletonRows={6}
+          emptyState={{
+            icon: Users,
+            title: search ? t("search_title") : t("empty_title"),
+            description: search ? t("search_desc") : t("empty_desc"),
+            action: search ? null : (
+              <Button onClick={openCreateDialog}>
+                <Plus className="size-4" />
+                {t("new_customer")}
+              </Button>
+            ),
           }}
-          personId={creditCustomer?.personPublicId ?? null}
-          personName={
-            creditCustomer ? [creditCustomer.firstName, creditCustomer.lastName].filter(Boolean).join(" ") : ""
-          }
+          labels={{ paginationTotal: (count) => t("list_total", { total: count }) }}
         />
-      </CardContent>
-    </Card>
+      </EntityListLayout>
+
+      <CustomerFormDialog
+        open={formOpen}
+        onOpenChange={handleDialogClose}
+        customerToEdit={selectedCustomer}
+        onSubmit={selectedCustomer ? handleEdit : handleCreate}
+        isSubmitting={createMutation.isPending || updateMutation.isPending}
+      />
+
+      <CreditDialog
+        open={creditCustomer != null}
+        onOpenChange={(open) => {
+          if (!open) setCreditCustomer(null)
+        }}
+        personId={creditCustomer?.personPublicId ?? null}
+        personName={creditCustomer ? [creditCustomer.firstName, creditCustomer.lastName].filter(Boolean).join(" ") : ""}
+      />
+    </>
   )
 }
 
