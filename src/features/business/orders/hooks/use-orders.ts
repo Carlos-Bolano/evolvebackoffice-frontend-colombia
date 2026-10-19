@@ -11,6 +11,7 @@ import {
   activateStore,
   createManualOrder,
   updateOrderDetails,
+  retryOrderSync,
 } from "../services/orders.service"
 import type {
   CreateIntegrationDto,
@@ -56,6 +57,14 @@ export function useUpdateOrderStatus() {
     mutationFn: ({ id, status, courierId }: { id: string; status: string; courierId?: string | null }) =>
       updateOrderStatus(id, status, courierId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ordersKeys.all }),
+  })
+}
+
+export function useRetryOrderSync() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: retryOrderSync,
+    onSettled: () => qc.invalidateQueries({ queryKey: ordersKeys.all }),
   })
 }
 

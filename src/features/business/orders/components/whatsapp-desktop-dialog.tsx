@@ -4,15 +4,31 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { useTranslation } from "@/i18n/use-i18n"
+import { useLocaleFormat } from "@/hooks/use-locale-format"
 import type { DeliveryOrder } from "../types/delivery"
 import { whatsappDesktopUrl } from "../utils/whatsapp-desktop"
 
-export function WhatsAppDesktopDialog({ order, courierName }: { order: DeliveryOrder; courierName?: string | null }) {
+export type ContactOrder = Pick<DeliveryOrder, "reference" | "status" | "customerName" | "customerPhone"> &
+  Partial<Pick<DeliveryOrder, "total" | "shippingStreet" | "shippingCity" | "paymentConfirmed" | "isReconciled">>
+
+export function WhatsAppDesktopDialog({
+  order,
+  courierName,
+  courierPhone,
+  recipient = "customer",
+}: {
+  order: ContactOrder
+  courierName?: string | null
+  courierPhone?: string | null
+  recipient?: "customer" | "courier"
+}) {
   const { t } = useTranslation("business-orders")
+  const { formatCurrency } = useLocaleFormat()
   const [open, setOpen] = useState(false)
   const [phone, setPhone] = useState(order.customerPhone ?? "")
   const [message, setMessage] = useState("")
-  if (order.platformCode !== "POSCO" || order.status !== "Shipped") return null
+  if (recipient === "courier" && (!courierPhone || !["Ready", "Shipped", "Cancelled"].includes(order.status)))
+    return null
   const href = whatsappDesktopUrl(phone, message)
   return (
     <>
@@ -20,18 +36,38 @@ export function WhatsAppDesktopDialog({ order, courierName }: { order: DeliveryO
         size="sm"
         variant="outline"
         onClick={() => {
-          setPhone(order.customerPhone ?? "")
+          setPhone((recipient === "courier" ? courierPhone : order.customerPhone) ?? "")
+          const messageKey =
+            recipient === "courier"
+              ? order.status === "Cancelled"
+                ? "e_whatsapp_courier_cancelled_message"
+                : "e_whatsapp_courier_message"
+              : order.status === "Shipped"
+                ? "e_whatsapp_message"
+                : order.status === "Ready"
+                  ? "e_whatsapp_ready_message"
+                  : order.status === "Delivered"
+                    ? "e_whatsapp_delivered_message"
+                    : order.status === "Cancelled" || order.status === "Refunded"
+                      ? "e_whatsapp_cancelled_message"
+                      : "e_whatsapp_status_message"
           setMessage(
-            t("e_whatsapp_message", {
-              name: order.customerName ?? "",
+            t(messageKey, {
+              name: order.customerName?.trim() || t("customer"),
               reference: order.reference,
               courier: courierName ?? t("courier"),
+              address: [order.shippingStreet, order.shippingCity].filter(Boolean).join(", ") || "—",
+              phone: order.customerPhone ?? "—",
+              collection:
+                order.paymentConfirmed || order.isReconciled
+                  ? t("phase2_paid")
+                  : t("phase2_collect", { amount: formatCurrency(order.total ?? 0) }),
             })
           )
           setOpen(true)
         }}
       >
-        {t("e_notify_customer")}
+        {t(recipient === "courier" ? "e_notify_courier" : "e_notify_customer")}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>

@@ -19,23 +19,14 @@ import {
   useUpdateIntegration,
 } from "../hooks/use-orders"
 import { CheckCircle, XCircle, ArrowRight, ArrowLeft, Truck, Store, Link2, Copy, RefreshCw } from "lucide-react"
+import { readCluviStoreId, withCluviStoreId, cluviWebhookUrl } from "../utils/cluvi-settings"
+import { getApiErrorMessage } from "../utils/order-helpers"
 
 interface IntegrationConfigDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   branchId: string
   platform: string
-}
-
-/** Lee el storeId guardado en SettingsJson de la integración ("" si no hay). */
-function readStoreId(settingsJson: string | null | undefined): string {
-  if (!settingsJson) return ""
-  try {
-    const parsed = JSON.parse(settingsJson) as { storeId?: unknown }
-    return typeof parsed.storeId === "string" ? parsed.storeId : ""
-  } catch {
-    return ""
-  }
 }
 
 export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform }: IntegrationConfigDialogProps) {
@@ -76,15 +67,12 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
   // siguen a la integración existente —incluso si carga después de abrir—.
   const step = stepOverride ?? (existingIntegration ? 1 : 0)
   const baseUrl = baseUrlOverride ?? existingIntegration?.baseUrl ?? defaultBaseUrl
-  const storeId = storeIdOverride ?? readStoreId(existingIntegration?.settingsJson)
+  const storeId = storeIdOverride ?? readCluviStoreId(existingIntegration?.settingsJson)
 
   // URL del webhook que este backend expone para recibir pedidos (la misma
   // que activate-store registra en Cluvi) y su ping de salud.
   const tenantId = useAppStore((s) => s.session?.tenantId)
-  const defaultWebhookUrl =
-    tenantId && storeId
-      ? `${appConfig.apiBaseUrl}/api/webhooks/cluvi/${tenantId}?storeId=${encodeURIComponent(storeId)}`
-      : null
+  const defaultWebhookUrl = cluviWebhookUrl(appConfig.apiBaseUrl, tenantId, existingIntegration?.settingsJson)
   const defaultPingUrl = `${appConfig.apiBaseUrl}/health`
   const webhookUrl = registeredUrls?.newOrder ?? defaultWebhookUrl
   const pingUrl = registeredUrls?.ping ?? defaultPingUrl
@@ -138,7 +126,7 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
             notify.error(res.message ?? t("store_activation_failed"))
           }
         },
-        onError: () => notify.error(t("store_activation_failed")),
+        onError: (error) => notify.error(getApiErrorMessage(error, t("store_activation_failed"))),
       }
     )
   }
@@ -146,11 +134,11 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
   // Al abrir el diálogo se verifica (una sola vez) el estado real de la tienda
   // en Cluvi vía Prueba de Conexión, para mostrar activa/inactiva sin clics.
   useEffect(() => {
-    if (!open || !existingIntegration || statusCheckedRef.current) return
+    if (!open || step !== 1 || !existingIntegration || statusCheckedRef.current) return
     statusCheckedRef.current = true
     handleTestConnection()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, existingIntegration?.id])
+  }, [open, step, existingIntegration?.id])
 
   const copyText = async (value: string, successKey: string) => {
     try {
@@ -163,13 +151,17 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
 
   const handleSave = () => {
     if (!branchId) return
-    const settingsJson = isCluvi ? JSON.stringify({ storeId }) : undefined
+    const settingsJson = isCluvi ? withCluviStoreId(existingIntegration?.settingsJson, storeId) : undefined
 
     const onSuccess = () => {
       notify.success(t("save_integration"))
-      // After save, the query will refetch and existingIntegration will update
-      // Force step 1 after a short delay to allow query invalidation
-      setTimeout(() => setStepOverride(1), 500)
+      setStepOverride(1)
+      setAppId("")
+      setSecretKey("")
+      setTestResult(null)
+      setStoreStatus(null)
+      setRegisteredUrls(null)
+      statusCheckedRef.current = false
     }
     const onError = () => notify.error(t("connection_failed"))
 
@@ -184,10 +176,10 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
           dto: {
             isActive: true,
             baseUrl,
-            setNewApiKey: true,
-            apiKey: appId,
-            setNewApiSecret: true,
-            apiSecret: secretKey,
+            setNewApiKey: !!appId.trim(),
+            apiKey: appId.trim(),
+            setNewApiSecret: !!secretKey.trim(),
+            apiSecret: secretKey.trim(),
             setNewConsumerKey: false,
             setNewConsumerSecret: false,
             settingsJson,
@@ -236,7 +228,7 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <PlatformIcon className="h-5 w-5" />
@@ -245,7 +237,7 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
           {existingIntegration && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <CheckCircle className="h-4 w-4 text-emerald-500" />
-              {t("integration_active")}
+              {t("cluvi_saved_integration")}
             </div>
           )}
         </DialogHeader>
@@ -275,34 +267,52 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
               <Input value={branchId} disabled className="bg-muted text-xs" />
             </div>
             <div className="space-y-2">
-              <Label>{t("base_url")}</Label>
+              <Label htmlFor="integration-base-url">{t("base_url")}</Label>
               <Input
+                id="integration-base-url"
                 value={baseUrl}
                 onChange={(e) => setBaseUrlOverride(e.target.value)}
                 placeholder={defaultBaseUrl}
               />
             </div>
             <div className="space-y-2">
-              <Label>{isCluvi ? t("app_id") : "Consumer Key"}</Label>
-              <Input value={appId} onChange={(e) => setAppId(e.target.value)} />
+              <Label htmlFor="integration-app-id">{isCluvi ? t("app_id") : "Consumer Key"}</Label>
+              <Input id="integration-app-id" value={appId} onChange={(e) => setAppId(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>{isCluvi ? t("secret_key") : "Consumer Secret"}</Label>
-              <Input value={secretKey} onChange={(e) => setSecretKey(e.target.value)} type="password" />
+              <Label htmlFor="integration-secret">{isCluvi ? t("secret_key") : "Consumer Secret"}</Label>
+              <Input
+                id="integration-secret"
+                value={secretKey}
+                onChange={(e) => setSecretKey(e.target.value)}
+                type="password"
+              />
             </div>
             {isCluvi && (
               <div className="space-y-2">
-                <Label>{t("store_id")}</Label>
-                <Input value={storeId} onChange={(e) => setStoreIdOverride(e.target.value)} placeholder="34511" />
+                <Label htmlFor="integration-store-id">{t("store_id")}</Label>
+                <Input
+                  id="integration-store-id"
+                  value={storeId}
+                  onChange={(e) => setStoreIdOverride(e.target.value)}
+                  placeholder={t("store_id_placeholder")}
+                />
               </div>
             )}
+            {existingIntegration && <p className="text-sm text-muted-foreground">{t("cluvi_saved_credentials")}</p>}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => handleOpenChange(false)}>
                 {t("close")}
               </Button>
               <Button
                 onClick={handleSave}
-                disabled={!appId || !secretKey || createMutation.isPending || updateMutation.isPending}
+                disabled={
+                  (!existingIntegration && (!appId.trim() || !secretKey.trim())) ||
+                  (isCluvi && !storeId.trim()) ||
+                  !baseUrl.trim() ||
+                  createMutation.isPending ||
+                  updateMutation.isPending
+                }
               >
                 {(createMutation.isPending || updateMutation.isPending) && <Spinner className="mr-2 h-4 w-4" />}
                 {t("save_integration")}
@@ -324,8 +334,7 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
                     <p className="text-sm font-medium">{existingIntegration?.baseUrl}</p>
                     {isCluvi && (
                       <p className="text-xs text-muted-foreground">
-                        Store ID:{" "}
-                        {existingIntegration?.settingsJson ? JSON.parse(existingIntegration.settingsJson).storeId : "—"}
+                        Store ID: {readCluviStoreId(existingIntegration?.settingsJson) || "—"}
                       </p>
                     )}
                   </div>
@@ -348,89 +357,91 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
             </Card>
 
             {/* URL de pedidos (webhook) + estado de la tienda */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <Link2 className="h-4 w-4" />
-                  {t("webhook_url_title")}
-                </CardTitle>
-                <p className="text-xs text-muted-foreground">{t("webhook_url_desc")}</p>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {/* Estado de la tienda: activa / inactiva / sin verificar */}
-                {storeStatus === "on" ? (
-                  <div className="flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">
-                    <CheckCircle className="h-4 w-4 shrink-0" />
-                    {t("store_active")}
-                  </div>
-                ) : storeStatus !== null ? (
-                  <div className="flex items-center gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
-                    <XCircle className="h-4 w-4 shrink-0" />
-                    {t("store_inactive")}
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-2">
-                      {testMutation.isPending && <Spinner className="h-4 w-4" />}
-                      {testMutation.isPending ? t("checking_store") : t("store_status_unknown")}
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={handleTestConnection}
-                      disabled={testMutation.isPending || !existingIntegration}
-                    >
-                      <RefreshCw className="mr-1 h-3.5 w-3.5" />
-                      {t("check_status")}
-                    </Button>
-                  </div>
-                )}
+            {isCluvi && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-sm">
+                    <Link2 className="h-4 w-4" />
+                    {t("webhook_url_title")}
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground">{t("webhook_url_desc")}</p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {/* Estado de la tienda: activa / inactiva / sin verificar */}
+                  {storeStatus === "on" ? (
+                    <div className="flex items-center gap-2 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">
+                      <CheckCircle className="h-4 w-4 shrink-0" />
+                      {t("store_active")}
+                    </div>
+                  ) : storeStatus !== null ? (
+                    <div className="flex items-center gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+                      <XCircle className="h-4 w-4 shrink-0" />
+                      {t("store_inactive")}
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
+                      <span className="flex items-center gap-2">
+                        {testMutation.isPending && <Spinner className="h-4 w-4" />}
+                        {testMutation.isPending ? t("checking_store") : t("store_status_unknown")}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={handleTestConnection}
+                        disabled={testMutation.isPending || !existingIntegration}
+                      >
+                        <RefreshCw className="mr-1 h-3.5 w-3.5" />
+                        {t("check_status")}
+                      </Button>
+                    </div>
+                  )}
 
-                {/* Webhook de nuevas órdenes */}
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">{t("new_order_url")}</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      readOnly
-                      value={webhookUrl ?? ""}
-                      placeholder={t("webhook_url_placeholder")}
-                      className="font-mono text-xs"
-                    />
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      disabled={!webhookUrl}
-                      onClick={() => webhookUrl && copyText(webhookUrl, "webhook_copied")}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
+                  {/* Webhook de nuevas órdenes */}
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">{t("new_order_url")}</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        readOnly
+                        value={webhookUrl ?? ""}
+                        placeholder={t("webhook_url_placeholder")}
+                        className="font-mono text-xs"
+                      />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        disabled={!webhookUrl}
+                        onClick={() => webhookUrl && copyText(webhookUrl, "webhook_copied")}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
 
-                {/* Ping / health check */}
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">{t("ping_url")}</Label>
-                  <div className="flex items-center gap-2">
-                    <Input readOnly value={pingUrl} className="font-mono text-xs" />
-                    <Button variant="outline" size="icon" onClick={() => copyText(pingUrl, "ping_copied")}>
-                      <Copy className="h-4 w-4" />
-                    </Button>
+                  {/* Ping / health check */}
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">{t("ping_url")}</Label>
+                    <div className="flex items-center gap-2">
+                      <Input readOnly value={pingUrl} className="font-mono text-xs" />
+                      <Button variant="outline" size="icon" onClick={() => copyText(pingUrl, "ping_copied")}>
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
 
-                <Button
-                  onClick={handleActivateStore}
-                  disabled={activateMutation.isPending || !existingIntegration}
-                  className="w-full"
-                >
-                  {activateMutation.isPending && <Spinner className="mr-2 h-4 w-4" />}
-                  {activateMutation.isPending ? t("setting_url") : t("set_webhook_url")}
-                </Button>
-                <p className="text-[11px] leading-4 text-muted-foreground">{t("webhook_url_hint")}</p>
-              </CardContent>
-            </Card>
+                  <Button
+                    onClick={handleActivateStore}
+                    disabled={activateMutation.isPending || !existingIntegration || !testResult?.success}
+                    className="w-full"
+                  >
+                    {activateMutation.isPending && <Spinner className="mr-2 h-4 w-4" />}
+                    {activateMutation.isPending ? t("setting_url") : t("cluvi_connect_orders")}
+                  </Button>
+                  <p className="text-[11px] leading-4 text-muted-foreground">{t("webhook_url_hint")}</p>
+                </CardContent>
+              </Card>
+            )}
 
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-wrap justify-end gap-2">
               <Button variant="outline" onClick={() => setStepOverride(0)}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 {t("config_step_credentials")}
@@ -439,6 +450,11 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
                 {t("config_step_menu")}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
+              {isCluvi && (
+                <Button onClick={() => handleOpenChange(false)} disabled={!registeredUrls?.newOrder}>
+                  {t("cluvi_finish_existing_menu")}
+                </Button>
+              )}
             </div>
           </div>
         )}
@@ -453,7 +469,7 @@ export function IntegrationConfigDialog({ open, onOpenChange, branchId, platform
               <CardContent className="space-y-4">
                 {isCluvi ? (
                   <>
-                    <p className="text-sm text-muted-foreground">{t("sync_menu_desc")}</p>
+                    <p className="text-sm text-muted-foreground">{t("cluvi_menu_optional")}</p>
                     <div className="rounded-lg border bg-muted/50 p-4">
                       <p className="text-sm text-muted-foreground">
                         Los artículos publicados de la sucursal se sincronizarán como productos del menú en Cluvi.
