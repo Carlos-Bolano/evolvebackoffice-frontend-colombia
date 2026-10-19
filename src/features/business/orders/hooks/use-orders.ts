@@ -5,6 +5,7 @@ import {
   updateOrderStatus,
   createManualOrder,
   updateOrderDetails,
+  retryOrderSync,
 } from "../services/orders.service"
 import type { CreateManualOrderDto, UpdateOrderDetailsDto } from "../types/api"
 
@@ -45,6 +46,13 @@ export function useUpdateOrderStatus() {
   })
 }
 
+export function useRetryOrderSync() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: retryOrderSync,
+    onSettled: () => qc.invalidateQueries({ queryKey: ordersKeys.all }),
+  })
+}
 /**
  * Crea una orden manual (venta de caja / domicilio). Refresca la lista de
  * órdenes; el toast de éxito/error lo dispara el formulario.
