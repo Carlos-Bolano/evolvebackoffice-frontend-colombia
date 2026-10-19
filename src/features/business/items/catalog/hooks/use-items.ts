@@ -2,13 +2,21 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import toast from "react-hot-toast"
 
 import { useTranslation } from "@/i18n/use-i18n"
-import { activateItem, createItem, deleteItem, getItems, updateItem } from "../services/items.service"
+import { activateItem, createItem, deleteItem, getItemById, getItems, updateItem } from "../services/items.service"
 import type { CreateItemDto, ItemListParams, UpdateItemDto } from "../types"
 
 export function useItems(params: ItemListParams = {}) {
   return useQuery({
     queryKey: ["items", params],
     queryFn: () => getItems(params),
+  })
+}
+
+export function useItemById(id: string) {
+  return useQuery({
+    queryKey: ["items", "detail", id],
+    queryFn: () => getItemById(id),
+    enabled: Boolean(id),
   })
 }
 
