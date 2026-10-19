@@ -1,21 +1,22 @@
 import { useMemo, useState } from "react"
-import { Percent, Pencil, Plus, Power, RefreshCw, Save, SearchX, Tags } from "lucide-react"
+import { CheckCircle2, Percent, Plus, RefreshCw, SearchX, Save, Tags } from "lucide-react"
 
+import { DataTable } from "@/components/data-table"
+import { EntityListLayout } from "@/components/share"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ErrorState } from "@/components/ui/error-state"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ConfirmActionDialog } from "@/components/confirm-action-dialog"
 import { notify } from "@/hooks/use-notify"
 import { useTranslation } from "@/i18n/use-i18n"
 import type { ItemResponseDto } from "../../catalog/types"
 import { TaxRateFormDialog } from "../components/tax-rate-form-dialog"
+import { buildTaxRateColumns, taxTypeTone } from "../components/taxes-columns"
 import {
   useAssignItemTaxRates,
   useItemTaxRates,
@@ -26,11 +27,14 @@ import {
 } from "../hooks/use-tax-rates"
 import { rateToPercent, taxTypeTextKey, type TaxRate } from "../types"
 
+const PAGE_SIZE = 20
+
 export function TaxesPage() {
   const { t } = useTranslation("business-items-taxes")
 
   const [tab, setTab] = useState("rates")
   const [query, setQuery] = useState("")
+  const [page, setPage] = useState(1)
   const [formOpen, setFormOpen] = useState(false)
   const [selectedTaxRate, setSelectedTaxRate] = useState<TaxRate | null>(null)
   const [deactivateTarget, setDeactivateTarget] = useState<TaxRate | null>(null)
@@ -56,6 +60,14 @@ export function TaxesPage() {
     )
   }, [taxRates, query])
 
+  const hasQuery = query.trim().length > 0
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
+  const visibleRows = useMemo(
+    () => filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [filtered, safePage]
+  )
+
   const handleCreate = () => {
     setSelectedTaxRate(null)
     setFormOpen(true)
@@ -77,52 +89,44 @@ export function TaxesPage() {
 
   const isMutating = setStatusMutation.isPending
 
+  const handleSearchChange = (value: string) => {
+    setQuery(value)
+    setPage(1)
+  }
+
+  const columns = buildTaxRateColumns(t, {
+    isMutating,
+    onEdit: handleEdit,
+    onToggle: handleToggleStatus,
+  })
+
   if (isError && !isLoading) {
     return (
-      <div className="space-y-6">
-        <ErrorState
-          eyebrow={t("page_title")}
-          title={t("error_load_title")}
-          description={t("error_load_desc")}
-          action={
-            <Button onClick={() => refetch()}>
-              <RefreshCw className="size-4" />
-              {t("retry")}
-            </Button>
-          }
-        />
-      </div>
+      <ErrorState
+        eyebrow={t("page_title")}
+        title={t("error_load_title")}
+        description={t("error_load_desc")}
+        action={
+          <Button onClick={() => refetch()}>
+            <RefreshCw className="size-4" />
+            {t("retry")}
+          </Button>
+        }
+      />
     )
   }
 
   return (
-    <div className="space-y-6">
-      <Card className="overflow-hidden">
-        <CardContent className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[1.2fr_0.8fr] lg:p-8">
-          <div className="space-y-4">
-            <Badge tone="primary">{t("summary")}</Badge>
-            <div>
-              <h1 className="text-3xl font-semibold text-balance text-foreground">{t("page_title")}</h1>
-              <p className="max-w-2xl text-sm leading-7 text-muted-foreground">{t("page_desc")}</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <SummaryTile label={t("total_rates")} value={totalCount} loading={isLoading} />
-            <SummaryTile label={t("active_rates")} value={activeCount} loading={isLoading} />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-0">
-          <div className="space-y-1">
-            <CardTitle>{t("page_title")}</CardTitle>
-            <CardDescription>{t("card_desc")}</CardDescription>
-          </div>
-        </CardHeader>
-
-        <CardContent className="pt-6">
+    <>
+      <EntityListLayout
+        back={{ to: "/business/items", label: t("back_to_items") }}
+        title={t("page_title")}
+        description={t("page_desc")}
+        stats={[
+          { icon: Percent, tone: "primary", label: t("total_rates"), value: totalCount },
+          { icon: CheckCircle2, tone: "success", label: t("active_rates"), value: activeCount },
+        ]}
+        tabs={
           <Tabs value={tab} onValueChange={setTab}>
             <TabsList>
               <TabsTrigger value="rates" className="gap-1.5">
@@ -134,122 +138,55 @@ export function TaxesPage() {
                 {t("tab_assign")}
               </TabsTrigger>
             </TabsList>
-
-            <TabsContent value="rates" className="mt-4 space-y-4">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div className="max-w-xl flex-1">
-                  <Input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder={t("search_placeholder")}
-                    className="h-8 w-full max-w-sm px-3 text-sm sm:h-9"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge tone="neutral" className="w-fit">
-                    {filtered.length} {t("results")}
-                  </Badge>
-                  <Button
-                    onClick={handleCreate}
-                    disabled={isMutating}
-                    size="sm"
-                    className="h-8 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm"
-                  >
+          </Tabs>
+        }
+        toolbar={
+          tab === "rates"
+            ? {
+                search: { value: query, onChange: handleSearchChange, placeholder: t("search_placeholder") },
+                actions: (
+                  <Button onClick={handleCreate} disabled={isMutating} className="relative shadow-sm shadow-primary/20">
                     <Plus className="size-4" />
                     {t("create")}
                   </Button>
-                </div>
-              </div>
-
-              {isLoading ? (
-                <TaxesSkeleton />
-              ) : filtered.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                  <SearchX className="mb-3 size-10 opacity-40" />
-                  <p className="text-sm">{query ? t("no_results") : t("empty_desc")}</p>
-                  {!query && (
-                    <Button variant="outline" size="sm" className="mt-4" onClick={handleCreate}>
-                      {t("create")}
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("name_label")}</TableHead>
-                      <TableHead>{t("tax_type_label")}</TableHead>
-                      <TableHead>{t("rate_label")}</TableHead>
-                      <TableHead className="hidden sm:table-cell">{t("country_label")}</TableHead>
-                      <TableHead className="hidden md:table-cell">{t("is_default_label")}</TableHead>
-                      <TableHead>{t("status_label")}</TableHead>
-                      <TableHead className="text-right">{t("actions")}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filtered.map((r) => (
-                      <TableRow key={r.id}>
-                        <TableCell className="font-medium">{r.name}</TableCell>
-                        <TableCell>
-                          <Badge tone={taxTypeTone(r.taxType)}>{t(taxTypeTextKey(r.taxType))}</Badge>
-                        </TableCell>
-                        <TableCell className="font-mono">
-                          {rateToPercent(r.rate)}
-                          {t("rate")}
-                        </TableCell>
-                        <TableCell className="hidden text-muted-foreground sm:table-cell">
-                          {r.countryCode}
-                          {r.regionCode ? ` / ${r.regionCode}` : ""}
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell">
-                          {r.isDefault ? <Badge tone="warning">{t("is_default_label")}</Badge> : "—"}
-                        </TableCell>
-                        <TableCell>
-                          <Badge tone={r.isActive ? "success" : "neutral"}>
-                            {r.isActive ? t("active") : t("inactive")}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="px-1 text-right sm:px-4">
-                          <div className="flex justify-end gap-1 sm:gap-2">
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              size="icon"
-                              className="size-7 sm:size-8"
-                              onClick={() => handleEdit(r)}
-                              disabled={isMutating}
-                              aria-label={t("edit")}
-                              title={t("edit")}
-                            >
-                              <Pencil className="size-3.5 sm:size-4" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant={r.isActive ? "destructive" : "secondary"}
-                              size="icon"
-                              className="size-7 sm:size-8"
-                              onClick={() => handleToggleStatus(r)}
-                              disabled={isMutating}
-                              aria-label={r.isActive ? t("deactivate") : t("activate")}
-                              title={r.isActive ? t("deactivate") : t("activate")}
-                            >
-                              <Power className="size-3.5 sm:size-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </TabsContent>
-
-            <TabsContent value="assign" className="mt-4">
-              <AssignTaxSection itemId={assignItemId} onItemIdChange={setAssignItemId} />
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+                ),
+              }
+            : undefined
+        }
+      >
+        {tab === "rates" ? (
+          <DataTable
+            columns={columns}
+            data={visibleRows}
+            isLoading={isLoading}
+            page={safePage}
+            totalPages={totalPages}
+            totalCount={filtered.length}
+            onPageChange={setPage}
+            skeletonRows={5}
+            emptyState={{
+              icon: hasQuery ? SearchX : Percent,
+              title: hasQuery ? t("no_results") : t("empty_title"),
+              description: hasQuery ? t("search_desc") : t("empty_desc"),
+              action: hasQuery ? null : (
+                <Button onClick={handleCreate}>
+                  <Plus className="size-4" />
+                  {t("create")}
+                </Button>
+              ),
+            }}
+            labels={{
+              previous: t("previous"),
+              next: t("next"),
+              paginationTotal: (count) => t("list_total", { total: count }),
+            }}
+          />
+        ) : (
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <AssignTaxSection itemId={assignItemId} onItemIdChange={setAssignItemId} />
+          </div>
+        )}
+      </EntityListLayout>
 
       <TaxRateFormDialog
         open={formOpen}
@@ -279,7 +216,7 @@ export function TaxesPage() {
           )
         }}
       />
-    </div>
+    </>
   )
 }
 
@@ -380,7 +317,7 @@ function AssignTaxSection({ itemId, onItemIdChange }: { itemId: string; onItemId
           <p className="text-sm">{t("no_item_selected")}</p>
         </div>
       ) : assignedQuery.isLoading || ratesQuery.isLoading ? (
-        <TaxesSkeleton />
+        <AssignTaxSkeleton />
       ) : assignedQuery.isError ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-10 text-muted-foreground">
           <p className="text-sm">{t("error_load_desc")}</p>
@@ -456,40 +393,8 @@ function itemLabel(item: ItemResponseDto): string {
   return name || sku || item.id
 }
 
-/** Tono del badge según el tipo de impuesto. */
-function taxTypeTone(taxType: number) {
-  switch (taxType) {
-    case 0:
-      return "primary"
-    case 1:
-      return "info"
-    case 2:
-      return "warning"
-    case 3:
-      return "purple"
-    case 4:
-      return "neutral"
-    default:
-      return "orange"
-  }
-}
-
-function SummaryTile({ label, value, loading = false }: { label: string; value: number | string; loading?: boolean }) {
-  return (
-    <Card className="max-h-min rounded-3xl">
-      <CardContent className="p-5">
-        <p className="text-[11px] font-semibold tracking-[0.24em] text-muted-foreground uppercase">{label}</p>
-        {loading ? (
-          <Skeleton className="mt-3 h-9 w-16" />
-        ) : (
-          <p className="mt-3 text-3xl font-semibold text-foreground">{value}</p>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-function TaxesSkeleton() {
+/** Filas de esqueleto de la pestaña de asignación (la lista de tasas usa el de DataTable). */
+function AssignTaxSkeleton() {
   return (
     <div className="space-y-3">
       {Array.from({ length: 5 }).map((_, i) => (
