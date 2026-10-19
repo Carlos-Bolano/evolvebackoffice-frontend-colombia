@@ -1,4 +1,5 @@
 import { useEffect } from "react"
+import { Star } from "lucide-react"
 import { useForm, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 
@@ -15,6 +16,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
+import { cn } from "@/lib/utils"
 import { useTranslation } from "@/i18n/use-i18n"
 import { useCreateTaxRate, useUpdateTaxRate } from "../hooks/use-tax-rates"
 import { taxRateSchema, type TaxRateFormValues } from "../schemas/tax-rate-schema"
@@ -145,6 +147,34 @@ export function TaxRateFormDialog({ open, onOpenChange, taxRateToEdit }: TaxRate
 
               <FormField
                 control={form.control}
+                name="regionCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t("region_label")}</FormLabel>
+                    <FormControl>
+                      <Input placeholder={t("region_placeholder")} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t("description_label")}</FormLabel>
+                    <FormControl>
+                      <Input placeholder={t("description_placeholder")} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
                 name="taxType"
                 render={({ field }) => (
                   <FormItem>
@@ -186,39 +216,12 @@ export function TaxRateFormDialog({ open, onOpenChange, taxRateToEdit }: TaxRate
                         {t("rate")}
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground">{t("rate_hint")}</p>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
-              <FormField
-                control={form.control}
-                name="regionCode"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t("region_label")}</FormLabel>
-                    <FormControl>
-                      <Input placeholder={t("region_placeholder")} {...field} />
-                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t("description_label")}</FormLabel>
-                    <FormControl>
-                      <Input placeholder={t("description_placeholder")} {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <p className="text-xs text-muted-foreground sm:col-span-2">{t("rate_hint")}</p>
             </div>
 
             {isEditMode ? <p className="text-xs text-muted-foreground">{t("edit_locked_hint")}</p> : null}
@@ -227,9 +230,26 @@ export function TaxRateFormDialog({ open, onOpenChange, taxRateToEdit }: TaxRate
               control={form.control}
               name="isDefault"
               render={({ field }) => (
-                <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                <FormItem
+                  className={cn(
+                    "flex items-center justify-between rounded-xl border p-4 transition-colors",
+                    field.value
+                      ? "border-amber-400/40 bg-amber-500/10"
+                      : "border-border/70 bg-background/45 hover:border-border"
+                  )}
+                >
                   <div className="space-y-1">
-                    <FormLabel>{t("is_default_label")}</FormLabel>
+                    <FormLabel className="flex items-center gap-2">
+                      <Star
+                        className={cn(
+                          "size-4 transition-colors",
+                          field.value
+                            ? "fill-amber-500 text-amber-500 dark:fill-amber-200 dark:text-amber-200"
+                            : "text-muted-foreground"
+                        )}
+                      />
+                      {t("is_default_label")}
+                    </FormLabel>
                     <p className="text-xs text-muted-foreground">{t("is_default_hint")}</p>
                   </div>
                   <FormControl>
