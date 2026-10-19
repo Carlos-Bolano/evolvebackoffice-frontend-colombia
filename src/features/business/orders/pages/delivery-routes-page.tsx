@@ -214,6 +214,7 @@ export function DeliveryRoutesPage() {
                             order={order}
                             now={Date.now()}
                             courierName={owner?.name ?? r.courierName}
+                            courierPhone={owner?.phone ?? null}
                             showStatus
                           />
                         )

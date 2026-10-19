@@ -21,6 +21,8 @@ export interface CreateTenantDto {
   maxUsers: number | null
   /** Zona horaria IANA (ej America/Bogota). Vacío = derivar del país; si no, UTC. */
   timeZoneId?: string | null
+  /** Módulos a configurar en la misma petición (opcional). Vacío = defaults (todo deshabilitado). */
+  modules?: UpdateTenantModuleItemDto[] | null
 }
 
 export interface CreateTenantResponseDto {
@@ -59,6 +61,8 @@ export interface UpdateTenantDto {
   maxUsers: number | null
   /** null = no cambiar; '' = limpiar (UTC). */
   timeZoneId?: string | null
+  /** Módulos a configurar en la misma petición. null = no modificar los módulos. */
+  modules?: UpdateTenantModuleItemDto[] | null
 }
 
 export interface PosSerialCodeResponseDto {
@@ -146,14 +150,11 @@ export interface UpdateTenantModuleDto {
   quantity?: number
 }
 
-export interface BulkUpdateTenantModuleItemDto {
+/** Item de módulo dentro de una operación masiva (una sola petición). */
+export interface UpdateTenantModuleItemDto {
   modulePublicId: string
   isEnabled: boolean
   quantity: number
-}
-
-export interface BulkUpdateTenantModulesDto {
-  modules: BulkUpdateTenantModuleItemDto[]
 }
 
 export interface ModuleResponseDto {

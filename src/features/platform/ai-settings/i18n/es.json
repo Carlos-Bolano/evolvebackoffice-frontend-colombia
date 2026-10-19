@@ -29,5 +29,11 @@
   "unable_to_save": "No se pudo guardar",
   "loading": "Cargando…",
   "validation_required": "es requerido",
-  "validation_url_invalid": "Debe ser una URL HTTP/HTTPS válida"
+  "validation_url_invalid": "Debe ser una URL HTTP/HTTPS válida",
+  "max_completion_tokens": "Máximo de tokens de salida",
+  "max_completion_tokens_hint": "Presupuesto de tokens por respuesta (max_tokens). Con modelos que razonan debe ser amplio: el razonamiento y la respuesta comparten el presupuesto.",
+  "supports_reasoning": "El modelo tiene razonamiento",
+  "supports_reasoning_hint": "Actívalo si el modelo expone pensamiento (reasoning_content, p. ej. deepseek-r1, qwen3). Requiere al menos 4096 tokens.",
+  "validation_max_tokens_range": "Debe estar entre 256 y 32768",
+  "validation_max_tokens_reasoning": "Con razonamiento el presupuesto debe ser al menos 4096 tokens"
 }

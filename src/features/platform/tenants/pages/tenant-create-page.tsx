@@ -25,10 +25,9 @@ import { notify } from "@/hooks/use-notify"
 import { isTenantOnlyModule } from "@/utils/module-scope"
 import { useAuth } from "@/features/auth/hooks/use-auth"
 import { createTenant } from "@/features/platform/tenants/services/tenant.service"
-import { bulkUpdateTenantModules } from "@/features/platform/tenants/services/tenant-modules.service"
 import type {
   CreateTenantDto,
-  BulkUpdateTenantModuleItemDto,
+  UpdateTenantModuleItemDto,
   CreateTenantResponseDto,
 } from "@/features/platform/tenants/types/api"
 import { DocumentType } from "@/features/platform/tenants/types/api"
@@ -151,12 +150,16 @@ export function TenantCreatePage() {
   }
 
   const onSubmit = async (values: Record<string, unknown>) => {
-    if (!token) {
-      notify.error(t("no_token"))
-      return
-    }
-
     setIsSubmitting(true)
+
+    // Módulos elegidos: viajan dentro del POST (una sola petición).
+    const moduleItems: UpdateTenantModuleItemDto[] = Object.entries(modulesState)
+      .filter(([, state]) => state.isEnabled || state.quantity > 0)
+      .map(([moduleId, state]) => ({
+        modulePublicId: moduleId,
+        isEnabled: state.isEnabled,
+        quantity: state.quantity,
+      }))
 
     const dto: CreateTenantDto = {
       name: (values.name as string) || null,
@@ -172,22 +175,11 @@ export function TenantCreatePage() {
       maxBranches: (values.maxBranches as number) ?? 0,
       maxUsers: (values.maxUsers as number) ?? 0,
       timeZoneId: (values.timeZoneId as string) || null,
+      modules: moduleItems.length > 0 ? moduleItems : null,
     }
 
     try {
       const result = await createTenant(dto)
-
-      const moduleItems: BulkUpdateTenantModuleItemDto[] = Object.entries(modulesState)
-        .filter(([, state]) => state.isEnabled || state.quantity > 0)
-        .map(([moduleId, state]) => ({
-          modulePublicId: moduleId,
-          isEnabled: state.isEnabled,
-          quantity: state.quantity,
-        }))
-
-      if (moduleItems.length > 0) {
-        await bulkUpdateTenantModules(token, result.id, moduleItems)
-      }
 
       notify.success(t("tenant_created"))
       setCreatedResult(result)

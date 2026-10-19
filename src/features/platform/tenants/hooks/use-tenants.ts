@@ -15,14 +15,21 @@ import {
   approveTenant,
   rejectTenant,
 } from "@/features/platform/tenants/services/tenant.service"
-import { bulkUpdateTenantModules } from "@/features/platform/tenants/services/tenant-modules.service"
 import type {
   CreateTenantDto,
   UpdateTenantDto,
-  BulkUpdateTenantModuleItemDto,
+  UpdateTenantModuleItemDto,
   AdjustSerialCodesDto,
 } from "@/features/platform/tenants/types/api"
 import type { TenantFormValues } from "@/features/platform/tenants/types"
+
+function toModuleItems(modules: TenantFormValues["modules"]): UpdateTenantModuleItemDto[] {
+  return modules.map((m) => ({
+    modulePublicId: m.moduleId,
+    isEnabled: m.isEnabled,
+    quantity: m.quantity,
+  }))
+}
 
 function toCreateDto(values: TenantFormValues): CreateTenantDto {
   return {
@@ -39,6 +46,7 @@ function toCreateDto(values: TenantFormValues): CreateTenantDto {
     maxBranches: values.maxBranches || null,
     maxUsers: values.maxUsers || null,
     timeZoneId: values.timeZoneId || null,
+    modules: values.modules.length > 0 ? toModuleItems(values.modules) : null,
   }
 }
 
@@ -56,15 +64,8 @@ function toUpdateDto(values: TenantFormValues): UpdateTenantDto {
     maxBranches: values.maxBranches || null,
     maxUsers: values.maxUsers || null,
     timeZoneId: values.timeZoneId || null,
+    modules: values.modules.length > 0 ? toModuleItems(values.modules) : null,
   }
-}
-
-function toBulkModuleItems(modules: TenantFormValues["modules"]): BulkUpdateTenantModuleItemDto[] {
-  return modules.map((m) => ({
-    modulePublicId: m.moduleId,
-    isEnabled: m.isEnabled,
-    quantity: m.quantity,
-  }))
 }
 
 export function useTenants(page: number, pageSize: number) {
@@ -78,13 +79,8 @@ export function useCreateTenant() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ values, token }: { values: TenantFormValues; token: string }) =>
-      createTenant(toCreateDto(values)).then(async (result) => {
-        if (values.modules.length > 0) {
-          await bulkUpdateTenantModules(token, result.id, toBulkModuleItems(values.modules))
-        }
-        return result
-      }),
+    // Datos + módulos en UNA sola petición (POST /api/tenants con modules[]).
+    mutationFn: (values: TenantFormValues) => createTenant(toCreateDto(values)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tenants"] })
     },
@@ -95,19 +91,12 @@ export function useUpdateTenant() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, values, token }: { id: string; values: TenantFormValues; token: string }) =>
-      updateTenant(id, toUpdateDto(values)).then(async (result) => {
-        if (values.modules.length > 0) {
-          // X-Tenant-Id debe llevar el PublicId (GUID) del tenant: el slug puede
-          // contener caracteres no ASCII (p. ej. "ñ") que el header HTTP mutila,
-          // dejando la resolución de tenant en 404. El backend acepta el GUID.
-          await bulkUpdateTenantModules(token, id, toBulkModuleItems(values.modules))
-        }
-        return result
-      }),
+    // Datos + módulos en UNA sola petición (PUT /api/tenants/{id} con modules[]).
+    mutationFn: ({ id, values }: { id: string; values: TenantFormValues }) => updateTenant(id, toUpdateDto(values)),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["tenants"] })
       queryClient.invalidateQueries({ queryKey: ["tenant", variables.id] })
+      queryClient.invalidateQueries({ queryKey: ["tenant-modules", variables.id] })
     },
   })
 }

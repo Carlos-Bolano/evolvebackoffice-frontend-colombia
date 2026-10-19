@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Markdown } from "@/components/ui/markdown"
-import { useExplainLog, useLogDetail } from "../hooks/use-logs"
+import { useExplainLog, useLogDetail, useLogExplanation } from "../hooks/use-logs"
 import { LEVEL_LABEL_KEY, LEVEL_TONE } from "../constants"
 import { notify } from "@/hooks/use-notify"
 import { cn } from "@/lib/utils"
@@ -22,16 +22,20 @@ interface LogDetailDialogProps {
 export function LogDetailDialog({ eventId, onOpenChange }: LogDetailDialogProps) {
   const { t } = useTranslation("platform-logs")
   const { data, isLoading } = useLogDetail(eventId)
+  // Explicación YA guardada del evento: se muestra sin consumir el proveedor
+  // de IA. Solo se regenera si el administrador pulsa "Explicar de nuevo".
+  const cachedExplanation = useLogExplanation(eventId)
   const explainLog = useExplainLog()
   // Estado indexado por evento: cambiar de evento descarta automáticamente
-  // la explicación anterior sin necesidad de un effect con setState.
+  // la explicación recién generada sin necesidad de un effect con setState.
   const [explanationByEvent, setExplanationByEvent] = useState<{ id: number | null; text: string | null }>({
     id: null,
     text: null,
   })
 
-  const explanation = explanationByEvent.id === eventId ? explanationByEvent.text : null
-  const isExplaining = explainLog.isPending && explainLog.variables === eventId
+  const generated = explanationByEvent.id === eventId ? explanationByEvent.text : null
+  const explanation = generated ?? cachedExplanation.data?.explanation ?? null
+  const isExplaining = explainLog.isPending && explainLog.variables?.id === eventId
   // Panel lateral visible mientras se genera o cuando ya hay explicación.
   const showExplanationPanel = isExplaining || explanation !== null
 
@@ -53,10 +57,15 @@ export function LogDetailDialog({ eventId, onOpenChange }: LogDetailDialogProps)
   const handleExplain = () => {
     if (eventId === null) return
     const targetId = eventId
-    explainLog.mutate(targetId, {
-      onSuccess: (text) => setExplanationByEvent({ id: targetId, text }),
-      onError: (error) => notify.error(getApiErrorMessage(error, t("explain_error"))),
-    })
+    // Si ya hay una explicación guardada, este clic la regenera y sobrescribe.
+    const refresh = explanation !== null
+    explainLog.mutate(
+      { id: targetId, refresh },
+      {
+        onSuccess: (result) => setExplanationByEvent({ id: targetId, text: result.explanation }),
+        onError: (error) => notify.error(getApiErrorMessage(error, t("explain_error"))),
+      }
+    )
   }
 
   // El componente no se desmonta al cerrar el modal: sin este reset, la
@@ -164,7 +173,7 @@ export function LogDetailDialog({ eventId, onOpenChange }: LogDetailDialogProps)
                     "dark:border-violet-900/50 dark:bg-violet-950/25",
                     // En pantallas anchas el panel pasa al costado derecho;
                     // en resoluciones pequeñas queda arriba (junto al botón).
-                    "lg:order-none"
+                    "lg:order-0"
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -225,7 +234,7 @@ function Meta({
     <div className="min-w-0">
       <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{label}</p>
       <div className="mt-0.5 flex items-start gap-1">
-        <span className="min-w-0 [overflow-wrap:anywhere] text-foreground">{value}</span>
+        <span className="min-w-0 wrap-anywhere text-foreground">{value}</span>
         {copyValue && onCopy ? (
           <Button
             type="button"
@@ -288,7 +297,7 @@ function Section({
       </div>
       <pre
         className={cn(
-          "max-h-48 overflow-auto rounded-xl border border-border/70 bg-muted/40 p-3 text-xs [overflow-wrap:anywhere] whitespace-pre-wrap",
+          "max-h-48 overflow-auto rounded-xl border border-border/70 bg-muted/40 p-3 text-xs wrap-anywhere whitespace-pre-wrap",
           danger && "border-red-200 bg-red-50 text-red-800 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300"
         )}
       >

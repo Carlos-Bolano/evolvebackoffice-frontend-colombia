@@ -1,6 +1,6 @@
-import { useMutation, useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
-import { explainLog, getLog, getLogSummary, getLogTenants, getLogs } from "../services/log.service"
+import { explainLog, getLog, getLogExplanation, getLogSummary, getLogTenants, getLogs } from "../services/log.service"
 import type { LogsFilters } from "../types"
 
 export const systemLogsKeys = {
@@ -9,6 +9,7 @@ export const systemLogsKeys = {
   summary: (hours: number) => ["system-logs", "summary", hours] as const,
   tenants: () => ["system-logs", "tenants"] as const,
   detail: (id: number) => ["system-logs", "detail", id] as const,
+  explanation: (id: number) => ["system-logs", "explanation", id] as const,
 }
 
 export function useLogs(filters: LogsFilters, refetchInterval: number | false = false) {
@@ -45,8 +46,21 @@ export function useLogDetail(id: number | null) {
   })
 }
 
+/** Explicación de IA ya guardada del evento (no consume el proveedor). */
+export function useLogExplanation(id: number | null) {
+  return useQuery({
+    queryKey: systemLogsKeys.explanation(id ?? -1),
+    queryFn: () => getLogExplanation(id as number),
+    enabled: id !== null,
+  })
+}
+
 export function useExplainLog() {
+  const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (id: number) => explainLog(id),
+    mutationFn: ({ id, refresh }: { id: number; refresh: boolean }) => explainLog(id, refresh),
+    onSuccess: (_result, variables) => {
+      queryClient.invalidateQueries({ queryKey: systemLogsKeys.explanation(variables.id) })
+    },
   })
 }

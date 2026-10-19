@@ -13,11 +13,16 @@ export async function getConversation(id: string): Promise<AiConversationDetail>
   return response.data
 }
 
+export async function deleteConversation(id: string): Promise<void> {
+  await api.delete(`${BASE}/conversations/${id}`)
+}
+
+/**
+ * Envía un mensaje al asistente y devuelve la respuesta final ya persistida.
+ * El backend resuelve todo el loop de herramientas y entrega la respuesta
+ * completa de una sola vez (sin streaming).
+ */
 export async function sendChatMessage(payload: SendChatPayload): Promise<AiChatResponse> {
   const response = await api.post<AiChatResponse>(BASE, payload)
   return response.data
-}
-
-export async function deleteConversation(id: string): Promise<void> {
-  await api.delete(`${BASE}/conversations/${id}`)
 }

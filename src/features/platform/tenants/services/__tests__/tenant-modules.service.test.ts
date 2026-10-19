@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import axios from "axios"
 
-import { getTenantModules, updateTenantModule } from "@/features/platform/tenants/services/tenant-modules.service"
+import { getTenantModules } from "@/features/platform/tenants/services/tenant-modules.service"
 import type { TenantModuleDto } from "@/features/platform/tenants/types/api"
 import type { TenantModule } from "@/features/platform/tenants/types"
 
@@ -9,7 +9,6 @@ vi.mock("axios")
 
 const FAKE_TOKEN = "fake-token-123"
 const FAKE_TENANT_ID = "TENANT-001"
-const FAKE_MODULE_ID = "MODULE-PUB-001"
 
 const mockDto1: TenantModuleDto = {
   id: "MODULE-PUB-001",
@@ -114,26 +113,6 @@ describe("tenant-modules.service", () => {
       mockGet.mockResolvedValue({ data: null })
       const result = await getTenantModules(FAKE_TOKEN, FAKE_TENANT_ID)
       expect(result).toEqual([])
-    })
-  })
-
-  describe("updateTenantModule", () => {
-    it("debe hacer PUT a /api/tenant-modules/{id} con el body y retornar el módulo mapeado", async () => {
-      const updatedDto: TenantModuleDto = {
-        ...mockDto1,
-        isEnabled: false,
-        quantity: 10,
-      }
-      mockPut.mockResolvedValue({ data: updatedDto })
-
-      const body = { isEnabled: false, quantity: 10 }
-      const result = await updateTenantModule(FAKE_TOKEN, FAKE_TENANT_ID, FAKE_MODULE_ID, body)
-
-      expect(mockPut).toHaveBeenCalledWith(`/api/tenant-modules/${FAKE_MODULE_ID}`, body)
-      expect(result.isEnabled).toBe(false)
-      expect(result.quantity).toBe(10)
-      expect(result.id).toBe(FAKE_MODULE_ID)
-      expect(result.moduleCode).toBe("POS")
     })
   })
 })

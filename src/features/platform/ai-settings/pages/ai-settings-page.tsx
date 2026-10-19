@@ -8,12 +8,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import {
   useAiSetting,
   useTestAiSetting,
   useUpdateAiSetting,
 } from "@/features/platform/ai-settings/hooks/use-ai-settings"
-import { aiSettingsSchema } from "@/features/platform/ai-settings/schemas/ai-schema"
+import { AI_DEFAULT_MAX_COMPLETION_TOKENS, aiSettingsSchema } from "@/features/platform/ai-settings/schemas/ai-schema"
 import type { AiSettingsFormValues } from "@/features/platform/ai-settings/schemas/ai-schema"
 import { getApiErrorMessage } from "@/utils/api-error"
 import { notify } from "@/hooks/use-notify"
@@ -31,6 +32,8 @@ export function AiSettingsPage() {
       baseUrl: "",
       model: "",
       apiKey: "",
+      maxCompletionTokens: AI_DEFAULT_MAX_COMPLETION_TOKENS,
+      supportsReasoning: false,
     },
   })
 
@@ -40,6 +43,8 @@ export function AiSettingsPage() {
         baseUrl: setting.baseUrl,
         model: setting.model,
         apiKey: "",
+        maxCompletionTokens: setting.maxCompletionTokens ?? AI_DEFAULT_MAX_COMPLETION_TOKENS,
+        supportsReasoning: setting.supportsReasoning ?? false,
       })
     }
   }, [setting, form])
@@ -50,6 +55,8 @@ export function AiSettingsPage() {
         baseUrl: values.baseUrl,
         model: values.model,
         apiKey: values.apiKey || undefined,
+        maxCompletionTokens: values.maxCompletionTokens,
+        supportsReasoning: values.supportsReasoning,
       },
       {
         onSuccess: () => notify.success(t("settings_saved")),
@@ -161,6 +168,39 @@ export function AiSettingsPage() {
                         />
                       </FormControl>
                       <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="maxCompletionTokens"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("max_completion_tokens")}</FormLabel>
+                      <FormControl>
+                        <Input type="number" min={256} max={32768} step={256} {...field} />
+                      </FormControl>
+                      <p className="text-xs text-muted-foreground">{t("max_completion_tokens_hint")}</p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="supportsReasoning"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-xl border border-border/70 bg-card/60 p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel>{t("supports_reasoning")}</FormLabel>
+                        <p className="text-xs text-muted-foreground">{t("supports_reasoning_hint")}</p>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          disabled={updateMutation.isPending}
+                        />
+                      </FormControl>
                     </FormItem>
                   )}
                 />

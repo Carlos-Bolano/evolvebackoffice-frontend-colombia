@@ -45,4 +45,6 @@ export interface AiChatResponse {
 export interface SendChatPayload {
   conversationId?: string | null
   message: string
+  /** Solicita al backend regenerar la última respuesta del asistente. */
+  regenerate?: boolean
 }
