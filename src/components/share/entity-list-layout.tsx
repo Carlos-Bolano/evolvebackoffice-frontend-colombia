@@ -3,10 +3,11 @@ import type { ComponentProps, ReactElement, ReactNode } from "react"
 import { Search } from "lucide-react"
 
 import { BackLink } from "@/components/ui/back-link"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 
+import { ExpandableDescription } from "./expandable-description"
 import { StatTile } from "./stat-tile"
 import type { EntityListLayoutProps, StatConfig, ToolbarConfig } from "./types"
 
@@ -207,11 +208,7 @@ export function EntityListLayout(props: EntityListLayoutProps): ReactElement {
                       {title}
                     </CardTitle>
                   ) : null}
-                  {description ? (
-                    <CardDescription className="max-w-2xl text-sm leading-6 text-muted-foreground">
-                      {description}
-                    </CardDescription>
-                  ) : null}
+                  {description ? <ExpandableDescription text={description} /> : null}
                 </div>
               ) : null}
             </div>
