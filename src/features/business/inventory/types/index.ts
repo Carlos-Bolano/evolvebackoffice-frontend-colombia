@@ -104,6 +104,7 @@ export interface InventoryInboxDto {
   ordersToDispatch: number
   transfersToReceive: number
   differencesToResolve: number
+  plannedProductions: number
 }
 
 export interface PagedResult<T> {

@@ -156,7 +156,8 @@ export function OrderDetailDialog({ orderId, branchId, onOpenChange, onOpenTrans
                 <Badge tone={ORDER_STATUS_TONE[order.status]}>{t(`order_status_${order.status}`)}</Badge>
               </DialogTitle>
               <DialogDescription>
-                {order.branchName} → {order.supplierName} · {formatDateTime(order.sentAt ?? order.createdAt)}
+                {t("order_direction", { branch: order.branchName, supplier: order.supplierName })} ·{" "}
+                {formatDateTime(order.sentAt ?? order.createdAt)}
               </DialogDescription>
             </div>
           </div>

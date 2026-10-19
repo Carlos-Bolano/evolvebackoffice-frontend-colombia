@@ -2,6 +2,8 @@ import {
   AlertTriangle,
   ArrowRightLeft,
   Building2,
+  CalendarClock,
+  ChefHat,
   ClipboardCheck,
   PackageCheck,
   PackageX,
@@ -10,6 +12,7 @@ import {
   Warehouse,
 } from "lucide-react"
 import { useNavigate } from "react-router-dom"
+import { useBranchModules } from "@/features/business/branches/hooks/use-branch-modules"
 
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -19,10 +22,14 @@ import { ItemCard, type ItemCardLink } from "@/features/business/components/item
 import { BranchSelector } from "@/features/business/items/catalog/components/branch-selector"
 import { useInventoryInbox } from "../hooks/use-inventory"
 import { useInventoryBranch } from "../hooks/use-inventory-branch"
+import { PRODUCTION_MODULE } from "../utils/status"
 
 export function InventoryPage() {
   const { t } = useTranslation("business-inventory")
   const navigate = useNavigate()
+  const branchState = useInventoryBranch()
+  const { data: modules } = useBranchModules(branchState.branchId)
+  const hasProduction = (modules ?? []).some((m) => m.moduleCode === PRODUCTION_MODULE && m.isEnabled)
 
   const inventoryLinks: ItemCardLink[] = [
     {
@@ -53,6 +60,17 @@ export function InventoryPage() {
       disabled: false,
       onClick: () => navigate("/business/inventory/transfers"),
     },
+    ...(hasProduction
+      ? [
+          {
+            name: t("production"),
+            label: t("production_desc"),
+            icon: ChefHat,
+            disabled: false,
+            onClick: () => navigate("/business/inventory/production"),
+          },
+        ]
+      : []),
     {
       name: t("physical_inventory"),
       label: t("physical_inventory_desc"),
@@ -69,7 +87,7 @@ export function InventoryPage() {
       icon={Building2}
       iconClass={"-rotate-20 md:-top-10 md:-right-10 md:size-70 lg:-top-25 lg:-right-35 lg:size-100"}
     >
-      <InventoryInbox onNavigate={navigate} />
+      <InventoryInbox onNavigate={navigate} branchState={branchState} />
       {inventoryLinks.map((item) => (
         <ItemCard key={item.name} item={item} />
       ))}
@@ -78,9 +96,15 @@ export function InventoryPage() {
 }
 
 /** Bandeja de pendientes de la sucursal elegida. */
-function InventoryInbox({ onNavigate }: { onNavigate: (path: string) => void }) {
+function InventoryInbox({
+  onNavigate,
+  branchState,
+}: {
+  onNavigate: (path: string) => void
+  branchState: ReturnType<typeof useInventoryBranch>
+}) {
   const { t } = useTranslation("business-inventory")
-  const { branches, branch, branchId, selectBranch } = useInventoryBranch()
+  const { branches, branch, branchId, selectBranch } = branchState
   const { data: inbox } = useInventoryInbox(branchId)
 
   if (branches.length === 0) return null
@@ -89,7 +113,8 @@ function InventoryInbox({ onNavigate }: { onNavigate: (path: string) => void }) 
     (inbox?.negativeCount ?? 0) +
     (inbox?.ordersToDispatch ?? 0) +
     (inbox?.transfersToReceive ?? 0) +
-    (inbox?.differencesToResolve ?? 0)
+    (inbox?.differencesToResolve ?? 0) +
+    (inbox?.plannedProductions ?? 0)
 
   return (
     <Card className="rounded-xl border-border/70 bg-background/45 shadow-none md:col-span-2">
@@ -144,6 +169,14 @@ function InventoryInbox({ onNavigate }: { onNavigate: (path: string) => void }) 
                   <Badge tone="warning">
                     <AlertTriangle className="size-3" />
                     {t("inbox_differences", { count: inbox.differencesToResolve })}
+                  </Badge>
+                </button>
+              ) : null}
+              {inbox?.plannedProductions ? (
+                <button type="button" onClick={() => onNavigate("/business/inventory/production?tab=planned")}>
+                  <Badge tone="info">
+                    <CalendarClock className="size-3" />
+                    {t("inbox_planned_productions", { count: inbox.plannedProductions })}
                   </Badge>
                 </button>
               ) : null}

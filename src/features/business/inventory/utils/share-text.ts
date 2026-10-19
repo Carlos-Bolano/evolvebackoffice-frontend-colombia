@@ -19,7 +19,8 @@ export function purchaseOrderShareText(order: PurchaseOrderDto, t: TFunction): s
   })
   return [
     `${t("share_order_heading")} ${order.number}`,
-    `${t("share_from")}: ${order.branchName}  →  ${t("share_to")}: ${order.supplierName}`,
+    `${t("share_ordered_by")}: ${order.branchName}`,
+    `${t("share_ordered_to")}: ${order.supplierName}`,
     `${t("share_date")}: ${dateFormat.format(new Date(order.sentAt ?? order.createdAt))}`,
     "",
     ...lines,
