@@ -101,6 +101,9 @@ export interface StockAdjustmentDto {
 export interface InventoryInboxDto {
   belowMinCount: number
   negativeCount: number
+  ordersToDispatch: number
+  transfersToReceive: number
+  differencesToResolve: number
 }
 
 export interface PagedResult<T> {

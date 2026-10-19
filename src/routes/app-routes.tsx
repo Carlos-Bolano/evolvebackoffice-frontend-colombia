@@ -19,6 +19,8 @@ import { UsersCatalogPage } from "@/features/business/people/users/pages/users-c
 import { CustomersPage } from "@/features/business/people/customers/pages/customers-page"
 import { SuppliersPage } from "@/features/business/inventory/suppliers/pages/suppliers-page"
 import { StockPage } from "@/features/business/inventory/stock/pages/stock-page"
+import { PurchaseOrdersPage } from "@/features/business/inventory/purchase-orders/pages/purchase-orders-page"
+import { TransfersPage } from "@/features/business/inventory/transfers/pages/transfers-page"
 import { ReportsPage } from "@/features/business/reports/pages/reports-page"
 import { SettingsPage } from "@/features/business/settings/pages/settings-page"
 import { PaymentMethodsPage } from "@/features/business/payment-methods/pages/payment-methods-page"
@@ -116,6 +118,8 @@ function AppRoutesContent() {
             <Route path="/business/inventory" element={<InventoryPage />} />
             <Route path="/business/inventory/suppliers" element={<SuppliersPage />} />
             <Route path="/business/inventory/stock" element={<StockPage />} />
+            <Route path="/business/inventory/purchase-orders" element={<PurchaseOrdersPage />} />
+            <Route path="/business/inventory/transfers" element={<TransfersPage />} />
             <Route path="/business/people" element={<PeoplePage />} />
             <Route path="/business/people/users" element={<UsersCatalogPage />} />
             <Route path="/business/people/customers" element={<CustomersPage />} />
