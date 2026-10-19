@@ -152,14 +152,27 @@ function renderToolbarZone(toolbar: EntityListLayoutProps["toolbar"]): ReactNode
 }
 
 export function EntityListLayout(props: EntityListLayoutProps): ReactElement {
-  const { back, title, description, eyebrow, stats, toolbar, hero, decorative = true, className, children } = props
+  const {
+    back,
+    title,
+    description,
+    eyebrow,
+    stats,
+    toolbar,
+    tabs,
+    hero,
+    decorative = true,
+    className,
+    children,
+  } = props
 
   const hasCustomHero = hero !== undefined && hero !== null && hero !== false
+  const hasTabs = tabs !== undefined && tabs !== null && tabs !== false
 
   let heroZone: ReactNode = null
   if (hasCustomHero) {
     heroZone = <Hero decorative={decorative}>{hero}</Hero>
-  } else if (eyebrow || back || title || description || hasStatsContent(stats)) {
+  } else if (eyebrow || back || title || description || hasTabs || hasStatsContent(stats)) {
     const hasLeftContent = Boolean(eyebrow || back || title || description)
     heroZone = (
       <Hero decorative={decorative}>
@@ -188,7 +201,12 @@ export function EntityListLayout(props: EntityListLayoutProps): ReactElement {
               ) : null}
             </div>
           ) : null}
-          {renderStatsZone(stats)}
+          {hasTabs || hasStatsContent(stats) ? (
+            <div className="flex shrink-0 flex-col items-start gap-3 xl:items-end">
+              {hasTabs ? tabs : null}
+              {renderStatsZone(stats)}
+            </div>
+          ) : null}
         </div>
       </Hero>
     )

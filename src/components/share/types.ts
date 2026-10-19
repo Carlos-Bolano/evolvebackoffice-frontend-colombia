@@ -34,6 +34,8 @@ export type EntityListLayoutBaseProps = {
   title?: string
   description?: string
   hero?: ReactNode
+  /** Tab bar rendered in the hero's right column, stacked above the stats. */
+  tabs?: ReactNode
   decorative?: boolean
   className?: string
   children?: ReactNode
