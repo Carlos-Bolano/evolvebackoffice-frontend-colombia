@@ -61,6 +61,16 @@ const SEND_RESPONSE: AiChatResponse = {
   chart: CHART,
 }
 
+const FOLLOW_UP = {
+  question: "¿Cómo quieres ver el top?",
+  options: [
+    { id: "week", label: "Esta semana", message: "Muéstramelo de esta semana" },
+    { id: "month", label: "Este mes", message: "Muéstramelo de este mes" },
+  ],
+  allowFreeText: true,
+  freeTextPlaceholder: "Escribe una sucursal o un periodo específico",
+}
+
 const CONVERSATION_DETAIL: AiConversationDetail = {
   id: NEW_CONVERSATION_ID,
   title: "gráfica de ventas",
@@ -144,5 +154,71 @@ describe("ChatPanel (sin streaming)", () => {
     expect(screen.getByText("Estas son tus ventas de la semana.")).toBeInTheDocument()
     // El indicador desaparece al llegar la respuesta.
     expect(screen.queryByText("Generando respuesta…")).not.toBeInTheDocument()
+  })
+
+  it("renderiza una pregunta de seguimiento con opciones y permite enviar texto libre", async () => {
+    const followUpResponse: AiChatResponse = {
+      conversationId: NEW_CONVERSATION_ID,
+      conversationTitle: "top artículos",
+      message: "Necesito un poco más de contexto para darte el top correcto.",
+      chart: null,
+      followUp: FOLLOW_UP,
+    }
+
+    vi.mocked(sendChatMessage).mockResolvedValue(followUpResponse)
+    vi.mocked(getConversation).mockResolvedValue({
+      id: NEW_CONVERSATION_ID,
+      title: "top artículos",
+      createdAt: "2026-10-19T12:00:00Z",
+      updatedAt: "2026-10-19T12:00:01Z",
+      messages: [
+        {
+          id: "m1",
+          role: "assistant",
+          content: "Necesito un poco más de contexto para darte el top correcto.",
+          chart: null,
+          createdAt: "2026-10-19T12:00:01Z",
+          followUp: FOLLOW_UP,
+        },
+      ],
+    } as AiConversationDetail)
+
+    renderPanel()
+
+    const textarea = await screen.findByRole("textbox")
+    fireEvent.change(textarea, { target: { value: "¿Cuáles son mis artículos más vendidos?" } })
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }))
+
+    await waitFor(() =>
+      expect(sendChatMessage).toHaveBeenCalledWith({
+        conversationId: null,
+        message: "¿Cuáles son mis artículos más vendidos?",
+      })
+    )
+
+    const optionButton = await screen.findByRole("button", { name: "Esta semana" })
+
+    vi.mocked(sendChatMessage).mockClear()
+    fireEvent.click(optionButton)
+
+    await waitFor(() =>
+      expect(sendChatMessage).toHaveBeenCalledWith({
+        conversationId: NEW_CONVERSATION_ID,
+        message: "Muéstramelo de esta semana",
+      })
+    )
+
+    vi.mocked(sendChatMessage).mockClear()
+
+    const [detailBox] = await screen.findAllByLabelText("Escribe una sucursal o un periodo específico")
+    fireEvent.change(detailBox, { target: { value: "Solo sucursal Centro este mes" } })
+    fireEvent.click(screen.getByRole("button", { name: "Enviar detalle" }))
+
+    await waitFor(() =>
+      expect(sendChatMessage).toHaveBeenCalledWith({
+        conversationId: NEW_CONVERSATION_ID,
+        message: "Solo sucursal Centro este mes",
+      })
+    )
   })
 })

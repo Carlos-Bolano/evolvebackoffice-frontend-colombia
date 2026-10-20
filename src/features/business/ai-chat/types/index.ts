@@ -11,6 +11,19 @@ export interface ChartSpec {
   series: ChartSeries[]
 }
 
+export interface AiFollowUpOption {
+  id: string
+  label: string
+  message?: string | null
+}
+
+export interface AiFollowUpPrompt {
+  question: string
+  options: AiFollowUpOption[]
+  allowFreeText?: boolean
+  freeTextPlaceholder?: string | null
+}
+
 export interface AiConversation {
   id: string
   title: string
@@ -25,6 +38,7 @@ export interface AiMessage {
   content: string
   chart: ChartSpec | null
   createdAt: string
+  followUp?: AiFollowUpPrompt | null
 }
 
 export interface AiConversationDetail {
@@ -40,6 +54,7 @@ export interface AiChatResponse {
   conversationTitle: string
   message: string
   chart: ChartSpec | null
+  followUp?: AiFollowUpPrompt | null
 }
 
 export interface SendChatPayload {

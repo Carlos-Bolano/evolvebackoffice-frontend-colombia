@@ -81,6 +81,7 @@ export function ChatPanel({ variant = "page" }: ChatPanelProps) {
   // Último turno usuario/asistente: habilita "regenerar" y reenvía el mismo texto.
   const lastUserMessage = [...messages].reverse().find((message) => message.role === "user")
   const lastAssistantMessage = [...messages].reverse().find((message) => message.role === "assistant")
+  const latestFollowUp = lastAssistantMessage?.followUp ?? null
 
   const handleSend = (rawText?: string) => {
     const text = (rawText ?? input).trim()
@@ -300,6 +301,8 @@ export function ChatPanel({ variant = "page" }: ChatPanelProps) {
                   message={message}
                   userInitials={userInitials}
                   busy={isSending}
+                  onFollowUpOption={(text) => handleSend(text)}
+                  onFollowUpFreeText={(text) => handleSend(text)}
                   onRegenerate={
                     !isSending && message.id === lastAssistantMessage?.id && lastUserMessage
                       ? handleRegenerate
@@ -330,10 +333,10 @@ export function ChatPanel({ variant = "page" }: ChatPanelProps) {
                   handleSend()
                 }
               }}
-              placeholder={t("input_placeholder")}
+              placeholder={latestFollowUp?.freeTextPlaceholder ?? t("input_placeholder")}
               rows={1}
               className="max-h-32 min-h-11 resize-none"
-              aria-label={t("input_placeholder")}
+              aria-label={latestFollowUp?.freeTextPlaceholder ?? t("input_placeholder")}
             />
             <Button
               type="submit"

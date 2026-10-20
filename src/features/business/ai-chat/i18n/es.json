@@ -28,6 +28,8 @@
   "regenerate": "Regenerar respuesta",
   "thinking": "Generando respuesta…",
   "send_error": "No se pudo enviar el mensaje",
+  "follow_up_placeholder": "Escribe más detalle…",
+  "follow_up_send": "Enviar detalle",
   "disclaimer": "La IA puede cometer errores; verifica los datos importantes.",
   "open_assistant": "Abrir asistente IA"
 }

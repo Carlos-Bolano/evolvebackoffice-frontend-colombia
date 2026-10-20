@@ -28,6 +28,8 @@
   "regenerate": "Regenerate answer",
   "thinking": "Generating answer…",
   "send_error": "Could not send the message",
+  "follow_up_placeholder": "Add more detail…",
+  "follow_up_send": "Send detail",
   "disclaimer": "AI can make mistakes; verify important data.",
   "open_assistant": "Open AI assistant"
 }

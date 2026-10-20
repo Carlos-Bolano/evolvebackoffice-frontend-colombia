@@ -1,18 +1,20 @@
 import { useCallback, useState } from "react"
-import { Check, Copy, Loader2, RotateCcw, Sparkles, User } from "lucide-react"
+import { Check, Copy, Loader2, RotateCcw, Send, Sparkles, User } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Markdown } from "@/components/ui/markdown"
+import { Textarea } from "@/components/ui/textarea"
 import { useTranslation } from "@/i18n/use-i18n"
 import { ChatChartBlock } from "./chat-chart-block"
-import type { ChartSpec } from "../types"
+import type { AiFollowUpPrompt, ChartSpec } from "../types"
 
 export interface ChatMessageView {
   id: string
   role: "user" | "assistant"
   content: string
   chart: ChartSpec | null
+  followUp?: AiFollowUpPrompt | null
 }
 
 interface ChatMessageProps {
@@ -23,6 +25,8 @@ interface ChatMessageProps {
   onRegenerate?: () => void
   /** Deshabilita las acciones mientras hay una respuesta en curso. */
   busy?: boolean
+  onFollowUpOption?: (message: string) => void
+  onFollowUpFreeText?: (message: string) => void
 }
 
 // Estilo común del markdown del asistente: prosa compacta y tablas legibles.
@@ -53,7 +57,14 @@ function UserAvatar({ initials }: { initials?: string }) {
   )
 }
 
-export function ChatMessage({ message, userInitials, onRegenerate, busy }: ChatMessageProps) {
+export function ChatMessage({
+  message,
+  userInitials,
+  onRegenerate,
+  busy,
+  onFollowUpOption,
+  onFollowUpFreeText,
+}: ChatMessageProps) {
   const { t } = useTranslation("business-ai-chat")
   const isUser = message.role === "user"
 
@@ -91,6 +102,14 @@ export function ChatMessage({ message, userInitials, onRegenerate, busy }: ChatM
         </div>
 
         {!isUser ? <MessageActions content={message.content} onRegenerate={onRegenerate} busy={busy} /> : null}
+        {!isUser && message.followUp ? (
+          <FollowUpPrompt
+            followUp={message.followUp}
+            busy={busy}
+            onChoose={onFollowUpOption}
+            onSendCustom={onFollowUpFreeText}
+          />
+        ) : null}
       </div>
     </div>
   )
@@ -144,6 +163,73 @@ function MessageActions({ content, onRegenerate, busy }: MessageActionsProps) {
         >
           <RotateCcw className="size-3.5" />
         </Button>
+      ) : null}
+    </div>
+  )
+}
+
+interface FollowUpPromptProps {
+  followUp: AiFollowUpPrompt
+  busy?: boolean
+  onChoose?: (message: string) => void
+  onSendCustom?: (message: string) => void
+}
+
+function FollowUpPrompt({ followUp, busy, onChoose, onSendCustom }: FollowUpPromptProps) {
+  const { t } = useTranslation("business-ai-chat")
+  const [text, setText] = useState("")
+
+  const sendCustom = () => {
+    const value = text.trim()
+    if (!value || busy) return
+    onSendCustom?.(value)
+    setText("")
+  }
+
+  return (
+    <div className="mt-2 w-full max-w-[92%] rounded-2xl border border-primary/20 bg-primary/5 p-3">
+      <p className="text-sm font-medium text-foreground">{followUp.question}</p>
+
+      <div className="mt-2 flex flex-wrap gap-2">
+        {followUp.options.map((option) => (
+          <Button
+            key={option.id}
+            type="button"
+            variant="outline"
+            size="sm"
+            className="rounded-full bg-background"
+            disabled={busy}
+            onClick={() => onChoose?.((option.message ?? option.label).trim())}
+          >
+            {option.label}
+          </Button>
+        ))}
+      </div>
+
+      {followUp.allowFreeText !== false ? (
+        <div className="mt-3 space-y-2">
+          <Textarea
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault()
+                sendCustom()
+              }
+            }}
+            rows={2}
+            disabled={busy}
+            placeholder={followUp.freeTextPlaceholder ?? t("follow_up_placeholder")}
+            className="min-h-20 resize-none bg-background"
+            aria-label={followUp.freeTextPlaceholder ?? t("follow_up_placeholder")}
+          />
+          <div className="flex justify-end">
+            <Button type="button" size="sm" className="gap-1.5" disabled={!text.trim() || busy} onClick={sendCustom}>
+              <Send className="size-3.5" />
+              {t("follow_up_send")}
+            </Button>
+          </div>
+        </div>
       ) : null}
     </div>
   )
