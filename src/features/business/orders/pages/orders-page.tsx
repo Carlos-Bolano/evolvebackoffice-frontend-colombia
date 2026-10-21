@@ -17,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { RefreshCw, Truck, Store, ShoppingCart, AlertTriangle, Plus, Lock, Bike } from "lucide-react"
+import { RefreshCw, Truck, Store, ShoppingCart, AlertTriangle, Plus, Lock, Bike, Ban } from "lucide-react"
 import { useQueries } from "@tanstack/react-query"
 import { useBranches } from "@/features/business/branches/hooks/use-branches"
 import {
@@ -34,6 +34,7 @@ import { OrdersKanban } from "../components/orders-kanban"
 import { BulkOrderStatusDialog } from "../components/bulk-order-status-dialog"
 import { MAX_BULK_ORDERS } from "../utils/bulk-status"
 import { OrderDetailDialog } from "../components/order-detail-dialog"
+import { CancelOrderDialog } from "../components/cancel-order-dialog"
 import { ManualOrderDialog } from "../components/manual-order-dialog"
 import { EditOrderDialog } from "../components/edit-order-dialog"
 import { CourierPickerDialog } from "../components/courier-picker-dialog"
@@ -57,6 +58,8 @@ export function OrdersPage() {
   const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all")
   const [selection, setSelection] = useState<{ scope: string; ids: string[] }>({ scope: "", ids: [] })
   const [bulkRequest, setBulkRequest] = useState<{ orders: OrderListItem[]; status?: OrderStatus } | null>(null)
+  const [cancellingOrder, setCancellingOrder] = useState<OrderListItem | null>(null)
+  const [showCancelled, setShowCancelled] = useState(false)
 
   // Sucursal consultada: selección visible con persistencia local.
   // (Antes se tomaba branches[0] a ciegas y no se veía cuál era.)
@@ -157,7 +160,17 @@ export function OrdersPage() {
   }
   const selectedOrders = selectableOrders.filter((order) => selectedIds.has(order.id))
 
-  const ordersByStatus = KANBAN_COLUMNS.reduce(
+  const cancelledOrdersCount = useMemo(
+    () => filteredOrders.filter((o) => o.statusCode === "Cancelled").length,
+    [filteredOrders]
+  )
+
+  const kanbanStatusKeys = useMemo(
+    () => (showCancelled ? ([...KANBAN_COLUMNS, "Cancelled"] as const) : KANBAN_COLUMNS),
+    [showCancelled]
+  )
+
+  const ordersByStatus = kanbanStatusKeys.reduce(
     (acc, status) => {
       acc[status] = filteredOrders.filter((o) => o.statusCode === status)
       return acc
@@ -205,6 +218,12 @@ export function OrdersPage() {
     if (bulkRequest || updateStatusMutation.isPending) return
     if (selectedIds.has(orderId) && selectedOrders.length > 1) {
       setBulkRequest({ orders: selectedOrders, status: newStatus })
+      return
+    }
+    // Cancelar requiere seleccionar tipo de disposición (Restocked / Waste) y motivo
+    if (newStatus === "Cancelled") {
+      const order = allOrders.find((o) => o.id === orderId)
+      if (order) setCancellingOrder(order)
       return
     }
     // Un pedido a domicilio no sale sin domiciliario: se elige (o confirma) al enviarlo.
@@ -323,43 +342,58 @@ export function OrdersPage() {
       )}
 
       {/* Filtros de plataforma + kanban/lista */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* Platform Filter Tabs */}
+        <Tabs
+          value={platformFilter}
+          onValueChange={(v) => {
+            setPlatformFilter(v as PlatformFilter)
+            setSelection({ scope: "", ids: [] })
+          }}
+        >
+          <TabsList className="max-w-full flex-wrap gap-1">
+            <TabsTrigger value="all" className="gap-1.5">
+              <ShoppingCart className="h-3.5 w-3.5" />
+              Todas
+              <Badge tone="neutral" className="ml-1 text-[10px]">
+                {platformCounts.all}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="POSCO" className="gap-1.5">
+              Local
+              <Badge tone="neutral" className="ml-1 text-[10px]">
+                {platformCounts.POSCO}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="CLUVI" className="gap-1.5">
+              Cluvi
+              <Badge tone="neutral" className="ml-1 text-[10px]">
+                {platformCounts.CLUVI}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="WOOCOMMERCE" className="gap-1.5">
+              WooCommerce
+              <Badge tone="neutral" className="ml-1 text-[10px]">
+                {platformCounts.WOOCOMMERCE}
+              </Badge>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
 
-      {/* Platform Filter Tabs */}
-      <Tabs
-        value={platformFilter}
-        onValueChange={(v) => {
-          setPlatformFilter(v as PlatformFilter)
-          setSelection({ scope: "", ids: [] })
-        }}
-      >
-        <TabsList className="max-w-full flex-wrap gap-1">
-          <TabsTrigger value="all" className="gap-1.5">
-            <ShoppingCart className="h-3.5 w-3.5" />
-            Todas
-            <Badge tone="neutral" className="ml-1 text-[10px]">
-              {platformCounts.all}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="POSCO" className="gap-1.5">
-            Local
-            <Badge tone="neutral" className="ml-1 text-[10px]">
-              {platformCounts.POSCO}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="CLUVI" className="gap-1.5">
-            Cluvi
-            <Badge tone="neutral" className="ml-1 text-[10px]">
-              {platformCounts.CLUVI}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="WOOCOMMERCE" className="gap-1.5">
-            WooCommerce
-            <Badge tone="neutral" className="ml-1 text-[10px]">
-              {platformCounts.WOOCOMMERCE}
-            </Badge>
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+        {/* Botón para ver/ocultar órdenes canceladas */}
+        <Button
+          variant={showCancelled ? "secondary" : "outline"}
+          size="sm"
+          onClick={() => setShowCancelled(!showCancelled)}
+          className="gap-1.5"
+        >
+          <Ban className="size-3.5 text-destructive" />
+          <span>{showCancelled ? t("hide_cancelled_orders") : t("show_cancelled_orders")}</span>
+          <Badge tone="neutral" className="ml-0.5 text-[10px]">
+            {cancelledOrdersCount}
+          </Badge>
+        </Button>
+      </div>
 
       {selectableOrders.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border p-3">
@@ -404,10 +438,12 @@ export function OrdersPage() {
           ordersByStatus={ordersByStatus}
           onDragEnd={handleDragEnd}
           onViewDetail={handleViewDetail}
+          onCancelOrder={(order) => setCancellingOrder(order)}
           showBranch={showAllBranches}
           selectedIds={selectedIds}
           onToggleSelection={toggleSelection}
           disabled={!!bulkRequest || updateStatusMutation.isPending}
+          showCancelled={showCancelled}
         />
       )}
 
@@ -430,6 +466,17 @@ export function OrdersPage() {
         onOpenChange={setDetailOpen}
         order={selectedOrder}
         onEdit={() => setEditOrderOpen(true)}
+      />
+      <CancelOrderDialog
+        open={cancellingOrder !== null}
+        onOpenChange={(open) => {
+          if (!open) setCancellingOrder(null)
+        }}
+        order={cancellingOrder}
+        onSuccess={() => {
+          setCancellingOrder(null)
+          setShowCancelled(true)
+        }}
       />
       <EditOrderDialog open={editOrderOpen} onOpenChange={setEditOrderOpen} orderId={selectedOrder?.id ?? null} />
 
