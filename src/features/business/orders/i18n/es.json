@@ -446,5 +446,7 @@
   "cancellation_summary_waste_count": "{{count}} a merma",
   "cancellation_summary_restocked_count": "{{count}} a inventario",
   "cancellation_item_restocked_short": "Stock",
-  "cancellation_item_waste_short": "Merma"
+  "cancellation_item_waste_short": "Merma",
+  "cancellation_item_beverage": "Bebida sellada",
+  "cancellation_item_food": "Alimento preparado"
 }

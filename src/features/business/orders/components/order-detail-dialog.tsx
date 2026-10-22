@@ -21,6 +21,10 @@ interface OrderDetailDialogProps {
   onEdit?: () => void
 }
 
+/**
+ * Diálogo modal para visualizar el detalle completo de un pedido, su historial de estados,
+ * productos, trazabilidad de entrega y datos de cancelación/merma si aplica.
+ */
 export function OrderDetailDialog({ open, onOpenChange, order, onEdit }: OrderDetailDialogProps) {
   const { t } = useTranslation("business-orders")
   const { formatCurrency } = useLocaleFormat()
@@ -56,11 +60,13 @@ export function OrderDetailDialog({ open, onOpenChange, order, onEdit }: OrderDe
                   <Ban className="size-4" />
                   {t("cancellation_info_title")}
                 </span>
-                <Badge tone={current.cancellationType === "Waste" ? "warning" : "info"}>
-                  {current.cancellationType === "Waste"
-                    ? t("cancellation_type_waste")
-                    : t("cancellation_type_restocked")}
-                </Badge>
+                {current.cancellationType && (
+                  <Badge tone={current.cancellationType === "Waste" ? "warning" : "info"}>
+                    {current.cancellationType === "Waste"
+                      ? t("cancellation_type_waste")
+                      : t("cancellation_type_restocked")}
+                  </Badge>
+                )}
               </div>
 
               {((current.wasteCost != null && current.wasteCost > 0) ||

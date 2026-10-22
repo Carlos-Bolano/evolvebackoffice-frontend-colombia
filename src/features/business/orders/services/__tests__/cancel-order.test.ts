@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { api } from "@/config/axios-client"
 import { cancelOrder } from "../orders.service"
-import { isBeverage } from "../../components/cancel-order-dialog"
+import { isBeverage, buildCancellationInitialState } from "../../utils/order-helpers"
+import type { OrderListItem, OrderItemDto } from "../../types"
 
 vi.mock("@/config/axios-client", () => ({ api: { post: vi.fn() } }))
 const mockedApi = vi.mocked(api, { deep: true })
@@ -75,5 +76,38 @@ describe("isBeverage helper", () => {
     expect(isBeverage("Gaseosa Postobón Manzana")).toBe(true)
     expect(isBeverage("Gaseosa Quatro")).toBe(true)
     expect(isBeverage("Sprite en lata")).toBe(true)
+  })
+})
+
+describe("buildCancellationInitialState helper", () => {
+  const dummyOrder = {
+    id: "ord-1",
+    statusCode: "Pending",
+    statusName: "Pendiente",
+    platformCode: "POSCO",
+    total: 30000,
+    externalOrderId: "EXT-1",
+  } as unknown as OrderListItem
+
+  const items = [
+    { id: "item-1", name: "Hamburguesa Doble", quantity: 1 },
+    { id: "item-2", name: "Coca Cola Zero", quantity: 1 },
+  ] as unknown as OrderItemDto[]
+
+  it("inicializa como Restocked cuando la orden está en estado Pending", () => {
+    const state = buildCancellationInitialState(dummyOrder, items)
+    expect(state.cancellationType).toBe("Restocked")
+    expect(state.customPerItem).toBe(false)
+    expect(state.itemDispositions["item-1"]).toBe("Restocked")
+    expect(state.itemDispositions["item-2"]).toBe("Restocked")
+  })
+
+  it("inicializa como Waste y activa customPerItem si la orden está en Preparing y tiene bebidas y comida", () => {
+    const preparingOrder: OrderListItem = { ...dummyOrder, statusCode: "Preparing" }
+    const state = buildCancellationInitialState(preparingOrder, items)
+    expect(state.cancellationType).toBe("Waste")
+    expect(state.customPerItem).toBe(true)
+    expect(state.itemDispositions["item-1"]).toBe("Waste")
+    expect(state.itemDispositions["item-2"]).toBe("Restocked")
   })
 })

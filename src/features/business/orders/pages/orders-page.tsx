@@ -47,6 +47,11 @@ type PlatformFilter = "all" | "CLUVI" | "WOOCOMMERCE" | "POSCO"
 /** Clave de localStorage para recordar la sucursal consultada en Órdenes. */
 const ORDERS_BRANCH_STORAGE_KEY = "business.orders.branchId"
 
+/**
+ * Página principal de gestión de pedidos en tablero Kanban.
+ * Incluye filtrado por sucursal, plataforma de origen, verificación de stock,
+ * asignación de domiciliarios, cancelación granular y operaciones por lote.
+ */
 export function OrdersPage() {
   const { t } = useTranslation("business-orders")
   const navigate = useNavigate()
@@ -91,6 +96,7 @@ export function OrdersPage() {
       ? selectedBranchId
       : (branchesWithOrdersModule[0]?.id ?? "")
 
+  /** Cambia la sucursal activa seleccionada o selecciona todas las sucursales. */
   const handleBranchChange = (id: string | null) => {
     // null = "Todas las sucursales"
     const value = id ?? ALL_BRANCHES
@@ -147,6 +153,7 @@ export function OrdersPage() {
   const selectedIds = new Set(
     selection.scope === selectionScope ? selection.ids.filter((id) => visibleIds.has(id)) : []
   )
+  /** Alterna la selección de una lista de identificadores de órdenes para acciones por lote. */
   const toggleSelection = (ids: string[]) => {
     const next = new Set(selectedIds)
     if (ids.every((id) => next.has(id))) ids.forEach((id) => next.delete(id))
@@ -193,6 +200,7 @@ export function OrdersPage() {
   const [dispatchOrder, setDispatchOrder] = useState<OrderListItem | null>(null)
   const pendingConfirmRef = useRef<{ orderId: string; status: OrderStatus } | null>(null)
 
+  /** Aplica un cambio de estado a una orden y opcionalmente asigna un repartidor. */
   const applyStatus = (orderId: string, newStatus: OrderStatus, courierId?: string | null) => {
     updateStatusMutation.mutate(
       { id: orderId, status: newStatus, courierId },
@@ -216,14 +224,14 @@ export function OrdersPage() {
    */
   const handleDragEnd = async (orderId: string, newStatus: OrderStatus) => {
     if (bulkRequest || updateStatusMutation.isPending) return
-    if (selectedIds.has(orderId) && selectedOrders.length > 1) {
-      setBulkRequest({ orders: selectedOrders, status: newStatus })
-      return
-    }
-    // Cancelar requiere seleccionar tipo de disposición (Restocked / Waste) y motivo
+    // Cancelar requiere seleccionar tipo de disposición (Restocked / Waste) y motivo individualizado
     if (newStatus === "Cancelled") {
       const order = allOrders.find((o) => o.id === orderId)
       if (order) setCancellingOrder(order)
+      return
+    }
+    if (selectedIds.has(orderId) && selectedOrders.length > 1) {
+      setBulkRequest({ orders: selectedOrders, status: newStatus })
       return
     }
     // Un pedido a domicilio no sale sin domiciliario: se elige (o confirma) al enviarlo.
@@ -249,6 +257,7 @@ export function OrdersPage() {
     applyStatus(orderId, newStatus)
   }
 
+  /** Confirma el cambio de estado a pesar de existir advertencia de inventario insuficiente. */
   const handleConfirmDespiteShortage = () => {
     const pending = pendingConfirmRef.current
     pendingConfirmRef.current = null
@@ -256,6 +265,7 @@ export function OrdersPage() {
     if (pending) applyStatus(pending.orderId, pending.status)
   }
 
+  /** Abre el modal con el detalle completo de la orden seleccionada. */
   const handleViewDetail = (order: OrderListItem) => {
     setSelectedOrder(order)
     setDetailOpen(true)

@@ -21,6 +21,10 @@ interface OrdersKanbanProps {
   showCancelled?: boolean
 }
 
+/**
+ * Tablero Kanban de órdenes con columnas por estado, soporte de arrastrar y soltar (DnD),
+ * selección múltiple para acciones por lote y columna opcional de órdenes canceladas.
+ */
 export function OrdersKanban({
   ordersByStatus,
   onDragEnd,
@@ -34,6 +38,7 @@ export function OrdersKanban({
 }: OrdersKanbanProps) {
   const { t } = useTranslation("business-orders")
 
+  /** Gestiona el evento de finalización del arrastre de una tarjeta en el tablero. */
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return
     // Soltar en la misma columna no cambia el estado (evita un PUT inválido).
@@ -144,14 +149,16 @@ export function OrdersKanban({
 
                               {order.statusCode === "Cancelled" && (
                                 <div className="mb-1 flex flex-wrap items-center gap-1.5">
-                                  <Badge
-                                    tone={order.cancellationType === "Waste" ? "warning" : "info"}
-                                    className="px-1.5 py-0 text-[10px]"
-                                  >
-                                    {order.cancellationType === "Waste"
-                                      ? t("cancellation_type_waste")
-                                      : t("cancellation_type_restocked")}
-                                  </Badge>
+                                  {order.cancellationType && (
+                                    <Badge
+                                      tone={order.cancellationType === "Waste" ? "warning" : "info"}
+                                      className="px-1.5 py-0 text-[10px]"
+                                    >
+                                      {order.cancellationType === "Waste"
+                                        ? t("cancellation_type_waste")
+                                        : t("cancellation_type_restocked")}
+                                    </Badge>
+                                  )}
                                   {order.wasteCost != null && order.wasteCost > 0 && (
                                     <span className="font-mono text-[10px] font-medium text-destructive">
                                       -${order.wasteCost.toFixed(2)}

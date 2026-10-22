@@ -446,5 +446,7 @@
   "cancellation_summary_waste_count": "{{count}} to waste",
   "cancellation_summary_restocked_count": "{{count}} to inventory",
   "cancellation_item_restocked_short": "Stock",
-  "cancellation_item_waste_short": "Waste"
+  "cancellation_item_waste_short": "Waste",
+  "cancellation_item_beverage": "Sealed beverage",
+  "cancellation_item_food": "Prepared food"
 }
