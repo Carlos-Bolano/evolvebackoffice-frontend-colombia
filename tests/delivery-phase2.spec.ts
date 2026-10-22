@@ -648,15 +648,13 @@ test("UI muestra fallo de sincronización y permite pausar/reanudar Cluvi", asyn
   // Los avisos de pedidos CLUVI se gestionan desde POSCO; no se envían en QA.
   await card.getByRole("button", { name: "Avisar al cliente", exact: true }).click()
   const dialog = page.getByRole("dialog")
-  await expect(dialog.getByLabel("Destinatario WhatsApp")).toHaveValue("+573001234567")
-  await expect(dialog.getByLabel("Mensaje", { exact: true })).toHaveValue(/va en camino con Luis QA/i)
-  const customerHref = await dialog.getByRole("link", { name: "Abrir WhatsApp Desktop" }).getAttribute("href")
-  expect(new URL(customerHref!).searchParams.get("phone")).toBe("573001234567")
+  await expect(dialog.getByRole("button", { name: "Enviar por Evolution API", exact: true })).toBeDisabled()
+  await expect(dialog.locator('a[href^="whatsapp:"], a[href*="wa.me"]')).toHaveCount(0)
+  await expect(dialog.getByText(/No elegible:/)).toBeVisible()
   await page.keyboard.press("Escape")
   await card.getByRole("button", { name: "Avisar al domiciliario", exact: true }).click()
-  await expect(dialog.getByLabel("Destinatario WhatsApp")).toHaveValue("3001112233")
-  await expect(dialog.getByLabel("Mensaje", { exact: true })).toHaveValue(/Calle 10 # 20-30/)
-  await expect(dialog.getByLabel("Mensaje", { exact: true })).toHaveValue(/COBRAR.*27[.,]000/)
+  await expect(dialog.getByRole("button", { name: "Enviar por Evolution API", exact: true })).toBeDisabled()
+  await expect(dialog.getByText(/No elegible:/)).toBeVisible()
   await page.keyboard.press("Escape")
 
   // Reenviar el estado no cambia la orden ni crea una segunda venta.
@@ -748,11 +746,13 @@ test("E: UI crea pedido manual con destinatario y tarifa automática; servidor i
   await page.goto("/business/orders")
   await page.getByRole("button", { name: "Crear Orden", exact: true }).click()
   const dialog = page.getByRole("dialog")
+  await dialog.getByRole("radio", { name: "Domicilio", exact: true }).check()
   await dialog.getByLabel("Productos", { exact: true }).click()
   await page.getByRole("option", { name: /Hamburguesa vinculada/i }).click()
   await dialog.getByLabel("Nombre del cliente", { exact: true }).fill("Cliente E")
   await dialog.getByLabel("Teléfono", { exact: true }).fill("+573001234567")
   await dialog.getByLabel("Dirección", { exact: true }).fill("Calle 10 #20-30")
+  await dialog.getByText("Elegir ubicaci\u00f3n en el mapa / coordenadas", { exact: true }).click()
   await dialog.getByLabel("Latitud", { exact: true }).fill("4.61")
   await dialog.getByLabel("Longitud", { exact: true }).fill("-74.08")
   await dialog.getByLabel("Calcular tarifa automáticamente por zona", { exact: true }).check()
@@ -838,7 +838,7 @@ test("E: lote inválido no despacha parcialmente; UI reordena dos paradas y desp
   await page.screenshot({ path: "test-results/e-run.png", fullPage: true })
 })
 
-test("E: aviso manual prepara WhatsApp Desktop sin API ni envío real", async ({ page }) => {
+test("E: avisos usan exclusivamente Evolution API y bloquean canal deshabilitado", async ({ page }) => {
   await session(page)
   await page.goto("/business/orders/routes")
   await page.getByLabel("Sucursal", { exact: true }).selectOption(branch.id)
@@ -847,24 +847,12 @@ test("E: aviso manual prepara WhatsApp Desktop sin API ni envío real", async ({
     .getByRole("button", { name: "Avisar al cliente", exact: true })
     .click()
   const dialog = page.getByRole("dialog")
-  await expect(dialog.getByLabel("Mensaje", { exact: true })).toHaveValue(/va en camino con Ana QA/i)
-  const link = dialog.getByRole("link", { name: "Abrir WhatsApp Desktop", exact: true })
-  const href = await link.getAttribute("href")
-  expect(href).toMatch(/^whatsapp:\/\/send\?phone=573001234567&text=/)
-  expect(new URL(href!).searchParams.get("text")).toMatch(/Ana QA/i)
-  // Cancel external protocol navigation: no contact or real message is touched in QA.
-  await link.evaluate((el) => el.addEventListener("click", (e) => e.preventDefault()))
-  const external: string[] = []
-  page.on("request", (r) => {
-    if (/whatsapp|wa\.me/i.test(r.url())) external.push(r.url())
-  })
-  await link.click()
-  expect(external).toEqual([])
-  await expect(dialog.getByText(/no lo envía automáticamente/)).toBeVisible()
-  await dialog.getByLabel("Destinatario WhatsApp").fill("javascript:alert(1)")
-  await expect(link).toHaveCount(0)
-  await expect(dialog.getByRole("alert")).toContainText("teléfono internacional válido")
-  await page.screenshot({ path: "test-results/e-whatsapp.png" })
+  await expect(dialog.getByText(/No elegible:/)).toBeVisible()
+  await expect(dialog.getByRole("button", { name: "Enviar por Evolution API", exact: true })).toBeDisabled()
+  await expect(dialog.locator('a[href^="whatsapp:"], a[href*="wa.me"]')).toHaveCount(0)
+  await expect(dialog.getByText(/WhatsApp Desktop/)).toHaveCount(0)
+  await expect(dialog.getByRole("textbox", { name: "Mensaje", exact: true })).toHaveCount(0)
+  await page.screenshot({ path: "test-results/e-whatsapp-api.png" })
 })
 
 test("E: móvil firma entrega, no permite firma sin consentimiento y prueba solo visible con autorización", async ({
@@ -1193,7 +1181,13 @@ test("Cluvi: el detalle real muestra cliente, teléfono, productos y aviso desde
   await expect(detail.getByText("1 × Hamburguesa Cluvi", { exact: true })).toBeVisible()
   await expect(detail.getByText(/Sin cebolla/)).toBeVisible()
   await detail.getByRole("button", { name: "Avisar al cliente", exact: true }).click()
-  await expect(page.getByLabel("Mensaje", { exact: true })).toHaveValue(/ya está listo/)
+  await expect(
+    page
+      .getByRole("dialog")
+      .last()
+      .getByText(/ya está listo/)
+  ).toBeVisible()
+  await expect(page.getByRole("dialog").last().getByRole("textbox", { name: "Mensaje", exact: true })).toHaveCount(0)
   await page.keyboard.press("Escape")
   await page.keyboard.press("Escape")
   await check(await api.put(`/api/orders/${id}/courier`, { data: { courierId: otherCourier.id } }))
@@ -1210,8 +1204,19 @@ test("Cluvi: el detalle real muestra cliente, teléfono, productos y aviso desde
     .getByRole("button", { name: "Productos del pedido", exact: true })
     .click()
   await page.getByRole("dialog").getByRole("button", { name: "Avisar al domiciliario", exact: true }).click()
-  await expect(page.getByLabel("Mensaje", { exact: true })).toHaveValue(/PAGADO, no cobrar/)
-  await expect(page.getByLabel("Mensaje", { exact: true })).not.toHaveValue(/COBRAR\s*\$/)
+  await expect(
+    page.getByRole("dialog").last().getByRole("combobox", { name: "Plantilla a enviar", exact: true })
+  ).toHaveValue("CourierAssigned")
+  await expect(
+    page
+      .getByRole("dialog")
+      .last()
+      .getByText(/No elegible:/)
+  ).toBeVisible()
+  await expect(page.getByRole("dialog").last().locator('a[href^="whatsapp:"], a[href*="wa.me"]')).toHaveCount(0)
+  await expect(
+    page.getByRole("dialog").last().getByRole("button", { name: "Enviar por Evolution API", exact: true })
+  ).toBeDisabled()
 })
 
 test("Cluvi: editar conexión conserva token, pagos y menú existente", async ({ page }) => {
@@ -1232,18 +1237,24 @@ test("Cluvi: editar conexión conserva token, pagos y menú existente", async ({
   await page.goto("/business/orders")
   await page.getByRole("button", { name: /Centro QA/ }).click()
   await page.getByRole("button", { name: "Cluvi", exact: true }).click()
-  const dialog = page.getByRole("dialog")
-  await expect(dialog.getByRole("button", { name: "Conectar recepción de pedidos", exact: true })).toBeEnabled()
+  await expect(page).toHaveURL(new RegExp(`/business/branches/${branch.id}/config`))
+  await expect(page.getByRole("button", { name: "Setear URL", exact: true })).toBeEnabled()
   // Mostrar el webhook autenticado; nunca copiar una URL sin token.
-  await expect(dialog.locator("input[readonly]").first()).toHaveValue(new RegExp(webhookToken))
-  await dialog.getByRole("button", { name: "Credenciales", exact: true }).click()
-  await expect(dialog.getByLabel("App ID", { exact: true })).toHaveValue("")
-  await dialog.getByRole("button", { name: "Guardar Integración", exact: true }).click()
-  await expect(dialog.getByRole("button", { name: "Conectar recepción de pedidos", exact: true })).toBeEnabled()
-  await dialog.getByRole("button", { name: "Conectar recepción de pedidos", exact: true }).click()
-  await expect(dialog.getByRole("button", { name: "Finalizar y conservar menú", exact: true })).toBeEnabled()
-  await dialog.getByRole("button", { name: "Finalizar y conservar menú", exact: true }).click()
-  await expect(dialog).toHaveCount(0)
+  await expect(page.locator("input[readonly]").first()).toHaveValue(new RegExp(webhookToken))
+  await page.getByRole("button", { name: "Credenciales", exact: true }).click()
+  await expect(page.getByLabel("App ID", { exact: true })).toHaveValue("")
+  const saved = page.waitForResponse(
+    (r) => r.url().endsWith(`${url}/${integration.id}`) && r.request().method() === "PUT"
+  )
+  await page.getByRole("button", { name: "Guardar configuración", exact: true }).click()
+  expect((await saved).ok()).toBe(true)
+  await page.getByRole("button", { name: "Cerrar", exact: true }).click()
+  await expect(page.getByRole("button", { name: "Setear URL", exact: true })).toBeEnabled()
+  const connected = page.waitForResponse(
+    (r) => r.url().endsWith(`/integrations/${integration.id}/activate-store`) && r.request().method() === "POST"
+  )
+  await page.getByRole("button", { name: "Setear URL", exact: true }).click()
+  expect((await connected).ok()).toBe(true)
   const updated = await json<{ settingsJson: string }>(await api.get(`${url}/${integration.id}`))
   expect(JSON.parse(updated.settingsJson)).toEqual(preserved)
   expect(outbound.slice(outboundStart).some((call) => call.startsWith("PUT /v1/menu/"))).toBe(false)

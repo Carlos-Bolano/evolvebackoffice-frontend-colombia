@@ -1,3 +1,4 @@
+import { getBranchWhatsAppChannel } from "../services/whatsapp.service"
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
@@ -11,6 +12,8 @@ import { useBranches } from "@/features/business/branches/hooks/use-branches"
 import { getItems } from "@/features/business/items/catalog/services/items.service"
 import { getActivePaymentMethods } from "@/features/business/payment-methods/services/payment-methods.service"
 import { useCanManageDeliveries, useDeliveryAction, useDeliveryOperations } from "../hooks/use-delivery-operations"
+import { BranchWhatsAppCard } from "../components/branch-whatsapp-card"
+import { OrdersSubnav } from "../components/orders-subnav"
 import { getApiErrorMessage } from "../utils/order-helpers"
 import type { UnlinkedProduct, WebhookHealth } from "../types/operations"
 
@@ -20,7 +23,20 @@ export function DeliveryOperationsPage() {
   const navigate = useNavigate()
   const canManage = useCanManageDeliveries()
   const { data: branches } = useBranches(1, 100)
-  const [branchId, setBranch] = useState("")
+  const [branchId, setBranch] = useState(() => {
+    try {
+      const saved = localStorage.getItem("business.orders.branchId")
+      return saved && saved !== "__ALL__" ? saved : ""
+    } catch {
+      return ""
+    }
+  })
+  const { data: whatsappChannel } = useQuery({
+    queryKey: ["branch-whatsapp", branchId],
+    queryFn: () => getBranchWhatsAppChannel(branchId),
+    enabled: !!branchId && canManage,
+    retry: false,
+  })
   const { data, isError } = useDeliveryOperations(branchId || null)
   const action = useDeliveryAction()
   const [courier, setCourier] = useState("")
@@ -37,6 +53,7 @@ export function DeliveryOperationsPage() {
   if (!canManage) return <p role="alert">{t("phase2_manager_only")}</p>
   return (
     <div className="space-y-6">
+      <OrdersSubnav />
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="outline" onClick={() => navigate("/business/orders/deliveries")}>
           {t("deliveries_title")}
@@ -52,7 +69,15 @@ export function DeliveryOperationsPage() {
           aria-label={t("branch")}
           className="mt-1 h-10 w-full rounded-md border bg-background px-3"
           value={branchId}
-          onChange={(e) => setBranch(e.target.value)}
+          onChange={(e) => {
+            const nextBranch = e.target.value
+            setBranch(nextBranch)
+            try {
+              localStorage.setItem("business.orders.branchId", nextBranch || "__ALL__")
+            } catch {
+              // Ignore storage error
+            }
+          }}
         >
           <option value="">{t("all_branches")}</option>
           {branches?.data.map((b) => (
@@ -151,6 +176,20 @@ export function DeliveryOperationsPage() {
           ))}
         </CardContent>
       </Card>
+      {branchId && (
+        <details className="rounded-xl border p-3">
+          <summary className="min-h-11 cursor-pointer font-medium">
+            {t("wa_configuration")}
+            <span className="ml-3 text-xs font-normal text-muted-foreground">
+              {t(`wa_status_${whatsappChannel?.status ?? "Disconnected"}`)}
+              {whatsappChannel?.enabled ? "" : ` / ${t("wa_notifications_paused")}`}
+            </span>
+          </summary>
+          <div className="pt-3">
+            <BranchWhatsAppCard key={branchId} branchId={branchId} />
+          </div>
+        </details>
+      )}
       <Card>
         <CardHeader>
           <CardTitle>{t("phase2_unlinked")}</CardTitle>

@@ -1,3 +1,5 @@
+import { useOrderPresentation } from "../hooks/use-order-presentation"
+import { shortOrderReference } from "../utils/order-presentation"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -5,11 +7,21 @@ import { Separator } from "@/components/ui/separator"
 import { useTranslation } from "@/i18n/use-i18n"
 import { useLocaleFormat } from "@/hooks/use-locale-format"
 import { ORDER_STATUS_CONFIG, ORDER_ORIGIN_LABEL_KEY } from "../types"
-import type { OrderListItem } from "../types/api"
-import { MapPin, Clock, CreditCard, FileText, SquarePen, Tag, Phone, User } from "lucide-react"
+import type { OrderListItem, OrderStatus } from "../types/api"
+import { ArrowRight, Ban, Clock, Copy, CreditCard, FileText, MapPin, Phone, SquarePen, Tag, User } from "lucide-react"
+import { notify } from "@/hooks/use-notify"
 import { useOrderDetail } from "../hooks/use-orders"
-import { WhatsAppDesktopDialog } from "./whatsapp-desktop-dialog"
+import { OrderWhatsAppDialog } from "./order-whatsapp-dialog"
+import { OrderTimeline } from "./order-timeline"
 import { OrderSyncAction } from "./order-sync-action"
+
+const NEXT_STATUS_MAP: Partial<Record<string, { next: OrderStatus; labelKey: string }>> = {
+  Pending: { next: "Confirmed", labelKey: "next_confirm" },
+  Confirmed: { next: "Preparing", labelKey: "next_prepare" },
+  Preparing: { next: "Ready", labelKey: "next_ready" },
+  Ready: { next: "Shipped", labelKey: "next_dispatch" },
+  Shipped: { next: "Delivered", labelKey: "next_deliver" },
+}
 
 interface OrderDetailDialogProps {
   open: boolean
@@ -17,17 +29,30 @@ interface OrderDetailDialogProps {
   order: OrderListItem | null
   /** Abre el formulario de edición de detalles (notas/dirección/envío). */
   onEdit?: () => void
+  onAdvanceStatus?: (order: OrderListItem, nextStatus: OrderStatus) => void
+  onRequestCancel?: (order: OrderListItem) => void
 }
 
-export function OrderDetailDialog({ open, onOpenChange, order, onEdit }: OrderDetailDialogProps) {
+export function OrderDetailDialog({
+  open,
+  onOpenChange,
+  order,
+  onEdit,
+  onAdvanceStatus,
+  onRequestCancel,
+}: OrderDetailDialogProps) {
   const { t } = useTranslation("business-orders")
   const { formatCurrency } = useLocaleFormat()
+  const { collectionLabel, paymentLabel, statusLabel } = useOrderPresentation()
   const { data: detail, isLoading, isError, refetch } = useOrderDetail(open ? (order?.id ?? "") : "")
 
   if (!order) return null
 
   const current = { ...order, ...detail }
   const statusConfig = ORDER_STATUS_CONFIG[current.statusCode]
+  const nextStep = NEXT_STATUS_MAP[current.statusCode]
+  const canCancel =
+    current.statusCode !== "Delivered" && current.statusCode !== "Cancelled" && current.statusCode !== "Refunded"
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -35,11 +60,27 @@ export function OrderDetailDialog({ open, onOpenChange, order, onEdit }: OrderDe
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle>
-              {t("order_number")} #{current.externalOrderId?.slice(0, 8) ?? current.id.slice(0, 8)}
+              {t("order_number")} #{shortOrderReference(current.externalOrderId, current.id)}
             </DialogTitle>
-            <Badge tone={statusConfig?.color}>{statusConfig?.label ?? current.statusName}</Badge>
+            <Badge tone={statusConfig?.color}>{statusLabel(current.statusCode)}</Badge>
           </div>
         </DialogHeader>
+        <Button
+          type="button"
+          variant="ghost"
+          className="min-h-11 justify-start text-xs"
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(current.externalOrderId || current.id)
+              notify.success(t("reference_copied"))
+            } catch {
+              notify.error(t("reference_copy_failed"))
+            }
+          }}
+        >
+          <Copy className="mr-2 size-4" />
+          {t("copy_full_reference")}
+        </Button>
 
         <div className="space-y-4">
           {isLoading && <p role="status">{t("loading")}</p>}
@@ -69,9 +110,11 @@ export function OrderDetailDialog({ open, onOpenChange, order, onEdit }: OrderDe
                 </p>
               )}
               <div className="flex flex-wrap gap-2">
-                <WhatsAppDesktopDialog
+                <OrderWhatsAppDialog
                   order={{
-                    reference: detail.externalOrderId ?? detail.id.slice(0, 8),
+                    id: detail.id,
+                    branchId: detail.branchId,
+                    reference: shortOrderReference(detail.externalOrderId, detail.id),
                     status: detail.statusCode,
                     customerName: detail.personName ?? detail.customerName,
                     customerPhone: detail.customerPhone ?? null,
@@ -81,11 +124,12 @@ export function OrderDetailDialog({ open, onOpenChange, order, onEdit }: OrderDe
                     paymentConfirmed: detail.paymentConfirmed,
                     isReconciled: detail.isReconciled,
                   }}
-                  courierName={detail.courierName}
                 />
-                <WhatsAppDesktopDialog
+                <OrderWhatsAppDialog
                   order={{
-                    reference: detail.externalOrderId ?? detail.id.slice(0, 8),
+                    id: detail.id,
+                    branchId: detail.branchId,
+                    reference: shortOrderReference(detail.externalOrderId, detail.id),
                     status: detail.statusCode,
                     customerName: detail.personName ?? detail.customerName,
                     customerPhone: detail.customerPhone ?? null,
@@ -95,7 +139,6 @@ export function OrderDetailDialog({ open, onOpenChange, order, onEdit }: OrderDe
                     paymentConfirmed: detail.paymentConfirmed,
                     isReconciled: detail.isReconciled,
                   }}
-                  courierName={detail.courierName}
                   courierPhone={detail.courierPhone}
                   recipient="courier"
                 />
@@ -129,13 +172,7 @@ export function OrderDetailDialog({ open, onOpenChange, order, onEdit }: OrderDe
           <div className="rounded-lg bg-primary/5 p-4 text-center">
             <p className="text-sm text-muted-foreground">{t("total")}</p>
             <p className="text-3xl font-bold">{formatCurrency(current.total)}</p>
-            <p className="mt-2 font-semibold">
-              {current.paymentConfirmed
-                ? t("phase2_paid")
-                : detail?.isReconciled
-                  ? t("phase2_collected")
-                  : t("phase2_collect", { amount: formatCurrency(current.total) })}
-            </p>
+            <p className="mt-2 font-semibold">{collectionLabel(current)}</p>
           </div>
 
           {/* Info */}
@@ -143,7 +180,7 @@ export function OrderDetailDialog({ open, onOpenChange, order, onEdit }: OrderDe
             <div className="flex items-center gap-3 text-sm">
               <CreditCard className="h-4 w-4 text-muted-foreground" />
               <span className="text-muted-foreground">{t("payment_method")}:</span>
-              <span className="font-medium">{current.paymentMethod ?? "—"}</span>
+              <span className="font-medium">{paymentLabel(current.paymentMethod)}</span>
             </div>
 
             {current.origin ? (
@@ -171,7 +208,7 @@ export function OrderDetailDialog({ open, onOpenChange, order, onEdit }: OrderDe
             <div className="flex items-center gap-3 text-sm">
               <FileText className="h-4 w-4 text-muted-foreground" />
               <span className="text-muted-foreground">{t("status")}:</span>
-              <span className="font-medium">{current.statusName}</span>
+              <span className="font-medium">{statusLabel(current.statusCode)}</span>
             </div>
           </div>
 
@@ -205,12 +242,48 @@ export function OrderDetailDialog({ open, onOpenChange, order, onEdit }: OrderDe
           </div>
 
           {/* Editar detalles (notas, dirección, costo de envío) */}
-          {onEdit ? (
+          {onEdit && !["Cancelled", "Refunded"].includes(current.statusCode) ? (
             <Button type="button" variant="outline" className="w-full" onClick={onEdit}>
               <SquarePen className="mr-2 size-4" />
               {t("edit_order")}
             </Button>
           ) : null}
+
+          {/* Sticky footer con transición rápida y cancelación */}
+          {(nextStep || canCancel) && (onAdvanceStatus || onRequestCancel) && (
+            <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-2 border-t bg-background pt-3">
+              {canCancel && onRequestCancel && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => {
+                    onOpenChange(false)
+                    onRequestCancel(order)
+                  }}
+                >
+                  <Ban className="mr-1.5 size-3.5" />
+                  {t("cancel")}
+                </Button>
+              )}
+              {nextStep && onAdvanceStatus && (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="ml-auto"
+                  onClick={() => {
+                    onOpenChange(false)
+                    onAdvanceStatus(order, nextStep.next)
+                  }}
+                >
+                  {t(nextStep.labelKey)}
+                  <ArrowRight className="ml-1.5 size-3.5" />
+                </Button>
+              )}
+            </div>
+          )}
+          {open && <OrderTimeline key={order.id} orderId={order.id} />}
         </div>
       </DialogContent>
     </Dialog>

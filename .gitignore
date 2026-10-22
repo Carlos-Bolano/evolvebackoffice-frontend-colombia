@@ -46,5 +46,10 @@ opencode.json
 
 tests/*
 !tests/delivery-phase2.spec.ts
+!tests/orders-whatsapp.spec.ts
+!tests/local-pilot.spec.ts
+!tests/orders-navigation.spec.ts
+
+playwright-report/
 
 test-results/*

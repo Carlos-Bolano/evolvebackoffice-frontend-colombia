@@ -42,6 +42,7 @@ import { useAppStore } from "@/store/app-store"
 import { formatDateTime } from "@/utils/format"
 import { useTranslation } from "@/i18n/use-i18n"
 import Spinner from "@/components/Spinner"
+import { cluviWebhookUrl, withCluviStoreId } from "@/features/business/orders/utils/cluvi-settings"
 
 import {
   useActivateBranchIntegrationStore,
@@ -150,10 +151,11 @@ export function IntegrationPanel({ branchId, platform }: Props) {
   // URL del webhook que este backend expone para recibir pedidos (la misma
   // que activate-store registra en Cluvi) y su ping de salud.
   const tenantId = useAppStore((s) => s.session?.tenantId)
-  const defaultWebhookUrl =
-    tenantId && storeId
-      ? `${appConfig.apiBaseUrl}/api/webhooks/cluvi/${tenantId}?storeId=${encodeURIComponent(storeId)}`
-      : null
+  const defaultWebhookUrl = cluviWebhookUrl(
+    appConfig.apiBaseUrl,
+    tenantId,
+    withCluviStoreId(existingIntegration?.settingsJson, storeId ?? "")
+  )
   const defaultPingUrl = `${appConfig.apiBaseUrl}/health`
   const webhookUrl = registeredUrls?.newOrder ?? defaultWebhookUrl
   const pingUrl = registeredUrls?.ping ?? defaultPingUrl
@@ -181,8 +183,13 @@ export function IntegrationPanel({ branchId, platform }: Props) {
   // estado real de la tienda en Cluvi vía Prueba de Conexión.
   useEffect(() => {
     if (!existingIntegration || statusCheckedRef.current) return
-    statusCheckedRef.current = true
-    handleTestConnection()
+    // Defer until the effect remains mounted: StrictMode's setup/cleanup replay
+    // otherwise detaches the mutation observer and leaves the form pending.
+    const timer = setTimeout(() => {
+      statusCheckedRef.current = true
+      handleTestConnection()
+    }, 0)
+    return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existingIntegration?.id])
 
@@ -197,9 +204,10 @@ export function IntegrationPanel({ branchId, platform }: Props) {
 
   const onSubmit = (values: FormValues) => {
     if (!branchId) return
-    const settingsJson = isCluvi ? JSON.stringify({ storeId: values.storeId ?? "" }) : undefined
+    const settingsJson = isCluvi ? withCluviStoreId(existingIntegration?.settingsJson, values.storeId ?? "") : undefined
 
     const onSuccess = () => {
+      setRegisteredUrls(null)
       notify.success(isNew ? t("integration_create_success") : t("integration_save_success"))
       if (isNew) setStepOverride(1)
     }

@@ -1,3 +1,4 @@
+import { shortOrderReference } from "../utils/order-presentation"
 import { useEffect, useRef } from "react"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
@@ -5,14 +6,29 @@ import { useTranslation } from "@/i18n/use-i18n"
 import type { DeliveryOrder } from "../types/delivery"
 import type { DeliveryZone } from "../types/enhancements"
 
+export interface PreviewZoneCircle {
+  latitude: number
+  longitude: number
+  radiusMeters: number
+  name?: string
+}
+
 interface Props {
   orders?: DeliveryOrder[]
   zones?: DeliveryZone[]
+  previewZone?: PreviewZoneCircle | null
   onPick?: (lat: number, lon: number) => void
+  onToggleOrderStop?: (orderId: string) => void
 }
 const emptyOrders: DeliveryOrder[] = []
 const emptyZones: DeliveryZone[] = []
-export function DeliveryMap({ orders = emptyOrders, zones = emptyZones, onPick }: Props) {
+export function DeliveryMap({
+  orders = emptyOrders,
+  zones = emptyZones,
+  previewZone = null,
+  onPick,
+  onToggleOrderStop,
+}: Props) {
   const container = useRef<HTMLDivElement>(null)
   const { t } = useTranslation("business-orders")
   useEffect(() => {
@@ -36,6 +52,24 @@ export function DeliveryMap({ orders = emptyOrders, zones = emptyZones, onPick }
       text.textContent = `${zone.name} · ${zone.shippingCost}`
       circle.bindTooltip(text).addTo(map)
       bounds.extend(circle.getBounds())
+    }
+    if (
+      previewZone &&
+      Number.isFinite(previewZone.latitude) &&
+      Number.isFinite(previewZone.longitude) &&
+      Number.isFinite(previewZone.radiusMeters) &&
+      previewZone.radiusMeters > 0 &&
+      Math.abs(previewZone.latitude) <= 90 &&
+      Math.abs(previewZone.longitude) <= 180
+    ) {
+      const previewCircle = L.circle([previewZone.latitude, previewZone.longitude], {
+        radius: previewZone.radiusMeters,
+        color: "#0ea5e9",
+        weight: 2,
+        dashArray: "6, 6",
+        fillOpacity: 0.12,
+      }).addTo(map)
+      bounds.extend(previewCircle.getBounds())
     }
     const grouped = new Map<
       string,
@@ -64,12 +98,12 @@ export function DeliveryMap({ orders = emptyOrders, zones = emptyZones, onPick }
       const popup = document.createElement("div")
       for (const item of entry.orders) {
         const row = document.createElement("p")
-        row.textContent = `${item.position}. #${item.order.reference} · ${item.order.shippingStreet ?? ""}`
+        row.textContent = `${item.position}. #${shortOrderReference(item.order.reference, item.order.id)} · ${item.order.shippingStreet ?? ""}`
         popup.appendChild(row)
       }
       const label = document.createElement("span")
       label.textContent = entry.orders.map((item) => item.position).join(", ")
-      L.circleMarker([entry.latitude, entry.longitude], {
+      const marker = L.circleMarker([entry.latitude, entry.longitude], {
         radius: 9,
         color: entry.orders.some((item) => item.order.status === "Ready") ? "#d97706" : "#2563eb",
         fillOpacity: 0.85,
@@ -77,6 +111,12 @@ export function DeliveryMap({ orders = emptyOrders, zones = emptyZones, onPick }
         .bindTooltip(label, { permanent: true, direction: "top" })
         .bindPopup(popup)
         .addTo(map)
+      if (onToggleOrderStop) {
+        marker.on("click", () => {
+          const firstReady = entry.orders.find((item) => item.order.status === "Ready")
+          if (firstReady) onToggleOrderStop(firstReady.order.id)
+        })
+      }
       bounds.extend([entry.latitude, entry.longitude])
     }
     if (bounds.isValid()) map.fitBounds(bounds.pad(0.15), { maxZoom: 15, animate: false })
@@ -90,7 +130,7 @@ export function DeliveryMap({ orders = emptyOrders, zones = emptyZones, onPick }
       resize.disconnect()
       map.remove()
     }
-  }, [orders, zones, onPick])
+  }, [orders, zones, previewZone, onPick, onToggleOrderStop])
   const missing = orders.filter((o) => o.shippingLatitude == null || o.shippingLongitude == null).length
   return (
     <section className="space-y-2">

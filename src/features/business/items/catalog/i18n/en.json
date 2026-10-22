@@ -172,5 +172,6 @@
   "edit_in_branch": "Edit in branch",
   "tab_prices": "Prices",
   "tab_stock": "Stock",
-  "pagination_total": "{{count}} product(s)"
+  "pagination_total": "{{count}} product(s)",
+  "branch_selector": "Branch"
 }

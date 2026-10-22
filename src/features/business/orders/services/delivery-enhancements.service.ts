@@ -14,6 +14,9 @@ export async function saveDeliveryZone(zone: Omit<DeliveryZone, "id">, id?: stri
     })
   ).data
 }
+export async function deleteDeliveryZone(id: string): Promise<void> {
+  await api.delete(`${root}/zones/${id}`)
+}
 export async function quoteDelivery(
   branchId: string,
   latitude: number,

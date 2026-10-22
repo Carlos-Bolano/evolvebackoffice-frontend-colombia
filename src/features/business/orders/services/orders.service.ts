@@ -2,6 +2,8 @@ import { api } from "@/config/axios-client"
 import type { BulkOrderStatusRequest, BulkOrderStatusResult } from "../types/bulk-status"
 import type {
   PagedOrders,
+  OrderCancellationType,
+  OrderFilters,
   OrderDetail,
   OrderStockCheck,
   NewOrdersUpdate,
@@ -22,17 +24,32 @@ function normalizePagedResponse(raw: unknown, pageSize: number): PagedOrders {
   return { data: [], totalCount: 0, totalPages: 0 }
 }
 
-export async function getOrders(
-  pageNumber: number,
-  pageSize: number,
-  filters?: { branchId?: string; status?: string; platform?: string }
-): Promise<PagedOrders> {
+export async function getOrders(pageNumber: number, pageSize: number, filters?: OrderFilters): Promise<PagedOrders> {
   const params: Record<string, unknown> = { pageNumber, pageSize }
   if (filters?.branchId) params.branchId = filters.branchId
   if (filters?.status) params.status = filters.status
   if (filters?.platform) params.platform = filters.platform
+  if (filters?.from) params.from = filters.from
+  if (filters?.to) params.to = filters.to
+  if (filters?.courierId) params.courierId = filters.courierId
+  if (filters?.search) params.search = filters.search
+  if (filters?.fulfillmentType) params.fulfillmentType = filters.fulfillmentType
+  if (filters?.origin) params.origin = filters.origin
+  if (filters?.paymentState) params.paymentState = filters.paymentState
+  if (filters?.syncAlert) params.syncAlert = filters.syncAlert
   const { data } = await api.get("/api/orders", { params })
   return normalizePagedResponse(data, pageSize)
+}
+
+export async function cancelOrder(
+  id: string,
+  reason?: string | null,
+  cancellationType?: OrderCancellationType | null
+): Promise<void> {
+  await api.post(`/api/orders/${id}/cancel`, {
+    reason: reason || null,
+    cancellationType: cancellationType ?? null,
+  })
 }
 
 export async function getOrderById(id: string): Promise<OrderDetail> {

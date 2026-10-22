@@ -21,6 +21,7 @@ import {
 import { useBranchRegisters } from "@/features/business/branches/hooks/use-branch-terminals"
 
 import { IntegrationPanel } from "@/features/business/branches/components/integration-panel"
+import { BranchWhatsAppCard } from "@/features/business/orders/components/branch-whatsapp-card"
 
 import { notify } from "@/hooks/use-notify"
 import { formatDateTime } from "@/utils/format"
@@ -201,7 +202,7 @@ export function BranchConfigPage() {
         </TabsList>
 
         {/* ───── TAB: INFO ───── */}
-        <TabsContent value="info" className="mt-0 outline-none">
+        <TabsContent value="info" className="mt-0 space-y-5 outline-none">
           <Card className="border-border/80 bg-card/70 shadow-none">
             <CardHeader className="border-b border-border/70 pb-5">
               <CardTitle>{t("info_title")}</CardTitle>
@@ -238,6 +239,7 @@ export function BranchConfigPage() {
               )}
             </CardContent>
           </Card>
+          {branchId && <BranchWhatsAppCard branchId={branchId} />}
         </TabsContent>
 
         {/* ───── TAB: MODULES ───── */}

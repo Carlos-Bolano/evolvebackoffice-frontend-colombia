@@ -1,3 +1,4 @@
+import { useOrderPresentation } from "../hooks/use-order-presentation"
 import { useMemo, useState, type ReactNode } from "react"
 import {
   AlertTriangle,
@@ -8,6 +9,7 @@ import {
   ClipboardCheck,
   History,
   Lock,
+  Printer,
   RefreshCw,
   Wallet,
 } from "lucide-react"
@@ -45,6 +47,7 @@ import { useOrderUpdates } from "../hooks/use-order-updates"
 import { ClosingOrdersTable } from "../components/closing-orders-table"
 import { ClosingResolveTable } from "../components/closing-resolve-table"
 import { CourierSettlementsTable } from "../components/courier-settlements-table"
+import { OrdersSubnav } from "../components/orders-subnav"
 import { PaymentTotalsTable } from "../components/payment-totals-table"
 import { isFinalOrderStatus, type OrderClosing } from "../types/closing"
 import { getApiErrorMessage } from "../utils/order-helpers"
@@ -59,16 +62,33 @@ type ReconcileFilter = "pending" | "reconciled" | "all"
  */
 export function OrderClosingPage() {
   const { t } = useTranslation("business-orders")
+  const { paymentLabel, statusLabel } = useOrderPresentation()
   const { formatCurrency, formatDateTime } = useLocaleFormat()
 
   const { data: branchesData } = useBranches(1, 50)
   const branches = useMemo(() => branchesData?.data ?? [], [branchesData])
-  const [branchId, setBranchId] = useState<string>("")
+  const [branchId, setBranchId] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem("business.orders.branchId")
+      return saved && saved !== "__ALL__" ? saved : ""
+    } catch {
+      return ""
+    }
+  })
   const [notes, setNotes] = useState("")
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [filter, setFilter] = useState<ReconcileFilter>("pending")
 
   const effectiveBranchId = branchId || branches[0]?.id || ""
+
+  const handleBranchChange = (nextId: string) => {
+    setBranchId(nextId)
+    try {
+      localStorage.setItem("business.orders.branchId", nextId)
+    } catch {
+      // Ignore storage error
+    }
+  }
 
   const {
     data: preview,
@@ -126,7 +146,8 @@ export function OrderClosingPage() {
 
   return (
     <Card className="overflow-hidden shadow-none">
-      <CardContent className="p-4 sm:p-6 lg:p-8">
+      <CardContent className="space-y-4 p-4 sm:p-6 lg:p-8">
+        <OrdersSubnav />
         <div className="relative flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex flex-col gap-2">
             <Badge className="max-w-fit" tone="primary">
@@ -137,7 +158,7 @@ export function OrderClosingPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="w-full sm:w-64">
-              <Select value={effectiveBranchId} onValueChange={setBranchId}>
+              <Select value={effectiveBranchId} onValueChange={handleBranchChange}>
                 <SelectTrigger aria-label={t("select_branch")}>
                   <SelectValue placeholder={t("select_branch")} />
                 </SelectTrigger>
@@ -150,6 +171,10 @@ export function OrderClosingPage() {
                 </SelectContent>
               </Select>
             </div>
+            <Button variant="outline" onClick={() => window.print()} disabled={!effectiveBranchId}>
+              <Printer className="mr-2 size-4" />
+              {t("print_summary")}
+            </Button>
             <Button variant="outline" onClick={() => refetch()} disabled={!effectiveBranchId || isFetching}>
               <RefreshCw className={`mr-2 size-4 ${isFetching ? "animate-spin" : ""}`} />
               {t("refresh")}
@@ -330,8 +355,8 @@ export function OrderClosingPage() {
                       className="flex justify-between gap-2 text-sm"
                     >
                       <span>
-                        <span className="font-medium">{row.origin}</span> · {row.status} · {row.paymentMethod} (
-                        {row.count})
+                        <span className="font-medium">{row.origin}</span> · {statusLabel(row.status)} ·{" "}
+                        {paymentLabel(row.paymentMethod)} ({row.count})
                       </span>
                       <span className="font-mono tabular-nums">{formatCurrency(row.total)}</span>
                     </p>

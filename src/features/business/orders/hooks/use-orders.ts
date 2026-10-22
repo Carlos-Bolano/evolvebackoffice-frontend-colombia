@@ -3,29 +3,41 @@ import {
   getOrders,
   getOrderById,
   updateOrderStatus,
+  cancelOrder,
   createManualOrder,
   updateOrderDetails,
   retryOrderSync,
 } from "../services/orders.service"
-import type { CreateManualOrderDto, UpdateOrderDetailsDto } from "../types/api"
+import type { CreateManualOrderDto, OrderCancellationType, OrderFilters, UpdateOrderDetailsDto } from "../types/api"
 
 export const ordersKeys = {
   all: ["orders"] as const,
-  list: (page: number, pageSize: number, filters?: Record<string, string>) =>
+  list: (page: number, pageSize: number, filters?: OrderFilters) =>
     ["orders", "list", page, pageSize, filters] as const,
   detail: (id: string) => ["orders", "detail", id] as const,
 }
 
-export function useOrders(
-  page: number,
-  pageSize: number,
-  filters?: { branchId?: string; status?: string; platform?: string },
-  enabled = true
-) {
+export function useOrders(page: number, pageSize: number, filters?: OrderFilters, enabled = true) {
   return useQuery({
-    queryKey: ordersKeys.list(page, pageSize, filters as Record<string, string>),
+    queryKey: ordersKeys.list(page, pageSize, filters),
     queryFn: () => getOrders(page, pageSize, filters),
     enabled,
+  })
+}
+
+export function useCancelOrder() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      id,
+      reason,
+      cancellationType,
+    }: {
+      id: string
+      reason?: string | null
+      cancellationType?: OrderCancellationType | null
+    }) => cancelOrder(id, reason, cancellationType),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ordersKeys.all }),
   })
 }
 
