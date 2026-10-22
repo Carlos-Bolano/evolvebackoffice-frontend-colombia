@@ -49,6 +49,7 @@ tests/*
 !tests/orders-whatsapp.spec.ts
 !tests/local-pilot.spec.ts
 !tests/orders-navigation.spec.ts
+!tests/delivery-tracking.spec.ts
 
 playwright-report/
 

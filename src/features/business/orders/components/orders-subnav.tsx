@@ -17,6 +17,7 @@ export function OrdersSubnav({ onSelectOrder }: OrdersSubnavProps) {
     { to: "/business/orders", label: t("subnav_board"), icon: KanbanSquare, end: true, show: true },
     { to: "/business/orders/deliveries", label: t("subnav_deliveries"), icon: Bike, end: false, show: true },
     { to: "/business/orders/routes", label: t("subnav_routes"), icon: MapPinned, end: false, show: true },
+    { to: "/business/orders/tracking", label: t("tracking_title"), icon: MapPinned, end: false, show: canManage },
     { to: "/business/orders/operations", label: t("subnav_operations"), icon: Timer, end: false, show: canManage },
     { to: "/business/orders/closing", label: t("subnav_closing"), icon: Lock, end: false, show: true },
   ].filter((item) => item.show)

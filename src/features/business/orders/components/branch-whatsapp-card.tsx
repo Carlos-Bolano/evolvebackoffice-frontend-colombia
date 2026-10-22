@@ -36,6 +36,10 @@ const STATUS_TONE: Record<WhatsAppChannelStatus, BadgeTone> = {
 }
 
 const DEFAULT_TEMPLATES: Record<WhatsAppEventCode, { recipientType: WhatsAppRecipientType; text: string }> = {
+  DeliveryTracking: {
+    recipientType: "Customer",
+    text: "Hola {{customerName}}, sigue la entrega de tu pedido #{{orderNumber}} aquí: {{trackingUrl}}",
+  },
   OrderConfirmed: {
     recipientType: "Customer",
     text: "Hola {{customerName}}, tu pedido #{{orderNumber}} en {{branchName}} fue confirmado por {{total}}.",
@@ -333,7 +337,7 @@ export function BranchWhatsAppCard({ branchId }: { branchId: string }) {
                 {t("wa_auto_events_title")}
               </p>
               <div className="flex flex-wrap gap-2">
-                {WHATSAPP_EVENTS.map((code) => {
+                {WHATSAPP_EVENTS.filter((code) => code !== "DeliveryTracking").map((code) => {
                   const checked = autoEvents.includes(code)
                   return (
                     <button

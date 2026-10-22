@@ -13,6 +13,7 @@ import { notify } from "@/hooks/use-notify"
 import { useOrderDetail } from "../hooks/use-orders"
 import { OrderWhatsAppDialog } from "./order-whatsapp-dialog"
 import { OrderTimeline } from "./order-timeline"
+import { OrderTrackingLink } from "./order-tracking-link"
 import { OrderSyncAction } from "./order-sync-action"
 
 const NEXT_STATUS_MAP: Partial<Record<string, { next: OrderStatus; labelKey: string }>> = {
@@ -91,6 +92,19 @@ export function OrderDetailDialog({
                 {t("refresh")}
               </Button>
             </div>
+          )}
+          {detail?.shippingStreet && (
+            <OrderTrackingLink
+              key={detail.id}
+              order={{
+                id: detail.id,
+                branchId: detail.branchId,
+                reference: shortOrderReference(detail.externalOrderId, detail.id),
+                status: detail.statusCode,
+                customerName: detail.personName ?? detail.customerName,
+                customerPhone: detail.customerPhone ?? null,
+              }}
+            />
           )}
           {detail && (
             <div className="space-y-3 rounded-lg border p-3">

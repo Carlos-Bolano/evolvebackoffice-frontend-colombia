@@ -17,6 +17,7 @@ import type { DeliveryOrder } from "../types/delivery"
 import type { DeliveryProofInput } from "../types/enhancements"
 import { DeliveryProofCapture } from "../components/delivery-proof-input"
 import { DeliveryMap } from "../components/delivery-map"
+import { CourierLocationSharing } from "../components/courier-location-sharing"
 
 const CASH_DENOMINATIONS = [20_000, 50_000, 100_000] as const
 
@@ -87,6 +88,10 @@ export function CourierMobilePage() {
         {t("phase2_expected")}: {formatCurrency(data.shift.expectedCash)}
       </p>
       <DeliveryMap orders={data.orders.filter((o) => o.status === "Shipped")} />
+      <CourierLocationSharing
+        key={data.shift.id}
+        identity={`${session.tenantId}:${session.user.id}:${data.shift.id}`}
+      />
       {data.orders.map((order) => (
         <DeliveryOrderCard
           key={order.id}

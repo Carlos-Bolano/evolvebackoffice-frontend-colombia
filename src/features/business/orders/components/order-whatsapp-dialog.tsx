@@ -68,10 +68,14 @@ export function OrderWhatsAppDialog({
   order,
   courierPhone,
   recipient = "customer",
+  initialTemplate,
+  triggerLabel,
 }: {
   order: ContactOrder
   courierPhone?: string | null
   recipient?: "customer" | "courier"
+  initialTemplate?: WhatsAppEventCode
+  triggerLabel?: string
 }) {
   const { t } = useTranslation("business-orders")
   const qc = useQueryClient()
@@ -79,8 +83,8 @@ export function OrderWhatsAppDialog({
 
   const orderId = order.id ?? ""
   const recipientType: WhatsAppRecipientType = recipient === "courier" ? "Courier" : "Customer"
-  const [templateCode, setTemplateCode] = useState<WhatsAppEventCode>(() =>
-    defaultTemplateForStatus(order.status, recipient)
+  const [templateCode, setTemplateCode] = useState<WhatsAppEventCode>(
+    () => initialTemplate ?? defaultTemplateForStatus(order.status, recipient)
   )
   const [reviewed, setReviewed] = useState(false)
   const [permissionAllowed, setPermissionAllowed] = useState(false)
@@ -185,14 +189,15 @@ export function OrderWhatsAppDialog({
         size="sm"
         variant="outline"
         onClick={() => {
-          setTemplateCode(defaultTemplateForStatus(order.status, recipient))
+          const initial = initialTemplate ?? defaultTemplateForStatus(order.status, recipient)
+          setTemplateCode(initial)
           setPreview(null)
           setReviewed(false)
           setOpen(true)
-          previewMutation.mutate(defaultTemplateForStatus(order.status, recipient))
+          previewMutation.mutate(initial)
         }}
       >
-        {t(recipient === "courier" ? "e_notify_courier" : "e_notify_customer")}
+        {triggerLabel ?? t(recipient === "courier" ? "e_notify_courier" : "e_notify_customer")}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[90dvh] max-w-xl overflow-y-auto">

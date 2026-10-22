@@ -12,6 +12,7 @@ export type WhatsAppEventCode =
   | "OrderConfirmed"
   | "OrderReady"
   | "OrderShipped"
+  | "DeliveryTracking"
   | "OrderDelivered"
   | "OrderCancelled"
   | "CourierAssigned"
@@ -135,6 +136,7 @@ export const WHATSAPP_EVENTS: readonly WhatsAppEventCode[] = [
   "OrderConfirmed",
   "OrderReady",
   "OrderShipped",
+  "DeliveryTracking",
   "OrderDelivered",
   "OrderCancelled",
   "CourierAssigned",
