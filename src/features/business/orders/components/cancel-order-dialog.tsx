@@ -26,10 +26,21 @@ interface CancelOrderDialogProps {
   onSuccess?: () => void
 }
 
-/** Detecta si el producto es una bebida o líquido sellado por su nombre. */
-function isBeverage(name: string): boolean {
-  return /coca|pepsi|gaseosa|bebida|agua|jugo|cerveza|soda|sprite|fanta|postobon|cuatro|tea|té|refresco|lata|botella|cerveza|corona|heineken|poker|aguila|club colombia/i.test(
-    name
+/**
+ * Detecta si el producto es una bebida o líquido sellado por su nombre.
+ * Utiliza normalización Unicode y límites de palabra (\b) para evitar clasificar
+ * erróneamente alimentos como "Steak" (tea), "Aguacate" (agua), "Pizza cuatro quesos" (cuatro) o "Paté" (té).
+ */
+export function isBeverage(name: string): boolean {
+  if (!name) return false
+
+  const clean = name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+
+  return /\b(coca|pepsi|gaseosa|bebida|agua|jugo|cerveza|soda|sprite|fanta|postobon|quatro|te|tea|refresco|lata|botella|corona|heineken|poker|aguila|club colombia)\b/i.test(
+    clean
   )
 }
 
