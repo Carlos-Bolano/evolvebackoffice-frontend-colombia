@@ -67,6 +67,63 @@ export interface InventoryMovementDto {
   isReversed: boolean
 }
 
+export const MOVEMENT_TYPES: MovementType[] = [
+  "PurchaseReceipt",
+  "TransferIn",
+  "TransferOut",
+  "TransferReturn",
+  "TransferLoss",
+  "ProductionOutput",
+  "ProductionConsumption",
+  "SaleConsumption",
+  "Waste",
+  "CountAdjustment",
+  "Reversal",
+]
+
+/** Documento que originó el movimiento (InventoryDocumentType). */
+export const MOVEMENT_DOCUMENT_TYPES = [
+  "StockAdjustment",
+  "Order",
+  "Transaction",
+  "PurchaseReceipt",
+  "Transfer",
+  "Production",
+  "WholesaleSale",
+] as const
+
+/** Motivo del movimiento (InventoryReason). */
+export const MOVEMENT_REASONS = [
+  "Waste",
+  "Expired",
+  "InternalUse",
+  "Consumable",
+  "CancelledAfterReady",
+  "InitialBalance",
+  "Correction",
+] as const
+
+/** Filtros del historial; todos opcionales. Fechas ISO (UTC), cantidades y costos sin signo. */
+export interface MovementFilters {
+  search?: string
+  from?: string
+  to?: string
+  type?: string
+  documentType?: string
+  documentNumber?: string
+  reason?: string
+  direction?: "in" | "out"
+  notes?: string
+  createdBy?: string
+  reversed?: boolean
+  minQuantity?: number
+  maxQuantity?: number
+  minUnitCost?: number
+  maxUnitCost?: number
+  minTotalCost?: number
+  maxTotalCost?: number
+}
+
 export type WriteoffReason = "Waste" | "Expired" | "InternalUse" | "Consumable"
 
 export interface CreateWriteoffDto {

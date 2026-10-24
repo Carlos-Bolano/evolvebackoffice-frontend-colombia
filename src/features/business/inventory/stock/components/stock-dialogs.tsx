@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { ClipboardCheck, PackageMinus, SlidersHorizontal } from "lucide-react"
+import { ClipboardCheck, PackageMinus } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -10,22 +10,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { notify } from "@/hooks/use-notify"
 import { useTranslation } from "@/i18n/use-i18n"
 import { getApiErrorMessage } from "@/utils/api-error"
-import {
-  useCreateWriteoff,
-  useItemPackagings,
-  useSetStockQuantity,
-  useUpdateStockLevels,
-} from "../../hooks/use-inventory"
+import { useCreateWriteoff, useItemPackagings, useSetStockQuantity } from "../../hooks/use-inventory"
 import { QuantityUnitInput } from "../../components/quantity-unit-input"
 import type { StockItemDto, WriteoffReason } from "../../types"
-import { BASE_UNIT_KEY, formatQuantity, toBaseQuantity, unitSymbol, type QuantityUnitValue } from "../../utils/units"
+import { BASE_UNIT_KEY, formatQuantity, toBaseQuantity, type QuantityUnitValue } from "../../utils/units"
 
 const WRITEOFF_REASONS: WriteoffReason[] = ["Waste", "Expired", "InternalUse", "Consumable"]
 
@@ -234,88 +228,6 @@ export function SetQuantityDialog({ branchId, item, onOpenChange }: StockDialogP
           </Button>
           <Button id="btn-corregir-saldo" type="button" onClick={handleSubmit} disabled={!canSubmit}>
             {setQuantityMutation.isPending ? t("saving") : t("correction_confirm")}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-/** Mínimo y máximo: base de las alertas y de los pedidos sugeridos. */
-export function StockLevelsDialog({ item, onOpenChange }: StockDialogProps) {
-  const { t } = useTranslation("business-inventory")
-  const updateLevels = useUpdateStockLevels()
-  const [min, setMin] = useState(() => (item?.reorderPoint ? String(item.reorderPoint) : ""))
-  const [max, setMax] = useState(() => (item?.restockLevel ? String(item.restockLevel) : ""))
-
-  if (!item) return null
-  const minValue = Number(min || 0)
-  const maxValue = Number(max || 0)
-  const invalid = minValue < 0 || maxValue < 0 || (maxValue > 0 && maxValue < minValue)
-
-  const handleSubmit = () => {
-    if (invalid) return
-    updateLevels.mutate(
-      { branchItemId: item.branchItemId, reorderPoint: minValue, restockLevel: maxValue },
-      {
-        onSuccess: () => {
-          notify.success(t("levels_saved"))
-          onOpenChange(false)
-        },
-        onError: (error) => notify.error(getApiErrorMessage(error, t("save_error"))),
-      }
-    )
-  }
-
-  return (
-    <Dialog open onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-2rem)] sm:max-w-md">
-        <DialogTitleRow icon={SlidersHorizontal} title={t("levels_title")} description={item.itemName} />
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">{t("levels_desc")}</p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="nivel-minimo">{t("min_level", { unit: unitSymbol(item.baseUnit) })}</Label>
-              <Input
-                id="nivel-minimo"
-                type="number"
-                min={0}
-                step="any"
-                value={min}
-                onChange={(e) => setMin(e.target.value)}
-              />
-              {minValue > 0 ? (
-                <p className="text-xs text-muted-foreground">{formatQuantity(minValue, item.baseUnit)}</p>
-              ) : null}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="nivel-maximo">{t("max_level", { unit: unitSymbol(item.baseUnit) })}</Label>
-              <Input
-                id="nivel-maximo"
-                type="number"
-                min={0}
-                step="any"
-                value={max}
-                onChange={(e) => setMax(e.target.value)}
-              />
-              {maxValue > 0 ? (
-                <p className="text-xs text-muted-foreground">{formatQuantity(maxValue, item.baseUnit)}</p>
-              ) : null}
-            </div>
-          </div>
-          {invalid ? <p className="text-xs font-medium text-destructive">{t("levels_invalid")}</p> : null}
-        </div>
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            {t("cancel")}
-          </Button>
-          <Button
-            id="btn-guardar-niveles"
-            type="button"
-            onClick={handleSubmit}
-            disabled={invalid || updateLevels.isPending}
-          >
-            {updateLevels.isPending ? t("saving") : t("save")}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Undo2 } from "lucide-react"
 
 import { ConfirmActionDialog } from "@/components/confirm-action-dialog"
@@ -14,6 +14,13 @@ import { useMovements, useVoidAdjustment } from "../../hooks/use-inventory"
 import { INVENTORY_PAGE_SIZE } from "../../services/inventory.service"
 import type { InventoryMovementDto, MovementType } from "../../types"
 import { formatMoney, formatQuantity } from "../../utils/units"
+import {
+  EMPTY_MOVEMENT_FILTERS,
+  hasMovementFilters,
+  toMovementFilters,
+  type MovementFilterForm,
+} from "./movement-filter-form"
+import { MovementFiltersPanel } from "./movement-filters"
 
 const MOVEMENT_TONES: Record<MovementType, BadgeTone> = {
   PurchaseReceipt: "success",
@@ -39,11 +46,22 @@ export function MovementsTable({ branchId, itemId }: MovementsTableProps) {
   const { t, i18n } = useTranslation("business-inventory")
   const [page, setPage] = useState(1)
   const [toVoid, setToVoid] = useState<InventoryMovementDto | null>(null)
-  const { data, isLoading } = useMovements({ branchId, itemId, pageNumber: page })
+  const [form, setForm] = useState<MovementFilterForm>(EMPTY_MOVEMENT_FILTERS)
+  const [applied, setApplied] = useState<MovementFilterForm>(EMPTY_MOVEMENT_FILTERS)
+
+  // Espera a que el usuario deje de escribir para no consultar en cada tecla.
+  useEffect(() => {
+    const timer = setTimeout(() => setApplied(form), 350)
+    return () => clearTimeout(timer)
+  }, [form])
+
+  const filters = useMemo(() => toMovementFilters(applied), [applied])
+  const { data, isLoading } = useMovements({ branchId, itemId, pageNumber: page, ...filters })
   const voidAdjustment = useVoidAdjustment()
 
-  const [prevFilter, setPrevFilter] = useState(`${branchId}|${itemId ?? ""}`)
-  const filter = `${branchId}|${itemId ?? ""}`
+  // Cualquier cambio de filtro vuelve a la página 1.
+  const filter = JSON.stringify([branchId, itemId ?? "", filters])
+  const [prevFilter, setPrevFilter] = useState(filter)
   if (filter !== prevFilter) {
     setPrevFilter(filter)
     setPage(1)
@@ -67,71 +85,77 @@ export function MovementsTable({ branchId, itemId }: MovementsTableProps) {
     })
   }
 
-  if (isLoading) return <Skeleton className="h-48 w-full" />
-  if (movements.length === 0)
-    return <p className="py-12 text-center text-sm text-muted-foreground">{t("no_movements")}</p>
-
   return (
     <div className="space-y-3">
-      <div className="w-full overflow-x-auto">
-        <Table className="min-w-[820px]">
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t("date")}</TableHead>
-              <TableHead>{t("product")}</TableHead>
-              <TableHead>{t("movement")}</TableHead>
-              <TableHead className="text-right">{t("quantity")}</TableHead>
-              <TableHead className="text-right">{t("balance")}</TableHead>
-              <TableHead className="text-right">{t("cost")}</TableHead>
-              <TableHead className="hidden lg:table-cell">{t("user")}</TableHead>
-              <TableHead className="text-right">{t("actions")}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {movements.map((m) => (
-              <TableRow key={m.id}>
-                <TableCell className="whitespace-nowrap text-muted-foreground">
-                  {dateFormat.format(new Date(m.occurredAt))}
-                </TableCell>
-                <TableCell className="font-medium text-foreground">{m.itemName}</TableCell>
-                <TableCell>
-                  <div className="space-y-1">
-                    <Badge tone={MOVEMENT_TONES[m.type]}>{t(`movement_${m.type}`)}</Badge>
-                    <p className="text-xs text-muted-foreground">
-                      {[m.documentNumber, m.reason ? t(`reason_${m.reason}`) : null, m.notes]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </p>
-                  </div>
-                </TableCell>
-                <TableCell
-                  className={
-                    m.quantity < 0
-                      ? "text-right font-medium text-destructive"
-                      : "text-right font-medium text-emerald-500"
-                  }
-                >
-                  {m.quantity > 0 ? "+" : ""}
-                  {formatQuantity(m.quantity, m.baseUnit)}
-                </TableCell>
-                <TableCell className="text-right text-muted-foreground">
-                  {formatQuantity(m.balanceAfter, m.baseUnit)}
-                </TableCell>
-                <TableCell className="text-right text-muted-foreground">{formatMoney(m.totalCost)}</TableCell>
-                <TableCell className="hidden text-muted-foreground lg:table-cell">{m.createdBy ?? "—"}</TableCell>
-                <TableCell className="text-right">
-                  {canVoid(m) ? (
-                    <Button variant="ghost" size="sm" onClick={() => setToVoid(m)}>
-                      <Undo2 className="size-4" />
-                      {t("void")}
-                    </Button>
-                  ) : null}
-                </TableCell>
+      <MovementFiltersPanel branchId={branchId} value={form} onChange={setForm} />
+
+      {isLoading ? (
+        <Skeleton className="h-48 w-full" />
+      ) : movements.length === 0 ? (
+        <p className="py-12 text-center text-sm text-muted-foreground">
+          {hasMovementFilters(applied) ? t("no_movements_filtered") : t("no_movements")}
+        </p>
+      ) : (
+        <div className="w-full overflow-x-auto">
+          <Table className="min-w-[820px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t("date")}</TableHead>
+                <TableHead>{t("product")}</TableHead>
+                <TableHead>{t("movement")}</TableHead>
+                <TableHead className="text-right">{t("quantity")}</TableHead>
+                <TableHead className="text-right">{t("balance")}</TableHead>
+                <TableHead className="text-right">{t("cost")}</TableHead>
+                <TableHead className="hidden lg:table-cell">{t("user")}</TableHead>
+                <TableHead className="text-right">{t("actions")}</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+            </TableHeader>
+            <TableBody>
+              {movements.map((m) => (
+                <TableRow key={m.id}>
+                  <TableCell className="whitespace-nowrap text-muted-foreground">
+                    {dateFormat.format(new Date(m.occurredAt))}
+                  </TableCell>
+                  <TableCell className="font-medium text-foreground">{m.itemName}</TableCell>
+                  <TableCell>
+                    <div className="space-y-1">
+                      <Badge tone={MOVEMENT_TONES[m.type]}>{t(`movement_${m.type}`)}</Badge>
+                      <p className="text-xs text-muted-foreground">
+                        {[m.documentNumber, m.reason ? t(`reason_${m.reason}`) : null, m.notes]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
+                    </div>
+                  </TableCell>
+                  <TableCell
+                    className={
+                      m.quantity < 0
+                        ? "text-right font-medium text-destructive"
+                        : "text-right font-medium text-emerald-500"
+                    }
+                  >
+                    {m.quantity > 0 ? "+" : ""}
+                    {formatQuantity(m.quantity, m.baseUnit)}
+                  </TableCell>
+                  <TableCell className="text-right text-muted-foreground">
+                    {formatQuantity(m.balanceAfter, m.baseUnit)}
+                  </TableCell>
+                  <TableCell className="text-right text-muted-foreground">{formatMoney(m.totalCost)}</TableCell>
+                  <TableCell className="hidden text-muted-foreground lg:table-cell">{m.createdBy ?? "—"}</TableCell>
+                  <TableCell className="text-right">
+                    {canVoid(m) ? (
+                      <Button variant="ghost" size="sm" onClick={() => setToVoid(m)}>
+                        <Undo2 className="size-4" />
+                        {t("void")}
+                      </Button>
+                    ) : null}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">{t("movements_count", { count: data?.totalCount ?? 0 })}</p>

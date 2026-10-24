@@ -28,6 +28,7 @@ import {
   useUpdateBranchItemPricing,
 } from "../hooks/use-branch-items"
 import type { BranchItemResponseDto } from "../types"
+import { StockLevelsSection } from "@/features/business/inventory/stock/components/stock-levels-section"
 import { BranchItemModifierPanel } from "./branch-item-modifier-panel"
 import { BranchItemTaxPanel } from "./branch-item-tax-panel"
 
@@ -241,7 +242,7 @@ function StockPanel({ branchId, item }: { branchId: string; item: BranchItemResp
 
   return (
     <Form {...form}>
-      <form className="space-y-4" onSubmit={form.handleSubmit(handleSubmit)}>
+      <form className="mb-4 space-y-4" onSubmit={form.handleSubmit(handleSubmit)}>
         <div className="rounded-lg border border-border/70 bg-accent/35 p-4">
           <p className="text-xs text-muted-foreground">{t("current_stock")}</p>
           <p className="text-2xl font-semibold text-foreground">{item.quantity ?? 0}</p>
@@ -268,6 +269,14 @@ function StockPanel({ branchId, item }: { branchId: string; item: BranchItemResp
           </Button>
         </div>
       </form>
+
+      <StockLevelsSection
+        key={item.id}
+        branchItemId={item.id}
+        baseUnit={item.baseUnit ?? 0}
+        reorderPoint={item.reorderPoint ?? 0}
+        restockLevel={item.restockLevel ?? 0}
+      />
     </Form>
   )
 }

@@ -1,15 +1,6 @@
 import { useState } from "react"
 import { useSearchParams } from "react-router-dom"
-import {
-  CircleEllipsis,
-  ClipboardCheck,
-  History,
-  PackageMinus,
-  Search,
-  SlidersHorizontal,
-  Warehouse,
-  X,
-} from "lucide-react"
+import { CircleEllipsis, ClipboardCheck, History, PackageMinus, Search, Warehouse, X } from "lucide-react"
 
 import { BackLink } from "@/components/ui/back-link"
 import { Badge } from "@/components/ui/badge"
@@ -32,9 +23,9 @@ import type { StockItemDto } from "../../types"
 import { formatInPackaging, formatMoney, formatQuantity, formatUnitCost, unitSymbol } from "../../utils/units"
 import { MarginsTable } from "../components/margins-table"
 import { MovementsTable } from "../components/movements-table"
-import { SetQuantityDialog, StockLevelsDialog, WriteoffDialog } from "../components/stock-dialogs"
+import { SetQuantityDialog, WriteoffDialog } from "../components/stock-dialogs"
 
-type StockAction = "writeoff" | "correction" | "levels"
+type StockAction = "writeoff" | "correction"
 
 /** Existencias de una sucursal: qué hay, cuánto vale y qué está bajo el mínimo. */
 export function StockPage() {
@@ -221,10 +212,6 @@ export function StockPage() {
                                   <ClipboardCheck className="size-4" />
                                   {t("action_correction")}
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onSelect={() => setAction({ type: "levels", item })}>
-                                  <SlidersHorizontal className="size-4" />
-                                  {t("action_levels")}
-                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
@@ -270,14 +257,6 @@ export function StockPage() {
         ) : null}
         {branchId && action?.type === "correction" ? (
           <SetQuantityDialog
-            key={action.item.branchItemId}
-            branchId={branchId}
-            item={action.item}
-            onOpenChange={closeAction}
-          />
-        ) : null}
-        {branchId && action?.type === "levels" ? (
-          <StockLevelsDialog
             key={action.item.branchItemId}
             branchId={branchId}
             item={action.item}

@@ -4,6 +4,7 @@ import type {
   InventoryInboxDto,
   InventoryMovementDto,
   ItemPackagingDto,
+  MovementFilters,
   PagedResult,
   CopyItemWithRecipeDto,
   RecipeDto,
@@ -32,15 +33,20 @@ export async function getStock(params: {
   return { items: data?.data ?? [], totalCount: data?.totalCount ?? 0 }
 }
 
-export async function getMovements(params: {
-  branchId: string
-  itemId?: string
-  pageNumber?: number
-}): Promise<PagedResult<InventoryMovementDto>> {
-  const { data } = await api.get<Paged<InventoryMovementDto>>("/api/inventory/movements", {
-    params: { ...params, pageSize: INVENTORY_PAGE_SIZE },
-  })
+export async function getMovements(
+  params: { branchId: string; itemId?: string; pageNumber?: number } & MovementFilters
+): Promise<PagedResult<InventoryMovementDto>> {
+  // Vacíos fuera: el backend trata cada filtro como opcional.
+  const query = Object.fromEntries(
+    Object.entries({ ...params, pageSize: INVENTORY_PAGE_SIZE }).filter(([, v]) => v !== undefined && v !== "")
+  )
+  const { data } = await api.get<Paged<InventoryMovementDto>>("/api/inventory/movements", { params: query })
   return { items: data?.data ?? [], totalCount: data?.totalCount ?? 0 }
+}
+
+export async function getMovementAuthors(branchId: string): Promise<string[]> {
+  const { data } = await api.get<string[]>("/api/inventory/movements/authors", { params: { branchId } })
+  return data ?? []
 }
 
 export async function getInventoryInbox(branchId: string): Promise<InventoryInboxDto> {

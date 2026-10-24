@@ -8,6 +8,7 @@ import {
   deleteItemPackaging,
   getInventoryInbox,
   getItemPackagings,
+  getMovementAuthors,
   getMovements,
   getRecipe,
   getStock,
@@ -19,6 +20,7 @@ import {
 import type {
   CopyItemWithRecipeDto,
   CreateWriteoffDto,
+  MovementFilters,
   SaveItemPackagingDto,
   SaveRecipeDto,
   SetStockQuantityDto,
@@ -47,7 +49,17 @@ export function useStock(params: {
   })
 }
 
-export function useMovements(params: { branchId: string | null; itemId?: string; pageNumber: number }) {
+export function useMovementAuthors(branchId: string | null) {
+  return useQuery({
+    queryKey: ["inventory-movement-authors", branchId],
+    queryFn: () => getMovementAuthors(branchId!),
+    enabled: Boolean(branchId),
+  })
+}
+
+export function useMovements(
+  params: { branchId: string | null; itemId?: string; pageNumber: number } & MovementFilters
+) {
   return useQuery({
     queryKey: ["inventory-movements", params],
     queryFn: () => getMovements({ ...params, branchId: params.branchId! }),
@@ -80,11 +92,16 @@ export function useVoidAdjustment() {
 }
 
 export function useUpdateStockLevels() {
+  const queryClient = useQueryClient()
   const invalidate = useInvalidateInventory()
   return useMutation({
     mutationFn: ({ branchItemId, ...payload }: { branchItemId: string; reorderPoint: number; restockLevel: number }) =>
       updateStockLevels(branchItemId, payload),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate()
+      // Se editan desde el producto en la sucursal (Catálogo).
+      queryClient.invalidateQueries({ queryKey: ["branch-items"] })
+    },
   })
 }
 

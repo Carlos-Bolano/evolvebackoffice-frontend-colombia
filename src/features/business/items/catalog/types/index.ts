@@ -123,6 +123,8 @@ export interface BranchItemResponseDto {
   sellsHere: boolean
   /** Lo que dice el producto en el catálogo (false = ingrediente). */
   productIsSellable: boolean
+  /** Unidad base del producto (0 und, 1 g, 2 ml). */
+  baseUnit: number
 }
 
 export interface CreateBranchItemDto {
