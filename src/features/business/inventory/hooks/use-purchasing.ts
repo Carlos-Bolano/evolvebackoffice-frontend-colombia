@@ -39,6 +39,7 @@ function useInvalidatePurchasing() {
 export function usePurchaseOrders(params: {
   branchId: string | null
   direction: "outgoing" | "incoming"
+  kind?: "internal" | "external"
   status?: string
   pageNumber: number
 }) {
@@ -92,8 +93,11 @@ export const useClosePurchaseOrder = () => usePurchasingMutation(closePurchaseOr
 export const useCancelPurchaseOrder = () => usePurchasingMutation(cancelPurchaseOrder)
 export const useDispatchPurchaseOrder = () =>
   usePurchasingMutation(
-    (args: { id: string; lines: { lineId: string; quantity: number }[] | null; notes: string | null }) =>
-      dispatchPurchaseOrder(args.id, args.lines, args.notes)
+    (args: {
+      id: string
+      lines: { lineId: string; quantity: number; unitPrice: number | null }[] | null
+      notes: string | null
+    }) => dispatchPurchaseOrder(args.id, args.lines, args.notes)
   )
 export const useReceivePurchaseOrder = () =>
   usePurchasingMutation((args: { id: string } & Parameters<typeof receivePurchaseOrder>[1]) =>

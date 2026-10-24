@@ -253,8 +253,17 @@ export function TransferDetailDialog({ transferId, branchId, onOpenChange }: Tra
 
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
           <span>
-            {t("transfer_total_cost")}:{" "}
-            <span className="font-medium text-foreground">{formatMoney(transfer.totalCost)}</span>
+            {t("transfer_total_value")}:{" "}
+            <span className="font-medium text-foreground">{formatMoney(transfer.totalValue)}</span>
+            {isOrigin && transfer.totalValue > transfer.totalCost ? (
+              <>
+                {" · "}
+                {t("transfer_internal_profit")}:{" "}
+                <span className="font-medium text-foreground">
+                  {formatMoney(transfer.totalValue - transfer.totalCost)}
+                </span>
+              </>
+            ) : null}
           </span>
           {transfer.notes ? <span>{transfer.notes}</span> : null}
         </div>

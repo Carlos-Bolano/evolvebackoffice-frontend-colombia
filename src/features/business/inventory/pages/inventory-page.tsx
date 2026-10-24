@@ -149,7 +149,7 @@ function InventoryInbox({
                 </button>
               ) : null}
               {inbox?.ordersToDispatch ? (
-                <button type="button" onClick={() => onNavigate("/business/inventory/purchase-orders?tab=dispatch")}>
+                <button type="button" onClick={() => onNavigate("/business/inventory/transfers?tab=requests")}>
                   <Badge tone="info">
                     <ShoppingCart className="size-3" />
                     {t("inbox_orders_to_dispatch", { count: inbox.ordersToDispatch })}
@@ -157,7 +157,10 @@ function InventoryInbox({
                 </button>
               ) : null}
               {inbox?.transfersToReceive ? (
-                <button type="button" onClick={() => onNavigate("/business/inventory/transfers?tab=incoming")}>
+                <button
+                  type="button"
+                  onClick={() => onNavigate("/business/inventory/transfers?tab=shipments&filter=incoming")}
+                >
                   <Badge tone="info">
                     <PackageCheck className="size-3" />
                     {t("inbox_transfers_to_receive", { count: inbox.transfersToReceive })}
@@ -165,7 +168,10 @@ function InventoryInbox({
                 </button>
               ) : null}
               {inbox?.differencesToResolve ? (
-                <button type="button" onClick={() => onNavigate("/business/inventory/transfers?tab=differences")}>
+                <button
+                  type="button"
+                  onClick={() => onNavigate("/business/inventory/transfers?tab=shipments&filter=differences")}
+                >
                   <Badge tone="warning">
                     <AlertTriangle className="size-3" />
                     {t("inbox_differences", { count: inbox.differencesToResolve })}

@@ -1,13 +1,26 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { Plus, Search, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useItems } from "@/features/business/items/catalog/hooks/use-items"
-import type { ItemResponseDto } from "@/features/business/items/catalog/types"
 import { useTranslation } from "@/i18n/use-i18n"
-import { BASE_UNIT_KEY, unitSymbol, type QuantityUnitValue } from "../utils/units"
+import { useItemPackagings, useStock } from "../hooks/use-inventory"
+import { getItemPackagings } from "../services/inventory.service"
+import {
+  DEFAULT_LINE_PRICE,
+  defaultLinePrice,
+  type LinePrice,
+  type PriceBase,
+  percentBase,
+  priceBase,
+  resolvePrice,
+  scaleBase,
+} from "../utils/pricing"
+import { BASE_UNIT_KEY, formatQuantity, unitSymbol, type QuantityUnitValue } from "../utils/units"
+import { BulkPercent, LinePriceInput } from "./line-price-input"
 import { QuantityUnitInput } from "./quantity-unit-input"
 
 export type ProductLine = {
@@ -16,36 +29,99 @@ export type ProductLine = {
   sku: string | null
   baseUnit: number
   quantity: QuantityUnitValue
-  /** Solo entradas de proveedor: precio por la unidad elegida (presentación o unidad base). */
+  /** Precio por la unidad elegida (presentación o unidad base). Entradas: costo; ventas/envíos: precio resultante. */
   unitCost?: string
+  /** Modo precio: precio de venta y costo por unidad base, y cómo se fija el de esta línea. */
+  priceBase?: PriceBase
+  linePrice?: LinePrice
 }
 
 type ProductLinesEditorProps = {
   lines: ProductLine[]
   onChange: (lines: ProductLine[]) => void
-  /** Muestra la columna de precio (entradas de proveedor). */
+  /** Muestra la columna de precio (entradas de proveedor, ventas). */
   withPrice?: boolean
+  /** También permite platos que no se guardan pero tienen receta (ventas). */
+  includeRecipeItems?: boolean
+  /** Precio de venta y costo por unidad base al agregar un producto (precio propuesto). */
+  priceFor?: (itemId: string) => Promise<{ price: number | null; cost: number | null }>
+  /**
+   * Sucursal de la que sale la mercancía (envíos): la lista muestra solo lo que tiene
+   * saldo en ella y cuánto hay. Sin esto, se lista el catálogo.
+   */
+  stockBranchId?: string | null
+  /**
+   * Ventas y envíos: el precio parte del precio de venta (de <c>priceFor</c>; si no tiene, del costo) y en
+   * cada línea se elige ese precio, + % o especial. <c>noBaseLabel</c> = qué pasa si no hay ninguno.
+   */
+  priceMode?: { noBaseLabel: string }
 }
 
+/** Producto que se puede agregar; <c>onHand</c> solo cuando se lista el saldo de una sucursal. */
+type Candidate = { id: string; name: string; sku: string | null; baseUnit: number; onHand?: number }
+
+/** Cuántos productos se cargan en la lista (con desplazamiento); el buscador filtra el resto. */
+const LIST_SIZE = 50
+
 /** Buscar productos que manejan inventario y escribir cuánto, en bultos/cajas o unidad base. */
-export function ProductLinesEditor({ lines, onChange, withPrice = false }: ProductLinesEditorProps) {
+export function ProductLinesEditor({
+  lines,
+  onChange,
+  withPrice = false,
+  includeRecipeItems = false,
+  priceFor,
+  stockBranchId,
+  priceMode,
+}: ProductLinesEditorProps) {
   const { t } = useTranslation("business-inventory")
   const [search, setSearch] = useState("")
-  const { data } = useItems({ pageSize: 8, searchField: "all", searchValue: search.trim() || undefined })
-  const candidates = search.trim()
-    ? (data?.data ?? []).filter((i) => i.trackInventory && !lines.some((l) => l.itemId === i.id))
-    : []
+  const term = search.trim()
+  const fromStock = Boolean(stockBranchId)
 
-  const add = (item: ItemResponseDto) => {
+  // La lista aparece sin tener que buscar; el buscador solo la acorta.
+  const catalog = useItems({ pageSize: LIST_SIZE, searchField: "all", searchValue: term || undefined })
+  const stock = useStock({
+    branchId: stockBranchId ?? null,
+    search: term,
+    belowMin: false,
+    negative: false,
+    pageNumber: 1,
+    pageSize: LIST_SIZE,
+  })
+  const source: Candidate[] = fromStock
+    ? (stock.data?.items ?? [])
+        .filter((s) => s.quantity > 0)
+        .map((s) => ({ id: s.itemId, name: s.itemName, sku: s.sku, baseUnit: s.baseUnit, onHand: s.quantity }))
+    : (catalog.data?.data ?? [])
+        .filter((i) => i.trackInventory || (includeRecipeItems && i.hasRecipe))
+        .map((i) => ({ id: i.id, name: i.name ?? "", sku: i.sku, baseUnit: i.baseUnit }))
+  const candidates = source.filter((c) => !lines.some((l) => l.itemId === c.id))
+  const loading = fromStock ? stock.isLoading : catalog.isLoading
+
+  const queryClient = useQueryClient()
+
+  // La cantidad arranca en la presentación "De compra" (ej. Bulto 50 kg); si no hay, en la unidad base.
+  const add = async (item: Candidate) => {
+    const packagings = await queryClient
+      .fetchQuery({ queryKey: ["item-packagings", item.id], queryFn: () => getItemPackagings(item.id) })
+      .catch(() => [])
+    const defaultPackaging = packagings.find((p) => p.isDefaultPurchase)
+    const known = priceFor ? await priceFor(item.id).catch(() => null) : null
+    const base = priceBase(known?.price, priceMode ? known?.cost : null)
+    const linePrice = defaultLinePrice(base)
+    const startPrice = priceMode ? resolvePrice(base, linePrice) : base.sale
+    const suggestedPrice = startPrice ? startPrice * (defaultPackaging?.factor ?? 1) : null
     onChange([
       ...lines,
       {
         itemId: item.id,
-        name: item.name ?? "",
+        name: item.name,
         sku: item.sku,
         baseUnit: item.baseUnit,
-        quantity: { amount: "", unitKey: BASE_UNIT_KEY },
-        unitCost: withPrice ? "" : undefined,
+        quantity: { amount: "", unitKey: defaultPackaging?.id ?? BASE_UNIT_KEY },
+        unitCost:
+          withPrice || priceMode ? (suggestedPrice ? String(Math.round(suggestedPrice * 100) / 100) : "") : undefined,
+        ...(priceMode ? { priceBase: base, linePrice } : {}),
       },
     ])
     setSearch("")
@@ -68,7 +144,7 @@ export function ProductLinesEditor({ lines, onChange, withPrice = false }: Produ
           />
         </div>
         {candidates.length > 0 ? (
-          <div className="divide-y rounded-lg border">
+          <div className="max-h-60 divide-y overflow-y-auto rounded-lg border">
             {candidates.map((c) => (
               <button
                 key={c.id}
@@ -81,16 +157,34 @@ export function ProductLinesEditor({ lines, onChange, withPrice = false }: Produ
                   <span className="ml-2 text-xs text-muted-foreground">{c.sku ?? ""}</span>
                 </span>
                 <span className="flex items-center gap-2 text-xs text-muted-foreground">
-                  {unitSymbol(c.baseUnit)}
+                  {c.onHand !== undefined
+                    ? t("lines_on_hand", { quantity: formatQuantity(c.onHand, c.baseUnit) })
+                    : unitSymbol(c.baseUnit)}
                   <Plus className="size-4" />
                 </span>
               </button>
             ))}
           </div>
-        ) : search.trim() ? (
-          <p className="text-xs text-muted-foreground">{t("lines_no_results")}</p>
-        ) : null}
+        ) : loading ? null : (
+          <p className="text-xs text-muted-foreground">
+            {term ? t("lines_no_results") : fromStock ? t("lines_no_stock") : t("lines_all_added")}
+          </p>
+        )}
       </div>
+
+      {priceMode && lines.some((l) => l.priceBase && percentBase(l.priceBase) !== null) ? (
+        <BulkPercent
+          onApply={(percent) =>
+            onChange(
+              lines.map((l) =>
+                l.priceBase && percentBase(l.priceBase) !== null
+                  ? { ...l, linePrice: { ...(l.linePrice ?? DEFAULT_LINE_PRICE), mode: "percent", percent } }
+                  : l
+              )
+            )
+          }
+        />
+      ) : null}
 
       {lines.length === 0 ? (
         <p className="py-4 text-center text-sm text-muted-foreground">{t("lines_empty")}</p>
@@ -102,6 +196,7 @@ export function ProductLinesEditor({ lines, onChange, withPrice = false }: Produ
                 <TableHead>{t("product")}</TableHead>
                 <TableHead className="min-w-64">{t("quantity")}</TableHead>
                 {withPrice ? <TableHead className="w-40">{t("price_per_unit_chosen")}</TableHead> : null}
+                {priceMode ? <TableHead>{t("price_column")}</TableHead> : null}
                 <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
@@ -133,6 +228,15 @@ export function ProductLinesEditor({ lines, onChange, withPrice = false }: Produ
                       />
                     </TableCell>
                   ) : null}
+                  {priceMode ? (
+                    <TableCell>
+                      <PriceModeCell
+                        line={l}
+                        noBaseLabel={priceMode.noBaseLabel}
+                        onChange={(patch) => update(l.itemId, patch)}
+                      />
+                    </TableCell>
+                  ) : null}
                   <TableCell>
                     <Button
                       variant="ghost"
@@ -150,5 +254,41 @@ export function ProductLinesEditor({ lines, onChange, withPrice = false }: Produ
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * Precio de una línea en ventas/envíos. Convierte el precio de venta (por unidad base) a la unidad
+ * elegida y mantiene `unitCost` con el precio resultante cuando cambian el modo, el % o la unidad.
+ */
+function PriceModeCell({
+  line,
+  noBaseLabel,
+  onChange,
+}: {
+  line: ProductLine
+  noBaseLabel: string
+  onChange: (patch: Partial<ProductLine>) => void
+}) {
+  const { data: packagings = [] } = useItemPackagings(line.itemId)
+  const factor = packagings.find((p) => p.id === line.quantity.unitKey)?.factor ?? 1
+  const unitLabel = packagings.find((p) => p.id === line.quantity.unitKey)?.name ?? unitSymbol(line.baseUnit)
+  const base = scaleBase(line.priceBase ?? priceBase(null, null), factor)
+  const linePrice = line.linePrice ?? DEFAULT_LINE_PRICE
+  const resolved = resolvePrice(base, linePrice)
+  const resolvedText = resolved === null ? "" : String(resolved)
+
+  useEffect(() => {
+    if (resolvedText !== (line.unitCost ?? "")) onChange({ unitCost: resolvedText })
+  }, [resolvedText, line.unitCost, onChange])
+
+  return (
+    <LinePriceInput
+      base={base}
+      unitLabel={unitLabel}
+      value={linePrice}
+      noBaseLabel={noBaseLabel}
+      onChange={(value) => onChange({ linePrice: value })}
+    />
   )
 }

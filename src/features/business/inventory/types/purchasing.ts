@@ -34,6 +34,10 @@ export interface PurchaseOrderLineDto {
   quantityReceived: number
   unitCost: number
   supplierStock: number | null
+  /** Precio de venta de la proveedora por unidad base (null si no tiene). */
+  supplierPrice: number | null
+  /** Costo promedio de la proveedora por unidad base (base del "+ %" si no hay precio de venta). */
+  supplierCost: number | null
 }
 
 export interface TransferSummaryDto {
@@ -47,7 +51,8 @@ export interface TransferSummaryDto {
   purchaseOrderNumber: string | null
   status: TransferStatus
   lineCount: number
-  totalCost: number
+  /** Valor al precio que paga el destino. */
+  totalValue: number
   pendingDifferences: number
   dispatchedAt: string
   receivedAt: string | null
@@ -133,6 +138,8 @@ export interface TransferLineDto {
   quantitySent: number
   quantityReceived: number | null
   unitCost: number
+  /** Precio que paga el destino por unidad base (= costo si la proveedora no cobra ganancia). */
+  unitPrice: number
   differenceReason: DifferenceReason | null
   differenceStatus: "None" | "Pending" | "Lost" | "Returned"
   difference: number
@@ -155,7 +162,10 @@ export interface TransferDto {
   dispatchedBy: string | null
   receivedAt: string | null
   receivedBy: string | null
+  /** Costo con el que salió del origen. */
   totalCost: number
+  /** Valor al precio que paga el destino; totalValue − totalCost = ganancia del origen. */
+  totalValue: number
   lines: TransferLineDto[]
 }
 

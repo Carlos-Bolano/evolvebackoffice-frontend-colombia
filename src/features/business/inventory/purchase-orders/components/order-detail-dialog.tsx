@@ -19,6 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { notify } from "@/hooks/use-notify"
 import { useTranslation } from "@/i18n/use-i18n"
 import { getApiErrorMessage } from "@/utils/api-error"
+import { BulkPercent, LinePriceInput } from "../../components/line-price-input"
 import { ShareButton } from "../../components/share-dialog"
 import {
   useCancelPurchaseOrder,
@@ -29,6 +30,14 @@ import {
   useSendPurchaseOrder,
 } from "../../hooks/use-purchasing"
 import type { PurchaseOrderDto } from "../../types/purchasing"
+import {
+  DEFAULT_LINE_PRICE,
+  defaultLinePrice,
+  type LinePrice,
+  percentBase,
+  priceBase,
+  resolvePrice,
+} from "../../utils/pricing"
 import { purchaseOrderShareText } from "../../utils/share-text"
 import { formatDateTime, OPEN_ORDER_STATUSES, ORDER_STATUS_TONE, TRANSFER_STATUS_TONE } from "../../utils/status"
 import { formatInPackaging, formatMoney, formatQuantity, unitSymbol } from "../../utils/units"
@@ -51,6 +60,8 @@ export function OrderDetailDialog({ orderId, branchId, onOpenChange, onOpenTrans
   const [confirm, setConfirm] = useState<Confirm>(null)
   const [amounts, setAmounts] = useState<Record<string, string>>({})
   const [costs, setCosts] = useState<Record<string, string>>({})
+  // Despacho: precio de cada línea (precio de venta de quien despacha, + %, costo o especial).
+  const [prices, setPrices] = useState<Record<string, LinePrice>>({})
   const [invoice, setInvoice] = useState("")
 
   const send = useSendPurchaseOrder()
@@ -95,6 +106,7 @@ export function OrderDetailDialog({ orderId, branchId, onOpenChange, onOpenTrans
         order.lines.map((l) => [l.id, String(Math.min(pendingDispatch(l), Math.max(0, l.supplierStock ?? 0)))])
       )
     )
+    setPrices(Object.fromEntries(order.lines.map((l) => [l.id, defaultLinePrice(baseOf(l))])))
     setMode("dispatch")
   }
 
@@ -109,7 +121,12 @@ export function OrderDetailDialog({ orderId, branchId, onOpenChange, onOpenTrans
     dispatch.mutate(
       {
         id: order.id,
-        lines: order.lines.map((l) => ({ lineId: l.id, quantity: Number(amounts[l.id] || 0) })),
+        // Sin precio de venta ni costo → null: el backend lo envía al costo.
+        lines: order.lines.map((l) => ({
+          lineId: l.id,
+          quantity: Number(amounts[l.id] || 0),
+          unitPrice: resolvePrice(baseOf(l), prices[l.id] ?? DEFAULT_LINE_PRICE),
+        })),
         notes: null,
       },
       {
@@ -141,10 +158,19 @@ export function OrderDetailDialog({ orderId, branchId, onOpenChange, onOpenTrans
     )
 
   const anyAmount = order.lines.some((l) => Number(amounts[l.id] || 0) > 0)
+  // Un precio especial o un % sin valor válido no deja despachar.
+  const pricesValid = order.lines.every((l) => {
+    const price = prices[l.id] ?? DEFAULT_LINE_PRICE
+    return price.mode === "sale" || price.mode === "cost" || resolvePrice(baseOf(l), price) !== null
+  })
+  const dispatchValue = order.lines.reduce((sum, l) => {
+    const price = resolvePrice(baseOf(l), prices[l.id] ?? DEFAULT_LINE_PRICE)
+    return sum + Number(amounts[l.id] || 0) * (price ?? 0)
+  }, 0)
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] w-[calc(100%-2rem)] overflow-y-auto sm:max-w-4xl">
+      <DialogContent className="max-h-[90vh] w-[calc(100%-2rem)] overflow-y-auto sm:max-w-5xl">
         <DialogHeader>
           <div className="flex items-center gap-2">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl border border-primary/15 bg-primary/10 text-primary">
@@ -170,6 +196,23 @@ export function OrderDetailDialog({ orderId, branchId, onOpenChange, onOpenTrans
           </div>
         ) : null}
 
+        {mode === "dispatch" && order.lines.some((l) => percentBase(baseOf(l)) !== null) ? (
+          <BulkPercent
+            onApply={(percent) =>
+              setPrices((current) =>
+                Object.fromEntries(
+                  order.lines.map((l) => [
+                    l.id,
+                    percentBase(baseOf(l)) !== null
+                      ? { ...(current[l.id] ?? DEFAULT_LINE_PRICE), mode: "percent" as const, percent }
+                      : (current[l.id] ?? DEFAULT_LINE_PRICE),
+                  ])
+                )
+              )
+            }
+          />
+        ) : null}
+
         <div className="w-full overflow-x-auto">
           <Table className="min-w-[640px]">
             <TableHeader>
@@ -179,7 +222,12 @@ export function OrderDetailDialog({ orderId, branchId, onOpenChange, onOpenTrans
                 {isInternal ? <TableHead className="text-right">{t("order_dispatched_col")}</TableHead> : null}
                 <TableHead className="text-right">{t("order_received_col")}</TableHead>
                 {isSupplierSide ? <TableHead className="text-right">{t("order_my_stock")}</TableHead> : null}
-                {mode === "dispatch" ? <TableHead className="w-40">{t("order_to_dispatch")}</TableHead> : null}
+                {mode === "dispatch" ? (
+                  <>
+                    <TableHead className="w-40">{t("order_to_dispatch")}</TableHead>
+                    <TableHead>{t("price_column")}</TableHead>
+                  </>
+                ) : null}
                 {mode === "receive" ? (
                   <>
                     <TableHead className="w-36">{t("order_to_receive")}</TableHead>
@@ -237,6 +285,17 @@ export function OrderDetailDialog({ orderId, branchId, onOpenChange, onOpenTrans
                         {exceedsStock ? (
                           <p className="mt-1 text-xs text-destructive">{t("order_exceeds_stock")}</p>
                         ) : null}
+                      </TableCell>
+                    ) : null}
+                    {mode === "dispatch" ? (
+                      <TableCell>
+                        <LinePriceInput
+                          base={baseOf(l)}
+                          unitLabel={unitSymbol(l.baseUnit)}
+                          value={prices[l.id] ?? DEFAULT_LINE_PRICE}
+                          noBaseLabel={t("price_at_cost")}
+                          onChange={(value) => setPrices((p) => ({ ...p, [l.id]: value }))}
+                        />
                       </TableCell>
                     ) : null}
                     {mode === "receive" ? (
@@ -346,11 +405,21 @@ export function OrderDetailDialog({ orderId, branchId, onOpenChange, onOpenTrans
             </>
           ) : (
             <>
+              {mode === "dispatch" ? (
+                <span className="mr-auto self-center text-sm text-muted-foreground">
+                  {t("dispatch_value")}:{" "}
+                  <span className="font-medium text-foreground">{formatMoney(dispatchValue)}</span>
+                </span>
+              ) : null}
               <Button type="button" variant="outline" onClick={() => setMode("view")}>
                 {t("cancel")}
               </Button>
               {mode === "dispatch" ? (
-                <Button type="button" onClick={confirmDispatch} disabled={!anyAmount || dispatch.isPending}>
+                <Button
+                  type="button"
+                  onClick={confirmDispatch}
+                  disabled={!anyAmount || !pricesValid || dispatch.isPending}
+                >
                   {dispatch.isPending ? t("saving") : t("order_confirm_dispatch")}
                 </Button>
               ) : (
@@ -382,4 +451,9 @@ export function OrderDetailDialog({ orderId, branchId, onOpenChange, onOpenTrans
       </DialogContent>
     </Dialog>
   )
+}
+
+/** Precio de venta y costo de quien despacha, por unidad base. */
+function baseOf(line: { supplierPrice: number | null; supplierCost: number | null }) {
+  return priceBase(line.supplierPrice, line.supplierCost)
 }

@@ -26,14 +26,16 @@ import { linesAreValid, toLineInputs } from "../../utils/lines"
 import { BASE_UNIT_KEY } from "../../utils/units"
 
 type NewOrderDialogProps = {
+  /** branch = pedido a otra sucursal (PED) · supplier = orden de compra a un proveedor (OC). */
+  kind: "branch" | "supplier"
   branch: Branch
   branches: Branch[]
   onOpenChange: (open: boolean) => void
   onCreated: (order: PurchaseOrderDto) => void
 }
 
-/** "¿A quién le pides?" → productos (sugeridos o del último pedido) → Enviar pedido. */
-export function NewOrderDialog({ branch, branches, onOpenChange, onCreated }: NewOrderDialogProps) {
+/** "¿A quién le pides?" → productos (sugeridos o del último pedido) → Enviar. */
+export function NewOrderDialog({ kind: orderKind, branch, branches, onOpenChange, onCreated }: NewOrderDialogProps) {
   const { t } = useTranslation("business-inventory")
   const { data: suppliersData } = useSuppliers()
   const createOrder = useCreatePurchaseOrder()
@@ -42,8 +44,14 @@ export function NewOrderDialog({ branch, branches, onOpenChange, onCreated }: Ne
   const [notes, setNotes] = useState("")
   const [loadingHelper, setLoadingHelper] = useState(false)
 
-  const supplierBranches = branches.filter((b) => b.isSupplier && b.id !== branch.id)
-  const externalSuppliers = (suppliersData?.items ?? []).filter((s) => !s.inactive)
+  // A cualquier otra sucursal (primero las proveedoras); las órdenes de compra, a proveedores activos.
+  const otherBranches =
+    orderKind === "branch"
+      ? branches
+          .filter((b) => b.id !== branch.id && b.isActive)
+          .sort((a, b) => Number(b.isSupplier) - Number(a.isSupplier))
+      : []
+  const externalSuppliers = orderKind === "supplier" ? (suppliersData?.items ?? []).filter((s) => !s.inactive) : []
   const [kind, targetId] = target.split(":") as ["branch" | "supplier" | "", string | undefined]
   const supplierBranchId = kind === "branch" ? (targetId ?? null) : null
   const supplierId = kind === "supplier" ? (targetId ?? null) : null
@@ -132,34 +140,40 @@ export function NewOrderDialog({ branch, branches, onOpenChange, onCreated }: Ne
               <ShoppingCart className="size-5" />
             </div>
             <div>
-              <DialogTitle>{t("order_new_title")}</DialogTitle>
-              <DialogDescription>{t("order_new_desc", { branch: branch.name })}</DialogDescription>
+              <DialogTitle>{orderKind === "branch" ? t("order_new_title") : t("po_new_title")}</DialogTitle>
+              <DialogDescription>
+                {orderKind === "branch"
+                  ? t("order_new_desc", { branch: branch.name })
+                  : t("po_new_desc", { branch: branch.name })}
+              </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="pedido-proveedor">{t("order_who")}</Label>
+            <Label htmlFor="pedido-proveedor">{orderKind === "branch" ? t("order_who") : t("po_who")}</Label>
             <Select value={target} onValueChange={setTarget}>
               <SelectTrigger id="pedido-proveedor">
-                <SelectValue placeholder={t("order_who_placeholder")} />
+                <SelectValue
+                  placeholder={orderKind === "branch" ? t("order_who_placeholder") : t("po_who_placeholder")}
+                />
               </SelectTrigger>
               <SelectContent>
-                {supplierBranches.map((b) => (
+                {otherBranches.map((b) => (
                   <SelectItem key={b.id} value={`branch:${b.id}`}>
-                    {b.name} · {t("order_supplier_branch_tag")}
+                    {b.isSupplier ? `${b.name} · ${t("supplier_branch")}` : b.name}
                   </SelectItem>
                 ))}
                 {externalSuppliers.map((s) => (
                   <SelectItem key={s.id} value={`supplier:${s.id}`}>
-                    {s.company} · {t("order_external_supplier_tag")}
+                    {s.company}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {supplierBranches.length === 0 ? (
-              <p className="text-xs text-muted-foreground">{t("order_no_supplier_branches")}</p>
+            {orderKind === "supplier" && externalSuppliers.length === 0 ? (
+              <p className="text-xs text-muted-foreground">{t("po_no_suppliers")}</p>
             ) : null}
           </div>
 
@@ -200,7 +214,7 @@ export function NewOrderDialog({ branch, branches, onOpenChange, onCreated }: Ne
             {t("order_save_draft")}
           </Button>
           <Button id="btn-enviar-pedido" type="button" onClick={() => submit(true)} disabled={!canSubmit}>
-            {createOrder.isPending ? t("saving") : t("order_send")}
+            {createOrder.isPending ? t("saving") : orderKind === "branch" ? t("order_send") : t("po_send")}
           </Button>
         </DialogFooter>
       </DialogContent>

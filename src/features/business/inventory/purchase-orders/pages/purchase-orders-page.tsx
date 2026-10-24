@@ -21,21 +21,25 @@ import { useInventoryBranch } from "../../hooks/use-inventory-branch"
 import { useGoodsReceipts, usePurchaseOrders, useVoidGoodsReceipt } from "../../hooks/use-purchasing"
 import { INVENTORY_PAGE_SIZE } from "../../services/inventory.service"
 import type { GoodsReceiptDto } from "../../types/purchasing"
-import { formatDateTime, ORDER_STATUS_TONE } from "../../utils/status"
+import { formatDateTime } from "../../utils/status"
 import { formatMoney } from "../../utils/units"
 import { TransferDetailDialog } from "../../transfers/components/transfer-detail-dialog"
 import { GoodsReceiptDialog } from "../components/goods-receipt-dialog"
 import { NewOrderDialog } from "../components/new-order-dialog"
 import { OrderDetailDialog } from "../components/order-detail-dialog"
+import { OrdersTable } from "../components/orders-table"
 
-type Tab = "mine" | "dispatch" | "receipts"
+type Tab = "mine" | "receipts"
 
-/** Pedidos: lo que esta sucursal pide, lo que le piden (si es proveedora) y las entradas de proveedor. */
+/**
+ * Órdenes de compra a proveedores externos (OC) y entradas de mercancía.
+ * Los pedidos entre sucursales están en Transferencia entre sucursales.
+ */
 export function PurchaseOrdersPage() {
   const { t } = useTranslation("business-inventory")
   const { branches, branch, branchId, selectBranch, isLoading: branchesLoading } = useInventoryBranch()
   const [searchParams] = useSearchParams()
-  const [tab, setTab] = useState<Tab>(() => (searchParams.get("tab") as Tab | null) ?? "mine")
+  const [tab, setTab] = useState<Tab>(() => (searchParams.get("tab") === "receipts" ? "receipts" : "mine"))
   const [openOnly, setOpenOnly] = useState(false)
   const [page, setPage] = useState(1)
   const [creating, setCreating] = useState<"order" | "receipt" | null>(null)
@@ -43,11 +47,12 @@ export function PurchaseOrdersPage() {
   const [transferId, setTransferId] = useState<string | null>(null)
   const [voiding, setVoiding] = useState<GoodsReceiptDto | null>(null)
 
-  const activeTab: Tab = tab === "dispatch" && !branch?.isSupplier ? "mine" : tab
+  const activeTab = tab
   const orders = usePurchaseOrders({
     branchId: activeTab === "receipts" ? null : branchId,
-    direction: activeTab === "dispatch" ? "incoming" : "outgoing",
-    status: openOnly || activeTab === "dispatch" ? "open" : undefined,
+    direction: "outgoing",
+    kind: "external",
+    status: openOnly ? "open" : undefined,
     pageNumber: page,
   })
   const receipts = useGoodsReceipts(activeTab === "receipts" ? branchId : null, page)
@@ -93,7 +98,6 @@ export function PurchaseOrdersPage() {
                   setPage(1)
                 }}
               />
-              {branch?.isSupplier ? <Badge tone="primary">{t("supplier_branch")}</Badge> : null}
             </div>
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" onClick={() => setCreating("receipt")}>
@@ -102,7 +106,7 @@ export function PurchaseOrdersPage() {
               </Button>
               <Button id="btn-nuevo-pedido" type="button" onClick={() => setCreating("order")}>
                 <Plus className="mr-2 size-4" />
-                {t("order_new_title")}
+                {t("po_new_title")}
               </Button>
             </div>
           </div>
@@ -111,8 +115,7 @@ export function PurchaseOrdersPage() {
         {branch ? (
           <Tabs value={activeTab} onValueChange={changeTab}>
             <TabsList>
-              <TabsTrigger value="mine">{t("orders_tab_mine")}</TabsTrigger>
-              {branch.isSupplier ? <TabsTrigger value="dispatch">{t("orders_tab_dispatch")}</TabsTrigger> : null}
+              <TabsTrigger value="mine">{t("po_tab_orders")}</TabsTrigger>
               <TabsTrigger value="receipts">{t("orders_tab_receipts")}</TabsTrigger>
             </TabsList>
 
@@ -130,19 +133,10 @@ export function PurchaseOrdersPage() {
               </div>
               <OrdersTable
                 query={orders}
-                counterpartLabel={t("order_supplier")}
-                onOpen={setOrderId}
+                counterpartLabel={t("receipt_supplier")}
                 counterpart="supplier"
-              />
-            </TabsContent>
-
-            <TabsContent value="dispatch" className="space-y-4">
-              <p className="text-sm text-muted-foreground">{t("orders_dispatch_hint")}</p>
-              <OrdersTable
-                query={orders}
-                counterpartLabel={t("order_requested_by")}
+                emptyLabel={t("po_empty")}
                 onOpen={setOrderId}
-                counterpart="branch"
               />
             </TabsContent>
 
@@ -201,6 +195,7 @@ export function PurchaseOrdersPage() {
 
         {branch && creating === "order" ? (
           <NewOrderDialog
+            kind="supplier"
             branch={branch}
             branches={branches}
             onOpenChange={(open) => !open && setCreating(null)}
@@ -250,51 +245,5 @@ export function PurchaseOrdersPage() {
         />
       </CardContent>
     </Card>
-  )
-}
-
-type OrdersTableProps = {
-  query: ReturnType<typeof usePurchaseOrders>
-  counterpartLabel: string
-  counterpart: "supplier" | "branch"
-  onOpen: (id: string) => void
-}
-
-function OrdersTable({ query, counterpartLabel, counterpart, onOpen }: OrdersTableProps) {
-  const { t } = useTranslation("business-inventory")
-  const rows = query.data?.items ?? []
-
-  if (query.isLoading) return <Skeleton className="h-48 w-full" />
-  if (rows.length === 0) return <p className="py-12 text-center text-sm text-muted-foreground">{t("orders_empty")}</p>
-
-  return (
-    <div className="w-full overflow-x-auto">
-      <Table className="min-w-[640px]">
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t("document")}</TableHead>
-            <TableHead>{counterpartLabel}</TableHead>
-            <TableHead>{t("date")}</TableHead>
-            <TableHead className="text-right">{t("order_products")}</TableHead>
-            <TableHead className="text-right">{t("value")}</TableHead>
-            <TableHead>{t("status")}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((o) => (
-            <TableRow key={o.id} className="cursor-pointer" onClick={() => onOpen(o.id)}>
-              <TableCell className="font-medium text-foreground">{o.number}</TableCell>
-              <TableCell>{counterpart === "supplier" ? o.supplierName : o.branchName}</TableCell>
-              <TableCell className="text-muted-foreground">{formatDateTime(o.sentAt ?? o.createdAt)}</TableCell>
-              <TableCell className="text-right">{o.lineCount}</TableCell>
-              <TableCell className="text-right">{formatMoney(o.estimatedTotal)}</TableCell>
-              <TableCell>
-                <Badge tone={ORDER_STATUS_TONE[o.status]}>{t(`order_status_${o.status}`)}</Badge>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
   )
 }

@@ -30,6 +30,7 @@ export function useStock(params: {
   belowMin: boolean
   negative: boolean
   pageNumber: number
+  pageSize?: number
 }) {
   return useQuery({
     queryKey: ["inventory-stock", params],

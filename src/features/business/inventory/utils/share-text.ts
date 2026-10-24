@@ -18,7 +18,7 @@ export function purchaseOrderShareText(order: PurchaseOrderDto, t: TFunction): s
     return `• ${l.itemName}: ${quantityText(l.quantityOrdered, l.baseUnit, packaging)}`
   })
   return [
-    `${t("share_order_heading")} ${order.number}`,
+    `${order.supplierBranchId ? t("share_order_heading") : t("share_po_heading")} ${order.number}`,
     `${t("share_ordered_by")}: ${order.branchName}`,
     `${t("share_ordered_to")}: ${order.supplierName}`,
     `${t("share_date")}: ${dateFormat.format(new Date(order.sentAt ?? order.createdAt))}`,

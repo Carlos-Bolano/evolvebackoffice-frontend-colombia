@@ -23,9 +23,10 @@ export async function getStock(params: {
   belowMin?: boolean
   negative?: boolean
   pageNumber?: number
+  pageSize?: number
 }): Promise<PagedResult<StockItemDto>> {
   const { data } = await api.get<Paged<StockItemDto>>("/api/inventory/stock", {
-    params: { ...params, search: params.search || undefined, pageSize: INVENTORY_PAGE_SIZE },
+    params: { ...params, search: params.search || undefined, pageSize: params.pageSize ?? INVENTORY_PAGE_SIZE },
   })
   return { items: data?.data ?? [], totalCount: data?.totalCount ?? 0 }
 }

@@ -19,6 +19,7 @@ import { useTranslation } from "@/i18n/use-i18n"
 import { getApiErrorMessage } from "@/utils/api-error"
 import { ProductLinesEditor, type ProductLine } from "../../components/product-lines-editor"
 import { useCreateTransfer } from "../../hooks/use-purchasing"
+import { getItemPrice } from "../../services/sales.service"
 import type { TransferDto } from "../../types/purchasing"
 import { linesAreValid, toLineInputs } from "../../utils/lines"
 
@@ -29,7 +30,10 @@ type NewTransferDialogProps = {
   onCreated: (transfer: TransferDto) => void
 }
 
-/** Envío directo (sin pedido) desde una sucursal proveedora a otra sucursal. */
+/**
+ * Envío sin pedido. La proveedora le envía a cualquier sucursal; las demás solo a una proveedora
+ * (a otra sucursal le envían despachando el pedido que les hizo).
+ */
 export function NewTransferDialog({ branch, branches, onOpenChange, onCreated }: NewTransferDialogProps) {
   const { t } = useTranslation("business-inventory")
   const createTransfer = useCreateTransfer()
@@ -37,13 +41,22 @@ export function NewTransferDialog({ branch, branches, onOpenChange, onCreated }:
   const [lines, setLines] = useState<ProductLine[]>([])
   const [notes, setNotes] = useState("")
 
-  const destinations = branches.filter((b) => b.id !== branch.id)
+  const destinations = branches.filter((b) => b.id !== branch.id && b.isActive && (branch.isSupplier || b.isSupplier))
   const canSubmit = Boolean(toBranchId) && linesAreValid(lines) && !createTransfer.isPending
 
   const submit = () => {
     if (!canSubmit) return
     createTransfer.mutate(
-      { fromBranchId: branch.id, toBranchId, lines: toLineInputs(lines), notes: notes.trim() || null },
+      {
+        fromBranchId: branch.id,
+        toBranchId,
+        // Sin precio (no tiene precio de venta y se dejó así) → el backend lo envía al costo.
+        lines: toLineInputs(lines).map((input, i) => ({
+          ...input,
+          unitPrice: lines[i].unitCost ? Number(lines[i].unitCost) : null,
+        })),
+        notes: notes.trim() || null,
+      },
       {
         onSuccess: (transfer) => {
           notify.success(t("transfer_created", { number: transfer.number }))
@@ -79,14 +92,23 @@ export function NewTransferDialog({ branch, branches, onOpenChange, onCreated }:
               <SelectContent>
                 {destinations.map((b) => (
                   <SelectItem key={b.id} value={b.id}>
-                    {b.name}
+                    {b.isSupplier ? `${b.name} · ${t("supplier_branch")}` : b.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {!branch.isSupplier ? (
+              <p className="text-xs text-muted-foreground">{t("transfer_only_to_supplier")}</p>
+            ) : null}
           </div>
 
-          <ProductLinesEditor lines={lines} onChange={setLines} />
+          <ProductLinesEditor
+            lines={lines}
+            onChange={setLines}
+            stockBranchId={branch.id}
+            priceMode={{ noBaseLabel: t("price_at_cost") }}
+            priceFor={(itemId) => getItemPrice(branch.id, itemId)}
+          />
           <p className="text-xs text-muted-foreground">{t("transfer_stock_hint")}</p>
 
           <div className="space-y-2">

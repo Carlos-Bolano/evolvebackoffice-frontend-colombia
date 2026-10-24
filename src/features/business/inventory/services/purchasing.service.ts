@@ -25,6 +25,8 @@ const paged = <T>(data: Paged<T> | undefined): PagedResult<T> => ({
 export async function getPurchaseOrders(params: {
   branchId: string
   direction: "outgoing" | "incoming"
+  /** internal = pedidos entre sucursales · external = órdenes de compra a proveedores. */
+  kind?: "internal" | "external"
   status?: string
   pageNumber: number
 }): Promise<PagedResult<PurchaseOrderSummaryDto>> {
@@ -72,7 +74,8 @@ export async function sendPurchaseOrder(id: string): Promise<PurchaseOrderDto> {
 
 export async function dispatchPurchaseOrder(
   id: string,
-  lines: { lineId: string; quantity: number }[] | null,
+  /** unitPrice por unidad base; null = precio de venta de la proveedora (o costo). */
+  lines: { lineId: string; quantity: number; unitPrice: number | null }[] | null,
   notes: string | null
 ): Promise<TransferDto> {
   const { data } = await api.post<TransferDto>(`/api/purchase-orders/${id}/dispatch`, { lines, notes })
@@ -123,7 +126,8 @@ export async function getTransfer(id: string): Promise<TransferDto> {
 export async function createTransfer(payload: {
   fromBranchId: string
   toBranchId: string
-  lines: LineInput[]
+  /** unitPrice por la presentación elegida; null = precio de venta de la proveedora (o costo). */
+  lines: (LineInput & { unitPrice: number | null })[]
   notes: string | null
 }): Promise<TransferDto> {
   const { data } = await api.post<TransferDto>("/api/transfers", payload)
