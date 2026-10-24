@@ -99,6 +99,7 @@ export const MOVEMENT_REASONS = [
   "InternalUse",
   "Consumable",
   "CancelledAfterReady",
+  "CancelledWhilePreparing",
   "InitialBalance",
   "Correction",
 ] as const

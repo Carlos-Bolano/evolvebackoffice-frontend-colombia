@@ -3,30 +3,17 @@ import {
   getOrders,
   getOrderById,
   updateOrderStatus,
-  getBranchIntegrations,
-  createIntegration,
-  updateIntegration,
-  testConnection,
-  syncMenu,
-  activateStore,
   createManualOrder,
   updateOrderDetails,
+  retryOrderSync,
 } from "../services/orders.service"
-import type {
-  CreateIntegrationDto,
-  UpdateIntegrationDto,
-  SyncMenuResponse,
-  ActivateStoreResult,
-  CreateManualOrderDto,
-  UpdateOrderDetailsDto,
-} from "../types/api"
+import type { CreateManualOrderDto, UpdateOrderDetailsDto } from "../types/api"
 
 export const ordersKeys = {
   all: ["orders"] as const,
   list: (page: number, pageSize: number, filters?: Record<string, string>) =>
     ["orders", "list", page, pageSize, filters] as const,
   detail: (id: string) => ["orders", "detail", id] as const,
-  integrations: (branchId: string) => ["orders", "integrations", branchId] as const,
 }
 
 export function useOrders(
@@ -59,67 +46,13 @@ export function useUpdateOrderStatus() {
   })
 }
 
-export function useBranchIntegrations(branchId: string) {
-  return useQuery({
-    queryKey: ordersKeys.integrations(branchId),
-    queryFn: () => getBranchIntegrations(branchId),
-    enabled: !!branchId,
-  })
-}
-
-export function useCreateIntegration() {
+export function useRetryOrderSync() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ branchId, dto }: { branchId: string; dto: CreateIntegrationDto }) =>
-      createIntegration(branchId, dto),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ordersKeys.all }),
+    mutationFn: retryOrderSync,
+    onSettled: () => qc.invalidateQueries({ queryKey: ordersKeys.all }),
   })
 }
-
-/** Actualiza una integración existente (siempre que ya exista por sucursal+plataforma). */
-export function useUpdateIntegration() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({
-      branchId,
-      integrationId,
-      dto,
-    }: {
-      branchId: string
-      integrationId: string
-      dto: UpdateIntegrationDto
-    }) => updateIntegration(branchId, integrationId, dto),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ordersKeys.all }),
-  })
-}
-
-export function useTestConnection() {
-  return useMutation({
-    mutationFn: ({ branchId, integrationId }: { branchId: string; integrationId: string }) =>
-      testConnection(branchId, integrationId),
-  })
-}
-
-export function useSyncMenu() {
-  return useMutation({
-    mutationFn: ({ branchId, integrationId }: { branchId: string; integrationId: string }): Promise<SyncMenuResponse> =>
-      syncMenu(branchId, integrationId),
-  })
-}
-
-/** Activa la tienda en Cluvi (incluye webhooks) para aceptar pedidos. */
-export function useActivateStore() {
-  return useMutation({
-    mutationFn: ({
-      branchId,
-      integrationId,
-    }: {
-      branchId: string
-      integrationId: string
-    }): Promise<ActivateStoreResult> => activateStore(branchId, integrationId),
-  })
-}
-
 /**
  * Crea una orden manual (venta de caja / domicilio). Refresca la lista de
  * órdenes; el toast de éxito/error lo dispara el formulario.

@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react"
 import { MonitorCog, Plus, RefreshCw, Settings2, SquarePen, AlertTriangle, ChevronRight } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 
+import { EmptyState } from "@/components/share/empty-state"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -326,13 +327,31 @@ export function RegistersPage() {
           ) : registers.length === 0 ? (
             debouncedQuery ? (
               <Card className="p-8 text-center">
-                <p className="text-sm text-muted-foreground">{t("no_results")}</p>
-                <Button variant="outline" className="mt-4" onClick={() => handleSearchChange("")}>
-                  {t("clear_search")}
-                </Button>
+                <EmptyState
+                  icon={MonitorCog}
+                  title={t("no_results")}
+                  description={t("search_desc")}
+                  action={
+                    <Button variant="outline" onClick={() => handleSearchChange("")}>
+                      {t("clear_search")}
+                    </Button>
+                  }
+                />
               </Card>
             ) : (
-              <EmptyState t={t} icon={MonitorCog} onClickNew={() => setCreateOpen(true)} />
+              <Card className="p-8 text-center">
+                <EmptyState
+                  icon={MonitorCog}
+                  title={t("empty_title")}
+                  description={t("empty_desc")}
+                  action={
+                    <Button onClick={() => setCreateOpen(true)}>
+                      <Plus className="size-4" />
+                      {t("create")}
+                    </Button>
+                  }
+                />
+              </Card>
             )
           ) : (
             <>
@@ -670,29 +689,5 @@ function RegistersSkeleton() {
         ))}
       </div>
     </div>
-  )
-}
-
-function EmptyState({
-  t,
-  icon: Icon,
-  onClickNew,
-}: {
-  t: (k: string) => string
-  icon: React.ComponentType<{ className?: string }>
-  onClickNew: () => void
-}) {
-  return (
-    <Card className="p-8 text-center">
-      <div className="mx-auto flex size-14 items-center justify-center rounded-3xl border border-border/70 bg-accent/60 text-muted-foreground">
-        <Icon className="size-6" />
-      </div>
-      <h2 className="mt-4 text-lg font-semibold text-foreground">{t("empty_title")}</h2>
-      <p className="mt-2 text-sm text-muted-foreground">{t("empty_desc")}</p>
-      <Button onClick={onClickNew} className="mt-5">
-        <Plus className="size-4" />
-        {t("create")}
-      </Button>
-    </Card>
   )
 }

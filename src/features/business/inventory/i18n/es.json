@@ -63,6 +63,7 @@
   "reason_InternalUse": "Consumo interno",
   "reason_Consumable": "Consumible para sucursal",
   "reason_CancelledAfterReady": "Orden cancelada después de lista",
+  "reason_CancelledWhilePreparing": "Orden cancelada en preparación",
   "reason_InitialBalance": "Saldo inicial",
   "reason_Correction": "Corrección de saldo",
   "void": "Anular",

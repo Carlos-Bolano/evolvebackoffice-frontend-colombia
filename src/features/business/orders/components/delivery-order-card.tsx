@@ -6,10 +6,11 @@ import { useLocaleFormat } from "@/hooks/use-locale-format"
 import { useTranslation } from "@/i18n/use-i18n"
 import { ORDER_STATUS_CONFIG } from "../types"
 import type { DeliveryOrder } from "../types/delivery"
-import { mapsUrl, minutesSince } from "../utils/order-helpers"
+import { elapsedLabelParts, mapsUrl, minutesSince } from "../utils/order-helpers"
 import { WhatsAppDesktopDialog } from "./whatsapp-desktop-dialog"
 import { DeliveryProofDialog } from "./delivery-proof-dialog"
 import { useCanManageDeliveries } from "../hooks/use-delivery-operations"
+import { OrderSyncAction } from "./order-sync-action"
 
 type DeliveryOrderCardProps = {
   order: DeliveryOrder
@@ -19,6 +20,7 @@ type DeliveryOrderCardProps = {
   showStatus?: boolean
   /** Nombre del domiciliario asignado (vista de asignación). */
   courierName?: string | null
+  courierPhone?: string | null
   notifyCustomer?: boolean
   actions?: ReactNode
 }
@@ -30,6 +32,7 @@ export function DeliveryOrderCard({
   showBranch = false,
   showStatus = false,
   courierName,
+  courierPhone,
   notifyCustomer = true,
   actions,
 }: DeliveryOrderCardProps) {
@@ -48,8 +51,18 @@ export function DeliveryOrderCard({
         : null
 
   return (
-    <div className="space-y-2 rounded-lg border bg-card p-3 shadow-sm">
-      {notifyCustomer && <WhatsAppDesktopDialog order={order} courierName={courierName} />}
+    <div data-testid={`delivery-order-${order.id}`} className="space-y-2 rounded-lg border bg-card p-3 shadow-sm">
+      {notifyCustomer && (
+        <div className="flex flex-wrap gap-2">
+          <WhatsAppDesktopDialog order={order} courierName={courierName} />
+          <WhatsAppDesktopDialog
+            order={order}
+            courierName={courierName}
+            courierPhone={courierPhone}
+            recipient="courier"
+          />
+        </div>
+      )}
       {canManage && order.hasDeliveryProof && <DeliveryProofDialog id={order.id} />}
       {order.cancelledWhileDispatched && (
         <p role="alert" className="rounded bg-red-50 p-2 text-sm font-semibold text-red-700">
@@ -112,9 +125,14 @@ export function DeliveryOrderCard({
             </Badge>
           </span>
         )}
-        <Badge tone="neutral" className="text-[10px]">
-          {order.origin ?? order.platformCode}
-        </Badge>
+        {canManage && order.platformCode === "CLUVI" && order.syncStatus !== "Synced" && (
+          <OrderSyncAction orderId={order.id} />
+        )}
+        {order.platformCode !== "CLUVI" && (
+          <Badge tone="neutral" className="text-[10px]">
+            {order.origin ?? order.platformCode}
+          </Badge>
+        )}
         {order.paymentMethod && (
           <Badge tone="warning" className="text-[10px]">
             {order.paymentMethod}
@@ -187,7 +205,10 @@ export function DeliveryOrderCard({
           {elapsed !== null && (
             <span className={`flex items-center gap-1 ${elapsed >= 45 ? "font-semibold text-rose-500" : ""}`}>
               <Clock className="size-3" />
-              {t("minutes_ago", { count: elapsed })}
+              {(() => {
+                const { key, ...values } = elapsedLabelParts(elapsed)
+                return t(key, values)
+              })()}
             </span>
           )}
         </span>

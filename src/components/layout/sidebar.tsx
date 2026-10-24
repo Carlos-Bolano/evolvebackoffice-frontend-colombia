@@ -12,9 +12,9 @@ import {
   Users,
   ChevronsUpDown,
   Sparkles,
-  CreditCard,
-  Bell,
   Truck,
+  User,
+  KeyRound,
 } from "lucide-react"
 import { Link, NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
@@ -32,6 +32,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Logo } from "@/components/icons/logo"
 import { useAuth } from "@/features/auth/hooks/use-auth"
+import { ChangePasswordDialog } from "@/features/auth/components/change-password-dialog"
+import { ProfileDialog } from "@/features/auth/components/profile-dialog"
 import { useTenantModules } from "@/features/business/branches/hooks/use-branch-modules"
 import { useNotify } from "@/hooks/use-notify"
 import { cn } from "@/lib/utils"
@@ -230,6 +232,8 @@ export function SidebarUserMenu({ isCollapsed = false }: SidebarUserMenuProps) {
   const notify = useNotify()
   const { t } = useTranslation()
   const [openLogoutDialog, setOpenLogoutDialog] = useState(false)
+  const [openProfileDialog, setOpenProfileDialog] = useState(false)
+  const [openChangePasswordDialog, setOpenChangePasswordDialog] = useState(false)
 
   const handleLogout = () => {
     logout()
@@ -278,20 +282,13 @@ export function SidebarUserMenu({ isCollapsed = false }: SidebarUserMenuProps) {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem className="cursor-pointer">
-                <Sparkles className="mr-2 size-4" />
-                <span>Upgrade to Pro</span>
+              <DropdownMenuItem className="cursor-pointer" onClick={() => setOpenProfileDialog(true)}>
+                <User className="mr-2 size-4" />
+                <span>{t("my_profile")}</span>
               </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem className="cursor-pointer">
-                <CreditCard className="mr-2 size-4" />
-                <span>Billing</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer">
-                <Bell className="mr-2 size-4" />
-                <span>Notifications</span>
+              <DropdownMenuItem className="cursor-pointer" onClick={() => setOpenChangePasswordDialog(true)}>
+                <KeyRound className="mr-2 size-4" />
+                <span>{t("change_password")}</span>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
@@ -305,6 +302,24 @@ export function SidebarUserMenu({ isCollapsed = false }: SidebarUserMenuProps) {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {/* Modal de perfil (solo lectura) */}
+      <ProfileDialog
+        open={openProfileDialog}
+        onOpenChange={setOpenProfileDialog}
+        onChangePassword={() => {
+          setOpenProfileDialog(false)
+          setOpenChangePasswordDialog(true)
+        }}
+      />
+
+      {/* Modal de cambio de contraseña (opcional, dismissable) */}
+      <ChangePasswordDialog
+        open={openChangePasswordDialog}
+        onPasswordChanged={() => setOpenChangePasswordDialog(false)}
+        dismissable
+        onOpenChange={setOpenChangePasswordDialog}
+      />
 
       {/* Modal de confirmación de salida */}
       <AlertDialog open={openLogoutDialog} onOpenChange={setOpenLogoutDialog}>

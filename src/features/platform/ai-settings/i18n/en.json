@@ -29,5 +29,11 @@
   "unable_to_save": "Could not save",
   "loading": "Loading…",
   "validation_required": "is required",
-  "validation_url_invalid": "Must be a valid HTTP/HTTPS URL"
+  "validation_url_invalid": "Must be a valid HTTP/HTTPS URL",
+  "max_completion_tokens": "Max output tokens",
+  "max_completion_tokens_hint": "Per-response token budget (max_tokens). For reasoning models it must be large: thinking and the answer share the budget.",
+  "supports_reasoning": "Model has reasoning",
+  "supports_reasoning_hint": "Enable if the model exposes thinking (reasoning_content, e.g. deepseek-r1, qwen3). Requires at least 4096 tokens.",
+  "validation_max_tokens_range": "Must be between 256 and 32768",
+  "validation_max_tokens_reasoning": "With reasoning the budget must be at least 4096 tokens"
 }

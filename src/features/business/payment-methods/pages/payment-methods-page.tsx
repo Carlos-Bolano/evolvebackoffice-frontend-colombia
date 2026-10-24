@@ -1,10 +1,9 @@
-import { useState } from "react"
-import { CreditCard, Plus, RotateCcw, Search } from "lucide-react"
+import { useMemo, useState } from "react"
+import { CreditCard, Plus, RotateCcw, UserCheck, UserX } from "lucide-react"
 
-import { Badge } from "@/components/ui/badge"
+import { DataTable } from "@/components/data-table"
+import { EntityListLayout } from "@/components/share"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { notify } from "@/hooks/use-notify"
 import { useTranslation } from "@/i18n/use-i18n"
 import {
@@ -14,14 +13,17 @@ import {
   useSetActivePaymentMethod,
   useUpdatePaymentMethod,
 } from "../hooks/use-payment-methods"
-import { PaymentMethodsTable } from "../components/payment-methods-table"
+import { buildPaymentMethodColumns } from "../components/payment-methods-columns"
 import { PaymentMethodFormDialog } from "../components/payment-method-form-dialog"
 import { PendingAuthorizationsSection } from "../components/pending-authorizations-section"
 import type { PaymentMethodResponseDto } from "../types"
 
+const PAGE_SIZE = 20
+
 export function PaymentMethodsPage() {
   const { t } = useTranslation("business-payment-methods")
   const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
   const [formOpen, setFormOpen] = useState(false)
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethodResponseDto | null>(null)
 
@@ -31,13 +33,25 @@ export function PaymentMethodsPage() {
   const toggleMutation = useSetActivePaymentMethod()
   const restoreMutation = useRestoreCountryDefaults()
 
-  const list = methods ?? []
-  const filtered = search
-    ? list.filter((m) => {
-        const term = search.toLowerCase()
-        return m.name.toLowerCase().includes(term) || m.code.toLowerCase().includes(term)
-      })
-    : list
+  const list = useMemo(() => methods ?? [], [methods])
+
+  const filtered = useMemo(() => {
+    if (!search) return list
+    const term = search.toLowerCase()
+    return list.filter((m) => m.name.toLowerCase().includes(term) || m.code.toLowerCase().includes(term))
+  }, [list, search])
+
+  const activeCount = filtered.filter((m) => m.isActive).length
+  const inactiveCount = filtered.length - activeCount
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
+  const visibleMethods = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value)
+    setPage(1)
+  }
 
   const handleCreate = (values: Parameters<typeof createMutation.mutate>[0]) => {
     createMutation.mutate(values, {
@@ -97,69 +111,74 @@ export function PaymentMethodsPage() {
     setSelectedMethod(null)
   }
 
+  const columns = buildPaymentMethodColumns(t, { onEdit: openEditDialog, onToggleActive: handleToggleActive })
+
   return (
-    <Card className="overflow-hidden shadow-none">
-      <CardContent className="p-4 sm:p-6 lg:p-8">
-        <div className="relative flex flex-col gap-2">
-          <Badge className="max-w-fit" tone="primary">
-            {t("payment_methods")}
-          </Badge>
-          <h1 className="text-xl font-semibold text-foreground sm:text-2xl">{t("catalog")}</h1>
-          <p className="max-w-4xl text-sm leading-5 text-muted-foreground">{t("catalog_desc")}</p>
-          <CreditCard
-            color="#58626b"
-            className="absolute -top-10 -right-20 -z-10 size-50 shrink-0 animate-float opacity-5 md:-top-10 md:-right-10 md:size-70 lg:-top-20 lg:-right-30 lg:size-100"
-          />
-        </div>
-
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative flex-1 sm:max-w-sm">
-            <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder={t("search_methods")}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Button
-              variant="outline"
-              onClick={handleRestoreDefaults}
-              disabled={restoreMutation.isPending}
-              className="w-full sm:w-auto"
-            >
-              <RotateCcw className="mr-2 size-4" />
-              {t("restore_defaults")}
-            </Button>
-            <Button onClick={openCreateDialog} className="w-full sm:w-auto">
-              <Plus className="mr-2 size-4" />
-              {t("new_method")}
-            </Button>
-          </div>
-        </div>
-
-        <div className="mt-4">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <p className="text-sm text-muted-foreground">{t("loading")}</p>
-            </div>
-          ) : (
-            <PaymentMethodsTable methods={filtered} onEdit={openEditDialog} onToggleActive={handleToggleActive} />
-          )}
-        </div>
-
-        <PendingAuthorizationsSection />
-
-        <PaymentMethodFormDialog
-          open={formOpen}
-          onOpenChange={handleDialogClose}
-          methodToEdit={selectedMethod}
-          onSubmit={selectedMethod ? handleEdit : handleCreate}
-          isSubmitting={createMutation.isPending || updateMutation.isPending}
+    <>
+      <EntityListLayout
+        back={{ to: "/business/settings", label: t("back_to_settings") }}
+        title={t("catalog")}
+        description={t("catalog_desc")}
+        stats={[
+          { icon: CreditCard, tone: "info", label: t("stats_total"), value: filtered.length },
+          { icon: UserCheck, tone: "success", label: t("stats_active"), value: activeCount },
+          { icon: UserX, tone: "warning", label: t("stats_inactive"), value: inactiveCount },
+        ]}
+        toolbar={{
+          search: { value: search, onChange: handleSearchChange, placeholder: t("search_methods") },
+          actions: (
+            <>
+              <Button variant="outline" onClick={handleRestoreDefaults} disabled={restoreMutation.isPending}>
+                <RotateCcw className="size-4" />
+                {t("restore_defaults")}
+              </Button>
+              <Button onClick={openCreateDialog} className="relative shadow-sm shadow-primary/20">
+                <Plus className="size-4" />
+                {t("new_method")}
+              </Button>
+            </>
+          ),
+        }}
+      >
+        <DataTable
+          columns={columns}
+          data={visibleMethods}
+          isLoading={isLoading}
+          page={safePage}
+          totalPages={totalPages}
+          totalCount={filtered.length}
+          onPageChange={setPage}
+          skeletonRows={6}
+          emptyState={{
+            icon: CreditCard,
+            title: search ? t("search_title") : t("empty_title"),
+            description: search ? t("search_desc") : t("empty_desc"),
+            action: search ? null : (
+              <Button onClick={openCreateDialog}>
+                <Plus className="size-4" />
+                {t("new_method")}
+              </Button>
+            ),
+          }}
+          labels={{
+            previous: t("previous"),
+            next: t("next"),
+            paginationTotal: (count) => t("list_total", { total: count }),
+          }}
         />
-      </CardContent>
-    </Card>
+        <div className="shrink-0">
+          <PendingAuthorizationsSection />
+        </div>
+      </EntityListLayout>
+
+      <PaymentMethodFormDialog
+        open={formOpen}
+        onOpenChange={handleDialogClose}
+        methodToEdit={selectedMethod}
+        onSubmit={selectedMethod ? handleEdit : handleCreate}
+        isSubmitting={createMutation.isPending || updateMutation.isPending}
+      />
+    </>
   )
 }
 

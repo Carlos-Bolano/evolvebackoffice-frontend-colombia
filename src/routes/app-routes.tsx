@@ -11,6 +11,7 @@ import { InventoryPage } from "@/features/business/inventory/pages/inventory-pag
 import { OnboardingPage } from "@/features/business/onboarding/pages/onboarding-page"
 import { ItemsPage } from "@/features/business/items/pages/items-page"
 import { ItemsCatalogPage } from "@/features/business/items/catalog/pages/items-catalog-page"
+import { ItemFormPage } from "@/features/business/items/catalog/pages/item-form-page"
 import { DepartmentsPage } from "@/features/business/items/departments/pages/departments-page"
 import { TaxesPage } from "@/features/business/items/taxes/pages/taxes-page"
 import { ModifiersPage } from "@/features/business/items/modifiers/pages/modifiers-page"
@@ -114,6 +115,8 @@ function AppRoutesContent() {
             <Route path="/business/orders/routes" element={<DeliveryRoutesPage />} />
             <Route path="/business/items" element={<ItemsPage />} />
             <Route path="/business/items/catalog" element={<ItemsCatalogPage />} />
+            <Route path="/business/items/catalog/new" element={<ItemFormPage />} />
+            <Route path="/business/items/catalog/:itemId" element={<ItemFormPage />} />
             <Route path="/business/items/departments" element={<DepartmentsPage />} />
             <Route path="/business/items/taxes" element={<TaxesPage />} />
             <Route path="/business/items/modifiers" element={<ModifiersPage />} />

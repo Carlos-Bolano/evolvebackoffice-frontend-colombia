@@ -6,16 +6,11 @@ export type {
   OrderItemDto,
   PagedOrders,
   OrderStatus,
-  BranchIntegration,
-  CreateIntegrationDto,
   CluviStoreInfo,
   CluviMenuProduct,
   CluviMenuCategory,
   CluviMenuModifier,
   CluviModifierItem,
-  SyncMenuResponse,
-  TestConnectionResult,
-  ActivateStoreResult,
 } from "./api"
 
 export const ORDER_STATUS_CONFIG: Record<string, { label: string; color: BadgeTone; bgClass: string }> = {
