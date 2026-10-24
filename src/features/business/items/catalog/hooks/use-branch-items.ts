@@ -89,7 +89,7 @@ export function useUpdateBranchItemConfig(branchId: string) {
       payload,
     }: {
       id: string
-      payload: { useGlobalTaxes?: boolean; useGlobalModifiers?: boolean }
+      payload: { useGlobalTaxes?: boolean; useGlobalModifiers?: boolean; sellsHere?: boolean }
     }) => updateBranchItemConfig(branchId, id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["branch-items", branchId] })

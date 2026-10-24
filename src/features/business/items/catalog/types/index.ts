@@ -119,6 +119,10 @@ export interface BranchItemResponseDto {
   createdAt: string
   useGlobalTaxes: boolean
   useGlobalModifiers: boolean
+  /** Si se vende en esta sucursal (POS y menú de Cluvi). */
+  sellsHere: boolean
+  /** Lo que dice el producto en el catálogo (false = ingrediente). */
+  productIsSellable: boolean
 }
 
 export interface CreateBranchItemDto {

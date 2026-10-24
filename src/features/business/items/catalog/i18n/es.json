@@ -232,5 +232,8 @@
   "packaging_name_placeholder_unit": "Ej.: Caja x24, Canasta x45",
   "packaging_factor_placeholder_gram": "Ej.: 25000",
   "packaging_factor_placeholder_ml": "Ej.: 5000",
-  "packaging_factor_placeholder_unit": "Ej.: 24"
+  "packaging_factor_placeholder_unit": "Ej.: 24",
+  "sell_here_label": "Se vende en esta sucursal",
+  "sell_here_hint_sellable": "En el catálogo este producto se vende. Apágalo si no quieres venderlo en esta sucursal: deja de salir en su POS y en su menú de Cluvi.",
+  "sell_here_hint_ingredient": "En el catálogo es un ingrediente (no se vende). Préndelo para venderlo solo en esta sucursal, por ejemplo el Centro de Producción que vende pan al público. Aparece en su POS y en su menú de Cluvi."
 }

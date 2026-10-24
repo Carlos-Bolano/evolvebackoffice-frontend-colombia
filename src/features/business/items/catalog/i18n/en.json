@@ -232,5 +232,8 @@
   "packaging_name_placeholder_unit": "E.g. Case x24, Basket x45",
   "packaging_factor_placeholder_gram": "E.g. 25000",
   "packaging_factor_placeholder_ml": "E.g. 5000",
-  "packaging_factor_placeholder_unit": "E.g. 24"
+  "packaging_factor_placeholder_unit": "E.g. 24",
+  "sell_here_label": "Sold at this branch",
+  "sell_here_hint_sellable": "In the catalog this product is sold. Turn it off to stop selling it at this branch: it leaves its POS and its Cluvi menu.",
+  "sell_here_hint_ingredient": "In the catalog this is an ingredient (not sold). Turn it on to sell it only at this branch, e.g. the production center selling bread to the public. It shows in its POS and its Cluvi menu."
 }
