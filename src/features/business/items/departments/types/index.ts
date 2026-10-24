@@ -1,3 +1,5 @@
+import type { EntityImageDto } from "../../catalog/types"
+
 export interface Department {
   id: string
   internalId: number
@@ -7,6 +9,8 @@ export interface Department {
   parentName: string | null
   isActive: boolean
   createdAt: string
+  /** Galería ordenada: la posición 0 es la principal. */
+  images?: EntityImageDto[]
 }
 
 export interface CreateDepartmentDto {

@@ -49,6 +49,8 @@
   "name_max": "El nombre no puede superar {{max}} caracteres.",
   "cancel": "Cancelar",
   "saving": "Guardando...",
+  "images_label": "Imágenes",
+  "images_after_create": "Después de crear el departamento podrás agregarle imágenes desde Editar.",
   "details": "Ver subdepartamentos",
   "hide_details": "Ocultar subdepartamentos",
   "deactivate_title": "Desactivar departamento",

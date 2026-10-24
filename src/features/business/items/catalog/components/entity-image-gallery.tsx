@@ -1,5 +1,6 @@
 import { useRef, useState, type DragEvent, type ReactNode } from "react"
 import { ChevronLeft, ChevronRight, Globe, ImagePlus, Loader2, Lock, Star, Trash2 } from "lucide-react"
+import { cn } from "cn"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -11,33 +12,54 @@ import { notify } from "@/hooks/use-notify"
 import { useTranslation } from "@/i18n/use-i18n"
 import { getApiErrorMessage } from "@/utils/api-error"
 import {
-  useDeleteItemImage,
-  useItemImages,
-  useReorderItemImages,
-  useSetItemImagePrivacy,
-  useUploadItemImage,
+  useDeleteEntityImage,
+  useEntityImages,
+  useReorderEntityImages,
+  useSetEntityImagePrivacy,
+  useUploadEntityImage,
 } from "../hooks/use-item-images"
+import type { ImageEntity } from "../services/item-images.service"
 import { IMAGE_ACCEPT, ImagePrepareError, prepareImage } from "../utils/prepare-image"
-import type { EntityImageDto, ItemResponseDto } from "../types"
+import type { EntityImageDto } from "../types"
 
 /** Lo mismo que valida el backend (EntityImage.MaxImages). */
-export const MAX_ITEM_IMAGES = 5
+export const MAX_IMAGES = 5
 
-type ItemImageGalleryProps = {
-  item: ItemResponseDto
+/** Textos que en departamentos usan su variante "_department". */
+const DEPARTMENT_KEYS = new Set(["images_desc", "images_delete_desc", "images_main_desc", "images_limit"])
+
+type EntityImageGalleryProps = {
+  entity: ImageEntity
+  entityId: string
+  name: string
+  /** Columnas de la cuadrícula (en un diálogo caben menos que en una página). */
+  gridClassName?: string
+  /** Título de la sección; con él, el contador va a su lado (útil en espacios angostos). */
+  title?: string
 }
 
 /**
- * Galería del producto (pestaña "Imágenes"): hasta 5 fotos; la primera es la
- * principal (la única que recibe Cluvi; WooCommerce recibe todas).
+ * Galería de un producto o departamento: hasta 5 fotos; la primera es la
+ * principal (la única que recibe Cluvi; WooCommerce recibe todas). Solo las de
+ * productos se ofrecen a otros negocios por SKU, por eso solo ellas pueden ser privadas.
  */
-export function ItemImageGallery({ item }: ItemImageGalleryProps) {
-  const { t } = useTranslation("business-items-catalog")
-  const imagesQuery = useItemImages(item.id)
-  const upload = useUploadItemImage(item.id)
-  const reorder = useReorderItemImages(item.id)
-  const privacy = useSetItemImagePrivacy(item.id)
-  const remove = useDeleteItemImage(item.id)
+export function EntityImageGallery({
+  entity,
+  entityId,
+  name,
+  gridClassName = "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4",
+  title,
+}: EntityImageGalleryProps) {
+  const { t: translate } = useTranslation("business-items-catalog")
+  const t = (key: string, options?: Record<string, unknown>) =>
+    translate(entity === "departments" && DEPARTMENT_KEYS.has(key) ? `${key}_department` : key, options)
+  const withPrivacy = entity === "items"
+
+  const imagesQuery = useEntityImages(entity, entityId)
+  const upload = useUploadEntityImage(entity, entityId)
+  const reorder = useReorderEntityImages(entity, entityId)
+  const privacy = useSetEntityImagePrivacy(entity, entityId)
+  const remove = useDeleteEntityImage(entity, entityId)
 
   const fileInput = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(0)
@@ -46,14 +68,15 @@ export function ItemImageGallery({ item }: ItemImageGalleryProps) {
   const [toDelete, setToDelete] = useState<EntityImageDto | null>(null)
 
   const images = imagesQuery.data ?? []
-  const free = MAX_ITEM_IMAGES - images.length - uploading
+  const free = MAX_IMAGES - images.length - uploading
   const busy = uploading > 0 || reorder.isPending
+  const count = t("images_count", { count: images.length, max: MAX_IMAGES })
 
   const handleFiles = async (files: FileList | File[]) => {
     const list = Array.from(files)
     if (list.length === 0) return
     const accepted = list.slice(0, Math.max(0, free))
-    if (accepted.length < list.length) notify.info(t("images_limit", { max: MAX_ITEM_IMAGES }))
+    if (accepted.length < list.length) notify.info(t("images_limit", { max: MAX_IMAGES }))
     if (accepted.length === 0) return
 
     setUploading((n) => n + accepted.length)
@@ -116,16 +139,24 @@ export function ItemImageGallery({ item }: ItemImageGalleryProps) {
   return (
     <TooltipProvider>
       <div className="space-y-4">
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-          <p className="text-sm text-muted-foreground">{t("images_desc")}</p>
-          <span className="shrink-0 text-sm font-medium text-foreground">
-            {t("images_count", { count: images.length, max: MAX_ITEM_IMAGES })}
-          </span>
-        </div>
+        {title ? (
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-medium text-foreground">{title}</p>
+              <span className="shrink-0 text-sm font-medium text-foreground">{count}</span>
+            </div>
+            <p className="text-sm text-muted-foreground">{t("images_desc")}</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+            <p className="text-sm text-muted-foreground">{t("images_desc")}</p>
+            <span className="shrink-0 text-sm font-medium text-foreground">{count}</span>
+          </div>
+        )}
 
         <input
           ref={fileInput}
-          id="item-imagenes-archivo"
+          id={`${entity}-imagenes-archivo`}
           type="file"
           accept={IMAGE_ACCEPT}
           multiple
@@ -137,14 +168,14 @@ export function ItemImageGallery({ item }: ItemImageGalleryProps) {
         />
 
         {imagesQuery.isLoading ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          <div className={cn("grid gap-3", gridClassName)}>
             {Array.from({ length: 3 }).map((_, i) => (
               <Skeleton key={i} className="aspect-square w-full rounded-lg" />
             ))}
           </div>
         ) : (
           <div
-            className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
+            className={cn("grid gap-3", gridClassName)}
             onDragOver={(e) => {
               e.preventDefault()
               if (free > 0) setDragOver(true)
@@ -162,7 +193,7 @@ export function ItemImageGallery({ item }: ItemImageGalleryProps) {
                 >
                   <img
                     src={image.url}
-                    alt={t("images_alt", { name: item.name ?? "", position: index + 1 })}
+                    alt={t("images_alt", { name, position: index + 1 })}
                     loading="lazy"
                     className="size-full object-cover"
                   />
@@ -172,7 +203,7 @@ export function ItemImageGallery({ item }: ItemImageGalleryProps) {
                         {t("images_main")}
                       </Badge>
                     ) : null}
-                    {image.isPrivate ? (
+                    {withPrivacy && image.isPrivate ? (
                       <Badge tone="neutral" className="bg-background/90">
                         {t("images_private")}
                       </Badge>
@@ -203,13 +234,15 @@ export function ItemImageGallery({ item }: ItemImageGalleryProps) {
                         <Star className="size-4" />
                       </IconAction>
                     ) : null}
-                    <IconAction
-                      label={image.isPrivate ? t("images_make_public") : t("images_make_private")}
-                      disabled={privacy.isPending}
-                      onClick={() => togglePrivacy(image)}
-                    >
-                      {image.isPrivate ? <Lock className="size-4" /> : <Globe className="size-4" />}
-                    </IconAction>
+                    {withPrivacy ? (
+                      <IconAction
+                        label={image.isPrivate ? t("images_make_public") : t("images_make_private")}
+                        disabled={privacy.isPending}
+                        onClick={() => togglePrivacy(image)}
+                      >
+                        {image.isPrivate ? <Lock className="size-4" /> : <Globe className="size-4" />}
+                      </IconAction>
+                    ) : null}
                     <IconAction label={t("images_delete")} onClick={() => setToDelete(image)}>
                       <Trash2 className="size-4" />
                     </IconAction>
@@ -230,7 +263,7 @@ export function ItemImageGallery({ item }: ItemImageGalleryProps) {
 
             {free > 0 ? (
               <button
-                id="btn-agregar-imagen"
+                id={`btn-agregar-imagen-${entity}`}
                 type="button"
                 onClick={() => fileInput.current?.click()}
                 className={`flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-3 text-center text-sm transition-colors hover:border-primary hover:text-primary ${
@@ -245,18 +278,18 @@ export function ItemImageGallery({ item }: ItemImageGalleryProps) {
           </div>
         )}
 
-        <p className="text-xs leading-5 text-muted-foreground">{t("images_privacy_hint")}</p>
+        {withPrivacy ? <p className="text-xs leading-5 text-muted-foreground">{t("images_privacy_hint")}</p> : null}
 
         <Dialog open={preview !== null} onOpenChange={(open) => !open && setPreview(null)}>
           <DialogContent className="w-[calc(100%-2rem)] sm:max-w-2xl">
             <DialogHeader>
-              <DialogTitle>{item.name}</DialogTitle>
+              <DialogTitle>{name}</DialogTitle>
               <DialogDescription>
                 {preview && images[0]?.id === preview.id ? t("images_main_desc") : t("images_preview_desc")}
               </DialogDescription>
             </DialogHeader>
             {preview ? (
-              <img src={preview.url} alt={item.name ?? ""} className="max-h-[70vh] w-full rounded-lg object-contain" />
+              <img src={preview.url} alt={name} className="max-h-[70vh] w-full rounded-lg object-contain" />
             ) : null}
           </DialogContent>
         </Dialog>

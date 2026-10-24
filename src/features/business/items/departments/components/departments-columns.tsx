@@ -1,8 +1,9 @@
-import { ChevronDown, CornerDownRight, Pencil, Power } from "lucide-react"
+import { ChevronDown, CornerDownRight, Folder, Pencil, Power } from "lucide-react"
 
 import type { ColumnDef } from "@/components/data-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { ItemThumbnail } from "../../catalog/components/item-thumbnail"
 import type { Department } from "../types"
 
 export type DepartmentRow =
@@ -50,12 +51,24 @@ export function buildDepartmentColumns(
             ) : (
               <span className="w-6 shrink-0 sm:w-7" aria-hidden="true" />
             )}
-            <span className="font-medium">{row.department.name}</span>
+            <ItemThumbnail
+              url={row.department.images?.[0]?.url}
+              alt={row.department.name}
+              icon={Folder}
+              className="ml-1 size-9"
+            />
+            <span className="ml-1.5 font-medium">{row.department.name}</span>
           </div>
         ) : (
           <div className="flex items-center gap-1.5 pl-7 sm:pl-9">
             <CornerDownRight className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="text-muted-foreground">{row.department.name}</span>
+            <ItemThumbnail
+              url={row.department.images?.[0]?.url}
+              alt={row.department.name}
+              icon={Folder}
+              className="ml-1 size-8"
+            />
+            <span className="ml-1.5 text-muted-foreground">{row.department.name}</span>
           </div>
         ),
     },

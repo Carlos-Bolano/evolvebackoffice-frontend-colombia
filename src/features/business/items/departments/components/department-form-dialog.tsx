@@ -15,6 +15,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useTranslation } from "@/i18n/use-i18n"
+import { EntityImageGallery } from "../../catalog/components/entity-image-gallery"
 import { departmentSchema, type DepartmentFormValues } from "../schemas/department-schema"
 import { useCreateDepartment, useDepartments, useUpdateDepartment } from "../hooks/use-departments"
 import type { Department } from "../types"
@@ -162,6 +163,20 @@ export function DepartmentFormDialog({ open, onOpenChange, departmentToEdit }: D
                 </FormItem>
               )}
             />
+
+            {departmentToEdit ? (
+              <div className="border-t pt-5">
+                <EntityImageGallery
+                  entity="departments"
+                  entityId={departmentToEdit.id}
+                  name={departmentToEdit.name}
+                  title={t("images_label")}
+                  gridClassName="grid-cols-2 sm:grid-cols-3"
+                />
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">{t("images_after_create")}</p>
+            )}
 
             {form.formState.errors.root ? (
               <p className="text-sm font-medium text-destructive">{form.formState.errors.root.message}</p>

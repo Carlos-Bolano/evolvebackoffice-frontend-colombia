@@ -25,7 +25,7 @@ import { ItemTaxEditor } from "../components/item-tax-editor"
 import { ItemModifierEditor } from "../components/item-modifier-editor"
 import { ItemPackagingEditor } from "../components/item-packaging-editor"
 import { ItemRecipeEditor } from "../components/item-recipe-editor"
-import { ItemImageGallery } from "../components/item-image-gallery"
+import { EntityImageGallery } from "../components/entity-image-gallery"
 import { ItemSuggestionCard } from "../components/item-suggestion-card"
 import { ItemThumbnail } from "../components/item-thumbnail"
 import type { ItemSuggestDto } from "../types"
@@ -563,7 +563,7 @@ export function ItemFormPage() {
             {!isCreateMode && item && (
               <>
                 <TabsContent value="images" className="min-h-0 flex-1 overflow-y-auto pr-1">
-                  <ItemImageGallery item={item} />
+                  <EntityImageGallery entity="items" entityId={item.id} name={item.name ?? ""} />
                 </TabsContent>
                 <TabsContent value="taxes" className="min-h-0 flex-1 overflow-y-auto pr-1">
                   <ItemTaxEditor item={item} />

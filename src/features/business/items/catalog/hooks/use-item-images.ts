@@ -2,61 +2,64 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import {
   copyItemImage,
-  deleteItemImage,
-  getItemImages,
-  reorderItemImages,
-  setItemImagePrivacy,
+  deleteEntityImage,
+  getEntityImages,
+  reorderEntityImages,
+  setEntityImagePrivacy,
   suggestItemBySku,
-  uploadItemImage,
+  uploadEntityImage,
+  type ImageEntity,
 } from "../services/item-images.service"
 import type { UploadEntityImageDto } from "../types"
 
-export function useItemImages(itemId: string) {
+const imagesKey = (entity: ImageEntity, id: string) => ["entity-images", entity, id] as const
+
+export function useEntityImages(entity: ImageEntity, id: string) {
   return useQuery({
-    queryKey: ["item-images", itemId],
-    queryFn: () => getItemImages(itemId),
-    enabled: Boolean(itemId),
+    queryKey: imagesKey(entity, id),
+    queryFn: () => getEntityImages(entity, id),
+    enabled: Boolean(id),
   })
 }
 
-/** Refresca la galería y los listados (miniatura del catálogo y encabezado del producto). */
-function useInvalidateImages(itemId: string) {
+/** Refresca la galería y los listados (miniaturas y encabezado). */
+function useInvalidateImages(entity: ImageEntity, id: string) {
   const queryClient = useQueryClient()
   return () => {
-    queryClient.invalidateQueries({ queryKey: ["item-images", itemId] })
-    queryClient.invalidateQueries({ queryKey: ["items"] })
+    queryClient.invalidateQueries({ queryKey: imagesKey(entity, id) })
+    queryClient.invalidateQueries({ queryKey: [entity] })
   }
 }
 
-export function useUploadItemImage(itemId: string) {
-  const invalidate = useInvalidateImages(itemId)
+export function useUploadEntityImage(entity: ImageEntity, id: string) {
+  const invalidate = useInvalidateImages(entity, id)
   return useMutation({
-    mutationFn: (payload: UploadEntityImageDto) => uploadItemImage(itemId, payload),
+    mutationFn: (payload: UploadEntityImageDto) => uploadEntityImage(entity, id, payload),
     onSettled: invalidate,
   })
 }
 
-export function useSetItemImagePrivacy(itemId: string) {
-  const invalidate = useInvalidateImages(itemId)
+export function useSetEntityImagePrivacy(entity: ImageEntity, id: string) {
+  const invalidate = useInvalidateImages(entity, id)
   return useMutation({
     mutationFn: ({ imageId, isPrivate }: { imageId: string; isPrivate: boolean }) =>
-      setItemImagePrivacy(itemId, imageId, isPrivate),
+      setEntityImagePrivacy(entity, id, imageId, isPrivate),
     onSuccess: invalidate,
   })
 }
 
-export function useReorderItemImages(itemId: string) {
-  const invalidate = useInvalidateImages(itemId)
+export function useReorderEntityImages(entity: ImageEntity, id: string) {
+  const invalidate = useInvalidateImages(entity, id)
   return useMutation({
-    mutationFn: (imageIds: string[]) => reorderItemImages(itemId, imageIds),
+    mutationFn: (imageIds: string[]) => reorderEntityImages(entity, id, imageIds),
     onSuccess: invalidate,
   })
 }
 
-export function useDeleteItemImage(itemId: string) {
-  const invalidate = useInvalidateImages(itemId)
+export function useDeleteEntityImage(entity: ImageEntity, id: string) {
+  const invalidate = useInvalidateImages(entity, id)
   return useMutation({
-    mutationFn: (imageId: string) => deleteItemImage(itemId, imageId),
+    mutationFn: (imageId: string) => deleteEntityImage(entity, id, imageId),
     onSuccess: invalidate,
   })
 }
@@ -70,7 +73,7 @@ export function useCopyItemImages() {
       for (const url of urls) await copyItemImage(itemId, url)
     },
     onSettled: (_data, _error, { itemId }) => {
-      queryClient.invalidateQueries({ queryKey: ["item-images", itemId] })
+      queryClient.invalidateQueries({ queryKey: imagesKey("items", itemId) })
       queryClient.invalidateQueries({ queryKey: ["items"] })
     },
   })

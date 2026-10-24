@@ -1,16 +1,18 @@
 import { useState } from "react"
-import { Package } from "lucide-react"
+import { Package, type LucideIcon } from "lucide-react"
 import { cn } from "cn"
 
 type ItemThumbnailProps = {
-  /** Url de la imagen principal (posición 0); sin imagen se muestra el ícono del producto. */
+  /** Url de la imagen principal (posición 0); sin imagen se muestra el ícono. */
   url?: string | null
   alt: string
   className?: string
+  /** Ícono cuando no hay imagen (por defecto el de producto). */
+  icon?: LucideIcon
 }
 
-/** Miniatura cuadrada de la imagen principal del producto. */
-export function ItemThumbnail({ url, alt, className }: ItemThumbnailProps) {
+/** Miniatura cuadrada de la imagen principal (producto o departamento). */
+export function ItemThumbnail({ url, alt, className, icon: Icon = Package }: ItemThumbnailProps) {
   const [failed, setFailed] = useState(false)
 
   return (
@@ -23,7 +25,7 @@ export function ItemThumbnail({ url, alt, className }: ItemThumbnailProps) {
       {url && !failed ? (
         <img src={url} alt={alt} loading="lazy" className="size-full object-cover" onError={() => setFailed(true)} />
       ) : (
-        <Package className="size-1/2" aria-hidden />
+        <Icon className="size-1/2" aria-hidden />
       )}
     </span>
   )
