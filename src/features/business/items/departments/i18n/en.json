@@ -54,5 +54,6 @@
   "details": "View subdepartments",
   "hide_details": "Hide subdepartments",
   "deactivate_title": "Deactivate department",
-  "error_status": "Status could not be updated."
+  "error_status": "Status could not be updated.",
+  "error_save": "The department could not be saved."
 }

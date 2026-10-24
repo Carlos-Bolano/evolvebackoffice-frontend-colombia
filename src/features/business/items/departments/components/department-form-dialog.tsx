@@ -15,6 +15,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useTranslation } from "@/i18n/use-i18n"
+import { getApiErrorMessage } from "@/utils/api-error"
 import { EntityImageGallery } from "../../catalog/components/entity-image-gallery"
 import { departmentSchema, type DepartmentFormValues } from "../schemas/department-schema"
 import { useCreateDepartment, useDepartments, useUpdateDepartment } from "../hooks/use-departments"
@@ -85,10 +86,15 @@ export function DepartmentFormDialog({ open, onOpenChange, departmentToEdit }: D
       parentPublicId: values.parentPublicId ? values.parentPublicId : null,
     }
 
+    const callbacks = {
+      onSuccess: () => onOpenChange(false),
+      onError: (error: unknown) => form.setError("root", { message: getApiErrorMessage(error, t("error_save")) }),
+    }
+
     if (isEditMode && departmentToEdit) {
-      updateDepartment.mutate({ id: departmentToEdit.id, payload }, { onSuccess: () => onOpenChange(false) })
+      updateDepartment.mutate({ id: departmentToEdit.id, payload }, callbacks)
     } else {
-      createDepartment.mutate(payload, { onSuccess: () => onOpenChange(false) })
+      createDepartment.mutate(payload, callbacks)
     }
   }
 

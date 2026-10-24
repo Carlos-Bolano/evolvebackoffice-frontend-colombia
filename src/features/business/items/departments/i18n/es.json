@@ -54,5 +54,6 @@
   "details": "Ver subdepartamentos",
   "hide_details": "Ocultar subdepartamentos",
   "deactivate_title": "Desactivar departamento",
-  "error_status": "No se pudo actualizar el estado."
+  "error_status": "No se pudo actualizar el estado.",
+  "error_save": "No se pudo guardar el departamento."
 }
