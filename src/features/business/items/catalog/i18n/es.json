@@ -185,9 +185,7 @@
   "unit_g": "Gramos (g)",
   "unit_ml": "Mililitros (ml)",
   "tab_packagings": "Presentaciones",
-  "packagings_desc": "Cómo se compra o se cuenta este producto. Ej.: \"Bulto 25 kg\" = 25000 {{unit}}. Así se puede pedir \"2 bultos\" y el sistema guarda la cantidad en {{unit}}.",
   "packaging_name": "Presentación",
-  "packaging_name_placeholder": "Ej.: Bulto 25 kg, Caja x24",
   "packaging_factor": "Contiene ({{unit}})",
   "packaging_contains": "Contiene",
   "packaging_default": "De compra",
@@ -198,7 +196,6 @@
   "packaging_created": "Presentación agregada",
   "packaging_deleted": "Presentación eliminada",
   "packaging_error": "No se pudo guardar la presentación",
-  "packaging_factor_placeholder": "Ej.: 25000",
   "tab_recipe": "Receta",
   "inventory_recipe_ingredient": "Tiene receta: es un semielaborado. La receta se usa al producirlo.",
   "inventory_recipe_resale": "Tiene receta: es un producto terminado. La receta se usa al producirlo; al venderlo se descuenta él mismo.",
@@ -226,5 +223,14 @@
   "recipe_delete_desc": "Al vender este producto ya no se descontarán ingredientes.",
   "recipe_saved": "Receta guardada",
   "recipe_deleted": "Receta quitada",
-  "recipe_error": "No se pudo guardar la receta"
+  "recipe_error": "No se pudo guardar la receta",
+  "packagings_desc_gram": "Cómo se compra o se cuenta este producto. Ej.: \"Bulto 25 kg\" contiene 25000 g. Así se puede pedir \"2 bultos\" y el sistema guarda 50000 g. No descuenta nada por sí sola: solo se usa cuando eliges esa presentación al escribir una cantidad.",
+  "packagings_desc_ml": "Cómo se compra o se cuenta este producto. Ej.: \"Garrafa 5 L\" contiene 5000 ml. Así se puede pedir \"2 garrafas\" y el sistema guarda 10000 ml. No descuenta nada por sí sola: solo se usa cuando eliges esa presentación al escribir una cantidad.",
+  "packagings_desc_unit": "Cómo se compra o se cuenta este producto. Ej.: \"Caja x24\" contiene 24 und. Así se puede pedir \"2 cajas\" y el sistema guarda 48 und. No descuenta nada por sí sola: solo se usa cuando eliges esa presentación al escribir una cantidad.",
+  "packaging_name_placeholder_gram": "Ej.: Bulto 25 kg, Kilo",
+  "packaging_name_placeholder_ml": "Ej.: Garrafa 5 L, Botella 750 ml",
+  "packaging_name_placeholder_unit": "Ej.: Caja x24, Canasta x45",
+  "packaging_factor_placeholder_gram": "Ej.: 25000",
+  "packaging_factor_placeholder_ml": "Ej.: 5000",
+  "packaging_factor_placeholder_unit": "Ej.: 24"
 }

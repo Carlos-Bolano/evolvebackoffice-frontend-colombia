@@ -185,9 +185,7 @@
   "unit_g": "Grams (g)",
   "unit_ml": "Milliliters (ml)",
   "tab_packagings": "Packaging",
-  "packagings_desc": "How this product is bought or counted. E.g. \"25 kg bag\" = 25000 {{unit}}. You can order \"2 bags\" and the system stores the quantity in {{unit}}.",
   "packaging_name": "Packaging",
-  "packaging_name_placeholder": "E.g. 25 kg bag, Case x24",
   "packaging_factor": "Contains ({{unit}})",
   "packaging_contains": "Contains",
   "packaging_default": "Purchase",
@@ -198,7 +196,6 @@
   "packaging_created": "Packaging added",
   "packaging_deleted": "Packaging deleted",
   "packaging_error": "Could not save the packaging",
-  "packaging_factor_placeholder": "E.g. 25000",
   "tab_recipe": "Recipe",
   "inventory_recipe_ingredient": "Has a recipe: it is a prep item. The recipe is used when producing it.",
   "inventory_recipe_resale": "Has a recipe: it is a finished product. The recipe is used when producing it; selling it deducts the product itself.",
@@ -226,5 +223,14 @@
   "recipe_delete_desc": "Selling this product will no longer deduct ingredients.",
   "recipe_saved": "Recipe saved",
   "recipe_deleted": "Recipe removed",
-  "recipe_error": "Could not save the recipe"
+  "recipe_error": "Could not save the recipe",
+  "packagings_desc_gram": "How this product is bought or counted. E.g. \"25 kg bag\" contains 25000 g, so you can order \"2 bags\" and the system stores 50000 g. It never deducts anything by itself: it is only used when you choose it while typing a quantity.",
+  "packagings_desc_ml": "How this product is bought or counted. E.g. \"5 L jug\" contains 5000 ml, so you can order \"2 jugs\" and the system stores 10000 ml. It never deducts anything by itself: it is only used when you choose it while typing a quantity.",
+  "packagings_desc_unit": "How this product is bought or counted. E.g. \"Case x24\" contains 24 units, so you can order \"2 cases\" and the system stores 48 units. It never deducts anything by itself: it is only used when you choose it while typing a quantity.",
+  "packaging_name_placeholder_gram": "E.g. 25 kg bag, Kilo",
+  "packaging_name_placeholder_ml": "E.g. 5 L jug, 750 ml bottle",
+  "packaging_name_placeholder_unit": "E.g. Case x24, Basket x45",
+  "packaging_factor_placeholder_gram": "E.g. 25000",
+  "packaging_factor_placeholder_ml": "E.g. 5000",
+  "packaging_factor_placeholder_unit": "E.g. 24"
 }

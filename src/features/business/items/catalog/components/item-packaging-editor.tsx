@@ -39,6 +39,8 @@ export function ItemPackagingEditor({ item }: ItemPackagingEditorProps) {
   const [isDefault, setIsDefault] = useState(false)
 
   const symbol = unitSymbol(item.baseUnit)
+  // Ejemplos acordes a la unidad: bultos para gramos, garrafas para ml, cajas para unidades.
+  const example = item.baseUnit === 1 ? "gram" : item.baseUnit === 2 ? "ml" : "unit"
   const factorNumber = Number(factor)
   const canAdd = name.trim().length > 0 && factorNumber > 0 && !createMutation.isPending
 
@@ -69,14 +71,14 @@ export function ItemPackagingEditor({ item }: ItemPackagingEditorProps) {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">{t("packagings_desc", { unit: symbol })}</p>
+      <p className="text-sm text-muted-foreground">{t(`packagings_desc_${example}`)}</p>
 
       <div className="grid gap-3 rounded-lg border p-3 sm:grid-cols-[1fr_180px_auto_auto] sm:items-end">
         <div className="space-y-2">
           <Label htmlFor="packaging-nombre">{t("packaging_name")}</Label>
           <Input
             id="packaging-nombre"
-            placeholder={t("packaging_name_placeholder")}
+            placeholder={t(`packaging_name_placeholder_${example}`)}
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
@@ -88,7 +90,7 @@ export function ItemPackagingEditor({ item }: ItemPackagingEditorProps) {
             type="number"
             min={0}
             inputMode="decimal"
-            placeholder={t("packaging_factor_placeholder")}
+            placeholder={t(`packaging_factor_placeholder_${example}`)}
             value={factor}
             onChange={(e) => setFactor(e.target.value)}
           />
