@@ -2,9 +2,7 @@ import type { TFunction } from "i18next"
 
 import type { PurchaseOrderDto, TransferDto } from "../types/purchasing"
 import type { WholesaleSaleDto } from "../types/sales"
-import { formatInPackaging, formatMoney, formatQuantity } from "./units"
-
-const dateFormat = new Intl.DateTimeFormat("es-CO", { dateStyle: "short" })
+import { formatInPackaging, formatMoney, formatQuantity, formatShortDate } from "./units"
 
 function quantityText(quantity: number, baseUnit: number, packaging: { name: string; factor: number } | null) {
   const base = formatQuantity(quantity, baseUnit)
@@ -22,7 +20,7 @@ export function purchaseOrderShareText(order: PurchaseOrderDto, t: TFunction): s
     `${order.supplierBranchId ? t("share_order_heading") : t("share_po_heading")} ${order.number}`,
     `${t("share_ordered_by")}: ${order.branchName}`,
     `${t("share_ordered_to")}: ${order.supplierName}`,
-    `${t("share_date")}: ${dateFormat.format(new Date(order.sentAt ?? order.createdAt))}`,
+    `${t("share_date")}: ${formatShortDate(order.sentAt ?? order.createdAt)}`,
     "",
     ...lines,
     ...(order.notes ? ["", `${t("share_note")}: ${order.notes}`] : []),
@@ -43,7 +41,7 @@ export function transferShareText(transfer: TransferDto, t: TFunction): string {
   return [
     `${t("share_transfer_heading")} ${transfer.number}${transfer.purchaseOrderNumber ? ` (${transfer.purchaseOrderNumber})` : ""}`,
     `${t("share_from")}: ${transfer.fromBranchName}  →  ${t("share_to")}: ${transfer.toBranchName}`,
-    `${t("share_date")}: ${dateFormat.format(new Date(transfer.dispatchedAt))}`,
+    `${t("share_date")}: ${formatShortDate(transfer.dispatchedAt)}`,
     "",
     ...lines,
     ...(transfer.notes ? ["", `${t("share_note")}: ${transfer.notes}`] : []),
@@ -59,7 +57,7 @@ export function saleShareText(sale: WholesaleSaleDto, t: TFunction): string {
   return [
     `${t("share_sale_heading")} ${sale.number}`,
     `${t("share_from")}: ${sale.branchName}${sale.customerName ? `  →  ${t("share_to")}: ${sale.customerName}` : ""}`,
-    `${t("share_date")}: ${dateFormat.format(new Date(sale.createdAt))}`,
+    `${t("share_date")}: ${formatShortDate(sale.createdAt)}`,
     "",
     ...lines,
     "",

@@ -32,5 +32,4 @@ export const PRODUCTION_MODULE = "PRODUCCION"
 
 export const OPEN_ORDER_STATUSES: PurchaseOrderStatus[] = ["Sent", "PartiallyDispatched", "PartiallyReceived"]
 
-const dateTime = new Intl.DateTimeFormat("es-CO", { dateStyle: "short", timeStyle: "short" })
-export const formatDateTime = (value: string | null) => (value ? dateTime.format(new Date(value)) : "—")
+export { formatDateTime } from "./units"

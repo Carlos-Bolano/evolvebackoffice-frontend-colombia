@@ -1,3 +1,4 @@
+import { generatePageNumbers } from "@/components/data-table"
 import {
   Pagination,
   PaginationContent,
@@ -30,7 +31,7 @@ export function InventoryPagination({ page, totalPages, onPageChange }: Inventor
             disabled={page <= 1}
           />
         </PaginationItem>
-        {pageNumbers(page, totalPages).map((pageNum, i) =>
+        {generatePageNumbers(page, totalPages).map((pageNum, i) =>
           pageNum === "..." ? (
             <PaginationItem key={`ellipsis-${i}`}>
               <PaginationEllipsis />
@@ -53,14 +54,4 @@ export function InventoryPagination({ page, totalPages, onPageChange }: Inventor
       </PaginationContent>
     </Pagination>
   )
-}
-
-function pageNumbers(current: number, total: number): (number | "...")[] {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
-  const pages: (number | "...")[] = [1]
-  if (current > 3) pages.push("...")
-  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) pages.push(i)
-  if (current < total - 2) pages.push("...")
-  pages.push(total)
-  return pages
 }

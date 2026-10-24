@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { Plus, Search, Trash2 } from "lucide-react"
 
@@ -9,6 +9,7 @@ import { useItems } from "@/features/business/items/catalog/hooks/use-items"
 import { useTranslation } from "@/i18n/use-i18n"
 import { useItemPackagings, useStock } from "../hooks/use-inventory"
 import { getItemPackagings } from "../services/inventory.service"
+import type { ItemPackagingDto } from "../types"
 import {
   DEFAULT_LINE_PRICE,
   defaultLinePrice,
@@ -101,6 +102,13 @@ export function ProductLinesEditor({
   const queryClient = useQueryClient()
 
   // La cantidad arranca en la presentación "De compra" (ej. Bulto 50 kg); si no hay, en la unidad base.
+  const packagingsOf = (itemId: string) =>
+    queryClient.getQueryData<ItemPackagingDto[]>(["item-packagings", itemId]) ?? []
+
+  // Modo precio: el precio de la línea sale del precio base, el modo/% y la unidad elegida.
+  const withResolvedPrice = (line: ProductLine, packagings = packagingsOf(line.itemId)): ProductLine =>
+    priceMode && line.priceBase ? { ...line, unitCost: priceModeUnitCost(line, packagings) } : line
+
   const add = async (item: Candidate) => {
     const packagings = await queryClient
       .fetchQuery({ queryKey: ["item-packagings", item.id], queryFn: () => getItemPackagings(item.id) })
@@ -109,26 +117,22 @@ export function ProductLinesEditor({
     const known = priceFor ? await priceFor(item.id).catch(() => null) : null
     const base = priceBase(known?.price, priceMode ? known?.cost : null)
     const linePrice = defaultLinePrice(base)
-    const startPrice = priceMode ? resolvePrice(base, linePrice) : base.sale
-    const suggestedPrice = startPrice ? startPrice * (defaultPackaging?.factor ?? 1) : null
-    onChange([
-      ...lines,
-      {
-        itemId: item.id,
-        name: item.name,
-        sku: item.sku,
-        baseUnit: item.baseUnit,
-        quantity: { amount: "", unitKey: defaultPackaging?.id ?? BASE_UNIT_KEY },
-        unitCost:
-          withPrice || priceMode ? (suggestedPrice ? String(Math.round(suggestedPrice * 100) / 100) : "") : undefined,
-        ...(priceMode ? { priceBase: base, linePrice } : {}),
-      },
-    ])
+    const suggestedPrice = base.sale ? base.sale * (defaultPackaging?.factor ?? 1) : null
+    const line: ProductLine = {
+      itemId: item.id,
+      name: item.name,
+      sku: item.sku,
+      baseUnit: item.baseUnit,
+      quantity: { amount: "", unitKey: defaultPackaging?.id ?? BASE_UNIT_KEY },
+      unitCost: withPrice ? (suggestedPrice ? String(Math.round(suggestedPrice * 100) / 100) : "") : undefined,
+      ...(priceMode ? { priceBase: base, linePrice } : {}),
+    }
+    onChange([...lines, withResolvedPrice(line, packagings)])
     setSearch("")
   }
 
   const update = (itemId: string, patch: Partial<ProductLine>) =>
-    onChange(lines.map((l) => (l.itemId === itemId ? { ...l, ...patch } : l)))
+    onChange(lines.map((l) => (l.itemId === itemId ? withResolvedPrice({ ...l, ...patch }) : l)))
 
   return (
     <div className="space-y-3">
@@ -178,7 +182,10 @@ export function ProductLinesEditor({
             onChange(
               lines.map((l) =>
                 l.priceBase && percentBase(l.priceBase) !== null
-                  ? { ...l, linePrice: { ...(l.linePrice ?? DEFAULT_LINE_PRICE), mode: "percent", percent } }
+                  ? withResolvedPrice({
+                      ...l,
+                      linePrice: { ...(l.linePrice ?? DEFAULT_LINE_PRICE), mode: "percent", percent },
+                    })
                   : l
               )
             )
@@ -257,9 +264,19 @@ export function ProductLinesEditor({
   )
 }
 
+/** Precio resultante de una línea en ventas/envíos, por la unidad elegida ("" si no hay precio). */
+function priceModeUnitCost(line: ProductLine, packagings: ItemPackagingDto[]): string {
+  const factor = packagings.find((p) => p.id === line.quantity.unitKey)?.factor ?? 1
+  const resolved = resolvePrice(
+    scaleBase(line.priceBase ?? priceBase(null, null), factor),
+    line.linePrice ?? DEFAULT_LINE_PRICE
+  )
+  return resolved === null ? "" : String(resolved)
+}
+
 /**
- * Precio de una línea en ventas/envíos. Convierte el precio de venta (por unidad base) a la unidad
- * elegida y mantiene `unitCost` con el precio resultante cuando cambian el modo, el % o la unidad.
+ * Precio de una línea en ventas/envíos: muestra el precio de venta convertido a la unidad elegida
+ * y deja escoger el modo. El precio resultante (`unitCost`) lo calcula el editor al cambiar algo.
  */
 function PriceModeCell({
   line,
@@ -275,12 +292,6 @@ function PriceModeCell({
   const unitLabel = packagings.find((p) => p.id === line.quantity.unitKey)?.name ?? unitSymbol(line.baseUnit)
   const base = scaleBase(line.priceBase ?? priceBase(null, null), factor)
   const linePrice = line.linePrice ?? DEFAULT_LINE_PRICE
-  const resolved = resolvePrice(base, linePrice)
-  const resolvedText = resolved === null ? "" : String(resolved)
-
-  useEffect(() => {
-    if (resolvedText !== (line.unitCost ?? "")) onChange({ unitCost: resolvedText })
-  }, [resolvedText, line.unitCost, onChange])
 
   return (
     <LinePriceInput
