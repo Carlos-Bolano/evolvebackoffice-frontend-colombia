@@ -18,13 +18,13 @@ import { useProductionOrders } from "../../hooks/use-production"
 import { INVENTORY_PAGE_SIZE } from "../../services/inventory.service"
 import type { ProductionOrderDto } from "../../types/production"
 import { formatDateTime, PRODUCTION_MODULE, PRODUCTION_STATUS_TONE } from "../../utils/status"
-import { formatMoney, formatQuantity, formatUnitCost, unitSymbol } from "../../utils/units"
+import { formatMoney, formatQuantity } from "../../utils/units"
 import { ProduceDialog } from "../components/produce-dialog"
 import { ProductionDetailDialog } from "../components/production-detail-dialog"
 
 type Tab = "done" | "planned"
 
-/** Producción: lo que se hizo (con su costo real) y lo planeado por hacer. */
+/** Producción: lo que se hizo (con su costo real) y las órdenes preparadas por hacer. */
 export function ProductionPage() {
   const { t } = useTranslation("business-inventory")
   const { branches, branch, branchId, selectBranch, isLoading: branchesLoading } = useInventoryBranch()
@@ -77,13 +77,18 @@ export function ProductionPage() {
             />
             {hasModule ? (
               <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="outline" onClick={() => setDialog({ mode: "plan" })}>
-                  <CalendarClock className="mr-2 size-4" />
-                  {t("production_plan_title")}
-                </Button>
-                <Button id="btn-producir" type="button" onClick={() => setDialog({ mode: "produce" })}>
+                <Button
+                  id="btn-producir"
+                  type="button"
+                  variant="outline"
+                  onClick={() => setDialog({ mode: "produce" })}
+                >
                   <ChefHat className="mr-2 size-4" />
                   {t("production_produce")}
+                </Button>
+                <Button id="btn-preparar-produccion" type="button" onClick={() => setDialog({ mode: "plan" })}>
+                  <CalendarClock className="mr-2 size-4" />
+                  {t("production_plan_title")}
                 </Button>
               </div>
             ) : null}
@@ -123,12 +128,8 @@ export function ProductionPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>{t("document")}</TableHead>
-                        <TableHead>{t("product")}</TableHead>
+                        <TableHead>{t("production_products")}</TableHead>
                         <TableHead>{t("date")}</TableHead>
-                        <TableHead className="text-right">
-                          {tab === "planned" ? t("production_planned_qty") : t("production_produced_col")}
-                        </TableHead>
-                        <TableHead className="text-right">{t("production_unit_cost_short")}</TableHead>
                         <TableHead className="text-right">{t("value")}</TableHead>
                         <TableHead>{t("status")}</TableHead>
                       </TableRow>
@@ -137,15 +138,20 @@ export function ProductionPage() {
                       {rows.map((r) => (
                         <TableRow key={r.id} className="cursor-pointer" onClick={() => setDetailId(r.id)}>
                           <TableCell className="font-medium text-foreground">{r.number}</TableCell>
-                          <TableCell>{r.itemName}</TableCell>
+                          <TableCell>
+                            <ul className="space-y-0.5">
+                              {r.products.map((p) => (
+                                <li key={p.itemId}>
+                                  {p.itemName}{" "}
+                                  <span className="text-muted-foreground">
+                                    · {formatQuantity(p.producedQuantity ?? p.plannedQuantity, p.baseUnit)}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </TableCell>
                           <TableCell className="text-muted-foreground">
                             {formatDateTime(r.completedAt ?? r.createdAt)}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {formatQuantity(r.producedQuantity ?? r.plannedQuantity, r.baseUnit)}
-                          </TableCell>
-                          <TableCell className="text-right text-muted-foreground">
-                            {r.status === "Planned" ? "—" : `${formatUnitCost(r.unitCost)} / ${unitSymbol(r.baseUnit)}`}
                           </TableCell>
                           <TableCell className="text-right">
                             {r.status === "Planned" ? "—" : formatMoney(r.totalCost)}

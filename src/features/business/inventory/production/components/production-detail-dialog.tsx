@@ -59,7 +59,7 @@ export function ProductionDetailDialog({ productionId, onOpenChange, onComplete 
             </div>
             <div>
               <DialogTitle className="flex flex-wrap items-center gap-2">
-                {order.number} · {order.itemName}
+                {order.number}
                 <Badge tone={PRODUCTION_STATUS_TONE[order.status]}>{t(`production_status_${order.status}`)}</Badge>
               </DialogTitle>
               <DialogDescription>
@@ -70,52 +70,57 @@ export function ProductionDetailDialog({ productionId, onOpenChange, onComplete 
           </div>
         </DialogHeader>
 
-        <div className="grid gap-3 sm:grid-cols-4">
-          <Stat label={t("production_planned_qty")} value={formatQuantity(order.plannedQuantity, order.baseUnit)} />
-          <Stat
-            label={t("production_produced_qty")}
-            value={order.producedQuantity === null ? "—" : formatQuantity(order.producedQuantity, order.baseUnit)}
-          />
-          <Stat
-            label={t("production_efficiency")}
-            value={order.efficiency === null ? "—" : `${Math.round(order.efficiency * 100)} %`}
-          />
-          <Stat
-            label={t("production_unit_cost_short")}
-            value={done ? `${formatUnitCost(order.unitCost)} / ${unitSymbol(order.baseUnit)}` : "—"}
-          />
-        </div>
+        {order.products.map((p) => (
+          <div key={p.itemId} className="space-y-3 rounded-xl border border-border/70 p-3">
+            <p className="font-medium text-foreground">{p.itemName}</p>
+            <div className="grid gap-3 sm:grid-cols-4">
+              <Stat label={t("production_planned_qty")} value={formatQuantity(p.plannedQuantity, p.baseUnit)} />
+              <Stat
+                label={t("production_produced_qty")}
+                value={p.producedQuantity === null ? "—" : formatQuantity(p.producedQuantity, p.baseUnit)}
+              />
+              <Stat
+                label={t("production_efficiency")}
+                value={p.efficiency === null ? "—" : `${Math.round(p.efficiency * 100)} %`}
+              />
+              <Stat
+                label={t("production_unit_cost_short")}
+                value={done ? `${formatUnitCost(p.unitCost)} / ${unitSymbol(p.baseUnit)}` : "—"}
+              />
+            </div>
 
-        <div className="w-full overflow-x-auto">
-          <Table className="min-w-[560px]">
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t("production_ingredient")}</TableHead>
-                <TableHead className="text-right">{t("production_recipe_says")}</TableHead>
-                <TableHead className="text-right">{t("production_used")}</TableHead>
-                <TableHead className="text-right">{t("cost")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {order.lines.map((l) => (
-                <TableRow key={l.itemId}>
-                  <TableCell className="font-medium text-foreground">{l.itemName}</TableCell>
-                  <TableCell className="text-right">{formatQuantity(l.theoreticalQuantity, l.baseUnit)}</TableCell>
-                  <TableCell className="text-right">
-                    {l.actualQuantity === null ? "—" : formatQuantity(l.actualQuantity, l.baseUnit)}
-                  </TableCell>
-                  <TableCell className="text-right text-muted-foreground">
-                    {done ? formatMoney(l.totalCost) : "—"}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+            <div className="w-full overflow-x-auto">
+              <Table className="min-w-[560px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("production_ingredient")}</TableHead>
+                    <TableHead className="text-right">{t("production_recipe_says")}</TableHead>
+                    <TableHead className="text-right">{t("production_used")}</TableHead>
+                    <TableHead className="text-right">{t("cost")}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {p.lines.map((l) => (
+                    <TableRow key={l.itemId}>
+                      <TableCell className="font-medium text-foreground">{l.itemName}</TableCell>
+                      <TableCell className="text-right">{formatQuantity(l.theoreticalQuantity, l.baseUnit)}</TableCell>
+                      <TableCell className="text-right">
+                        {l.actualQuantity === null ? "—" : formatQuantity(l.actualQuantity, l.baseUnit)}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        {done ? formatMoney(l.totalCost) : "—"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        ))}
 
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
           <span>
-            {t("production_total_cost")}:{" "}
+            {t("production_order_cost")}:{" "}
             <span className="font-medium text-foreground">{done ? formatMoney(order.totalCost) : "—"}</span>
           </span>
           {order.notes ? <span>{order.notes}</span> : null}

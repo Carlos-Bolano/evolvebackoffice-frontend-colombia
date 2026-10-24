@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Plus, Save, Search, Trash2 } from "lucide-react"
+import { Save, Trash2 } from "lucide-react"
 
 import { ConfirmActionDialog } from "@/components/confirm-action-dialog"
 import { Badge } from "@/components/ui/badge"
@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { notify } from "@/hooks/use-notify"
 import { useTranslation } from "@/i18n/use-i18n"
@@ -15,37 +14,33 @@ import { getApiErrorMessage } from "@/utils/api-error"
 import { useDeleteRecipe, useRecipe, useSaveRecipe } from "@/features/business/inventory/hooks/use-inventory"
 import { useInventoryBranch } from "@/features/business/inventory/hooks/use-inventory-branch"
 import type { RecipeDto } from "@/features/business/inventory/types"
-import { formatMoney, formatQuantity, formatUnitCost, unitSymbol } from "@/features/business/inventory/utils/units"
-import { useItems } from "../hooks/use-items"
+import { formatMoney, formatUnitCost, unitSymbol } from "@/features/business/inventory/utils/units"
 import type { ItemResponseDto } from "../types"
 import { BranchSelector } from "./branch-selector"
+import { RecipeLinesEditor, type RecipeDraftLine } from "./recipe-lines-editor"
 
 type ItemRecipeEditorProps = {
   item: ItemResponseDto
 }
 
-type DraftLine = {
-  ingredientItemId: string
-  name: string
-  sku: string | null
-  baseUnit: number
-  quantity: string
-}
+type Draft = { yieldQuantity: string; notes: string; lines: RecipeDraftLine[] }
 
-type Draft = { yieldQuantity: string; notes: string; lines: DraftLine[] }
+function toDraftLines(recipe: RecipeDto | null | undefined): RecipeDraftLine[] {
+  return (recipe?.lines ?? []).map((l) => ({
+    ingredientItemId: l.ingredientItemId,
+    name: l.ingredientName,
+    sku: l.ingredientSku,
+    baseUnit: l.baseUnit,
+    quantity: String(l.quantity),
+  }))
+}
 
 function toDraft(recipe: RecipeDto | null | undefined): Draft {
   if (!recipe) return { yieldQuantity: "1", notes: "", lines: [] }
   return {
     yieldQuantity: String(recipe.yieldQuantity),
     notes: recipe.notes ?? "",
-    lines: recipe.lines.map((l) => ({
-      ingredientItemId: l.ingredientItemId,
-      name: l.ingredientName,
-      sku: l.ingredientSku,
-      baseUnit: l.baseUnit,
-      quantity: String(l.quantity),
-    })),
+    lines: toDraftLines(recipe),
   }
 }
 
@@ -62,7 +57,6 @@ export function ItemRecipeEditor({ item }: ItemRecipeEditorProps) {
 
   const [draft, setDraft] = useState<Draft>(() => toDraft(null))
   const [loadedFrom, setLoadedFrom] = useState<RecipeDto | null | undefined>(undefined)
-  const [search, setSearch] = useState("")
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   // Al llegar (o recargar) la receta del servidor se toma como borrador.
@@ -71,42 +65,11 @@ export function ItemRecipeEditor({ item }: ItemRecipeEditorProps) {
     setDraft(toDraft(recipeQuery.data))
   }
 
-  const { data: searchResults } = useItems({ pageSize: 8, searchField: "all", searchValue: search.trim() || undefined })
-  const candidates = search.trim()
-    ? (searchResults?.data ?? []).filter(
-        (i) =>
-          i.id !== item.id && (i.trackInventory || i.hasRecipe) && !draft.lines.some((l) => l.ingredientItemId === i.id)
-      )
-    : []
-
   const recipe = recipeQuery.data ?? null
   const costByIngredient = new Map(recipe?.lines.map((l) => [l.ingredientItemId, l.unitCost]) ?? [])
   const yieldNumber = Number(draft.yieldQuantity)
   const linesValid = draft.lines.length > 0 && draft.lines.every((l) => Number(l.quantity) > 0)
   const canSave = yieldNumber > 0 && linesValid && !saveRecipe.isPending
-
-  const addIngredient = (ingredient: ItemResponseDto) => {
-    setDraft((d) => ({
-      ...d,
-      lines: [
-        ...d.lines,
-        {
-          ingredientItemId: ingredient.id,
-          name: ingredient.name ?? "",
-          sku: ingredient.sku,
-          baseUnit: ingredient.baseUnit,
-          quantity: "",
-        },
-      ],
-    }))
-    setSearch("")
-  }
-
-  const updateLine = (id: string, quantity: string) =>
-    setDraft((d) => ({ ...d, lines: d.lines.map((l) => (l.ingredientItemId === id ? { ...l, quantity } : l)) }))
-
-  const removeLine = (id: string) =>
-    setDraft((d) => ({ ...d, lines: d.lines.filter((l) => l.ingredientItemId !== id) }))
 
   const handleSave = () => {
     if (!canSave) return
@@ -165,101 +128,12 @@ export function ItemRecipeEditor({ item }: ItemRecipeEditorProps) {
         </div>
       </div>
 
-      <div className="space-y-2">
-        <div className="relative">
-          <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            id="receta-buscar-ingrediente"
-            placeholder={t("recipe_search_ingredient")}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        {candidates.length > 0 ? (
-          <div className="divide-y rounded-lg border">
-            {candidates.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => addIngredient(c)}
-                className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-accent/50"
-              >
-                <span>
-                  <span className="font-medium text-foreground">{c.name}</span>
-                  <span className="ml-2 text-xs text-muted-foreground">{c.sku ?? ""}</span>
-                </span>
-                <span className="flex items-center gap-2 text-xs text-muted-foreground">
-                  {unitSymbol(c.baseUnit)}
-                  <Plus className="size-4" />
-                </span>
-              </button>
-            ))}
-          </div>
-        ) : search.trim() ? (
-          <p className="text-xs text-muted-foreground">{t("recipe_no_candidates")}</p>
-        ) : null}
-      </div>
-
-      {draft.lines.length === 0 ? (
-        <p className="py-6 text-center text-sm text-muted-foreground">{t("recipe_empty")}</p>
-      ) : (
-        <div className="w-full overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t("recipe_ingredient")}</TableHead>
-                <TableHead className="w-44">{t("recipe_quantity")}</TableHead>
-                <TableHead className="text-right">{t("recipe_cost")}</TableHead>
-                <TableHead className="w-12" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {draft.lines.map((l) => {
-                const unitCost = costByIngredient.get(l.ingredientItemId)
-                const quantity = Number(l.quantity)
-                return (
-                  <TableRow key={l.ingredientItemId}>
-                    <TableCell>
-                      <p className="font-medium text-foreground">{l.name}</p>
-                      <p className="text-xs text-muted-foreground">{l.sku ?? ""}</p>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          min={0}
-                          step="any"
-                          aria-label={t("recipe_quantity")}
-                          value={l.quantity}
-                          onChange={(e) => updateLine(l.ingredientItemId, e.target.value)}
-                        />
-                        <span className="text-xs text-muted-foreground">{unitSymbol(l.baseUnit)}</span>
-                      </div>
-                      {quantity >= 1000 && l.baseUnit !== 0 ? (
-                        <p className="mt-1 text-xs text-muted-foreground">= {formatQuantity(quantity, l.baseUnit)}</p>
-                      ) : null}
-                    </TableCell>
-                    <TableCell className="text-right text-muted-foreground">
-                      {unitCost != null && quantity > 0 ? formatMoney(unitCost * quantity) : "—"}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={t("recipe_remove_ingredient")}
-                        onClick={() => removeLine(l.ingredientItemId)}
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+      <RecipeLinesEditor
+        itemId={item.id}
+        lines={draft.lines}
+        onChange={(lines) => setDraft((d) => ({ ...d, lines }))}
+        costByIngredient={costByIngredient}
+      />
 
       {recipe && branches.length > 0 ? (
         <div className="space-y-2 rounded-lg border p-3">

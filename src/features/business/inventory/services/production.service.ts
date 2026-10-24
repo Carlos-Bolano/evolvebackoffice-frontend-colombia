@@ -1,9 +1,9 @@
 import { api } from "@/config/axios-client"
 import type { PagedResult } from "../types"
 import type {
+  CompleteProductionOrderDto,
   CreateProductionOrderDto,
   ProducibleItemDto,
-  ProductionIngredientInput,
   ProductionOrderDto,
   ProductionOrderSummaryDto,
   ProductionPreviewDto,
@@ -49,7 +49,7 @@ export async function createProductionOrder(payload: CreateProductionOrderDto): 
 
 export async function completeProductionOrder(
   id: string,
-  payload: { producedQuantity: number; ingredients: ProductionIngredientInput[] | null; notes: string | null }
+  payload: CompleteProductionOrderDto
 ): Promise<ProductionOrderDto> {
   const { data } = await api.post<ProductionOrderDto>(`/api/production-orders/${id}/complete`, payload)
   return data

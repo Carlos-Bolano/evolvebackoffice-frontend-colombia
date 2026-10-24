@@ -144,3 +144,9 @@ export interface SaveRecipeDto {
   notes: string | null
   lines: { ingredientItemId: string; quantity: number }[]
 }
+
+/** Producto nuevo, copia exacta de otro, con otra receta. */
+export interface CopyItemWithRecipeDto {
+  name: string
+  recipe: SaveRecipeDto
+}

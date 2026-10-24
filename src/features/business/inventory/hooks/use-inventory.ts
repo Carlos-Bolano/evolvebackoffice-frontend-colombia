@@ -3,6 +3,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import {
   createItemPackaging,
   createWriteoff,
+  copyItemWithRecipe,
   deleteRecipe,
   deleteItemPackaging,
   getInventoryInbox,
@@ -15,7 +16,13 @@ import {
   updateStockLevels,
   voidAdjustment,
 } from "../services/inventory.service"
-import type { CreateWriteoffDto, SaveItemPackagingDto, SaveRecipeDto, SetStockQuantityDto } from "../types"
+import type {
+  CopyItemWithRecipeDto,
+  CreateWriteoffDto,
+  SaveItemPackagingDto,
+  SaveRecipeDto,
+  SetStockQuantityDto,
+} from "../types"
 
 const INVENTORY_KEYS = ["inventory-stock", "inventory-movements", "inventory-inbox"]
 
@@ -122,6 +129,18 @@ export function useSaveRecipe(itemId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["item-recipe", itemId] })
       queryClient.invalidateQueries({ queryKey: ["items"] })
+    },
+  })
+}
+
+/** Producto nuevo con otra receta: aparece en el catálogo y en lo que se puede producir. */
+export function useCopyItemWithRecipe(itemId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: CopyItemWithRecipeDto) => copyItemWithRecipe(itemId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["items"] })
+      queryClient.invalidateQueries({ queryKey: ["production-products"] })
     },
   })
 }

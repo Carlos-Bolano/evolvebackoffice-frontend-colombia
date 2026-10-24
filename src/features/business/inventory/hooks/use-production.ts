@@ -7,7 +7,6 @@ import {
   getProducibleItems,
   getProductionOrder,
   getProductionOrders,
-  getProductionPreview,
   voidProductionOrder,
 } from "../services/production.service"
 
@@ -26,15 +25,6 @@ export function useProducibleItems(branchId: string | null) {
     queryKey: ["production-products", branchId],
     queryFn: () => getProducibleItems(branchId!),
     enabled: Boolean(branchId),
-  })
-}
-
-export function useProductionPreview(branchId: string | null, itemId: string | null, quantity: number) {
-  return useQuery({
-    queryKey: ["production-preview", branchId, itemId, quantity],
-    queryFn: () => getProductionPreview(branchId!, itemId!, quantity),
-    enabled: Boolean(branchId && itemId) && quantity > 0,
-    placeholderData: keepPreviousData,
   })
 }
 
@@ -61,8 +51,8 @@ function useProductionMutation<TArgs, TResult>(fn: (args: TArgs) => Promise<TRes
 
 export const useCreateProduction = () => useProductionMutation(createProductionOrder)
 export const useCompleteProduction = () =>
-  useProductionMutation((args: { id: string } & Parameters<typeof completeProductionOrder>[1]) =>
-    completeProductionOrder(args.id, args)
+  useProductionMutation(({ id, ...payload }: { id: string } & Parameters<typeof completeProductionOrder>[1]) =>
+    completeProductionOrder(id, payload)
   )
 export const useCancelProduction = () => useProductionMutation(cancelProductionOrder)
 export const useVoidProduction = () => useProductionMutation(voidProductionOrder)

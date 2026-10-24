@@ -5,6 +5,7 @@ import type {
   InventoryMovementDto,
   ItemPackagingDto,
   PagedResult,
+  CopyItemWithRecipeDto,
   RecipeDto,
   SaveRecipeDto,
   SaveItemPackagingDto,
@@ -97,6 +98,12 @@ export async function getRecipe(itemId: string, branchId: string | null): Promis
 
 export async function saveRecipe(itemId: string, payload: SaveRecipeDto): Promise<RecipeDto> {
   const { data } = await api.put<RecipeDto>(`/api/items/${itemId}/recipe`, payload)
+  return data
+}
+
+/** Crea un producto nuevo, copia exacta de `itemId`, con otra receta. Devuelve la receta del nuevo. */
+export async function copyItemWithRecipe(itemId: string, payload: CopyItemWithRecipeDto): Promise<RecipeDto> {
+  const { data } = await api.post<RecipeDto>(`/api/items/${itemId}/recipe/copy`, payload)
   return data
 }
 
