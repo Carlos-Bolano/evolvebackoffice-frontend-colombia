@@ -18,6 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useTranslation } from "@/i18n/use-i18n"
 import { useBranchItems, useDeleteBranchItem, useSetBranchItemActive } from "../hooks/use-branch-items"
 import type { BranchItemResponseDto } from "../types"
+import { ItemThumbnail } from "./item-thumbnail"
 import { BranchItemEditDialog } from "./branch-item-edit-dialog"
 import { ConfirmActionDialog } from "@/components/confirm-action-dialog"
 
@@ -126,13 +127,16 @@ export function BranchCatalogView({ branchId, onAssignClick }: BranchCatalogView
                 items.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell className="px-4">
-                      <div className="min-w-0">
-                        <p className="truncate font-medium text-foreground">{item.itemName}</p>
-                        {item.binLocation && (
-                          <p className="text-xs text-muted-foreground">
-                            {t("bin")}: {item.binLocation}
-                          </p>
-                        )}
+                      <div className="flex items-center gap-3">
+                        <ItemThumbnail url={item.imageUrl} alt={item.itemName ?? ""} />
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-foreground">{item.itemName}</p>
+                          {item.binLocation && (
+                            <p className="text-xs text-muted-foreground">
+                              {t("bin")}: {item.binLocation}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="hidden px-4 text-muted-foreground sm:table-cell">

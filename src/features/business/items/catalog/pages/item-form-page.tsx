@@ -14,14 +14,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { notify } from "@/hooks/use-notify"
 import { useTranslation } from "@/i18n/use-i18n"
+import { getApiErrorMessage } from "@/utils/api-error"
 import { createItemSchema, type CreateItemFormValues } from "../schemas/item-schema"
 import { useCreateItem, useItemById, useUpdateItem } from "../hooks/use-items"
+import { useCopyItemImages } from "../hooks/use-item-images"
 import { useDepartmentsAll } from "../../departments/hooks/use-departments"
 import { ItemTaxEditor } from "../components/item-tax-editor"
 import { ItemModifierEditor } from "../components/item-modifier-editor"
 import { ItemPackagingEditor } from "../components/item-packaging-editor"
 import { ItemRecipeEditor } from "../components/item-recipe-editor"
+import { ItemImageGallery } from "../components/item-image-gallery"
+import { ItemSuggestionCard } from "../components/item-suggestion-card"
+import { ItemThumbnail } from "../components/item-thumbnail"
+import type { ItemSuggestDto } from "../types"
 import {
   BASE_UNIT_OPTIONS,
   INVENTORY_USES,
@@ -52,7 +59,7 @@ const defaultValues: CreateItemFormValues = {
   baseUnit: 0,
 }
 
-const ITEM_TABS = ["taxes", "modifiers", "recipe", "packagings"]
+const ITEM_TABS = ["images", "taxes", "modifiers", "recipe", "packagings"]
 
 export function ItemFormPage() {
   const { itemId } = useParams<{ itemId: string }>()
@@ -65,13 +72,11 @@ export function ItemFormPage() {
 
   const [searchParams, setSearchParams] = useSearchParams()
   const tabParam = searchParams.get("tab")
-  const [activeTab, setActiveTabState] = useState(
-    !isCreateMode && tabParam && ITEM_TABS.includes(tabParam) ? tabParam : "info"
-  )
+  // La pestaña sale de la URL (deep-link); al crear con imágenes se llega con ?tab=images.
+  const activeTab = !isCreateMode && tabParam && ITEM_TABS.includes(tabParam) ? tabParam : "info"
 
   /** Cambia de pestaña y la refleja en la URL (deep-link). */
   const setActiveTab = (tab: string) => {
-    setActiveTabState(tab)
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev)
@@ -87,6 +92,9 @@ export function ItemFormPage() {
 
   const createItem = useCreateItem()
   const updateItem = useUpdateItem()
+  const copyImages = useCopyItemImages()
+  /** Imágenes de la sugerencia aplicada; se copian al crear si el SKU no cambió. */
+  const [suggested, setSuggested] = useState<{ sku: string; urls: string[] } | null>(null)
   const { data: departments, isLoading: departmentsLoading } = useDepartmentsAll()
 
   const form = useForm<CreateItemFormValues>({
@@ -121,6 +129,24 @@ export function ItemFormPage() {
     })
   }, [item, form])
 
+  /** Completa solo lo que esté vacío con los datos del producto sugerido. */
+  const applySuggestion = (suggestion: ItemSuggestDto) => {
+    const fill = (
+      field: "name" | "description" | "unitOfMeasure" | "subDescription1" | "subDescription2" | "subDescription3",
+      value?: string | null
+    ) => {
+      if (value && !form.getValues(field)) form.setValue(field, value, { shouldDirty: true, shouldValidate: true })
+    }
+    fill("name", suggestion.name)
+    fill("description", suggestion.description)
+    fill("unitOfMeasure", suggestion.unitOfMeasure)
+    fill("subDescription1", suggestion.subDescription1)
+    fill("subDescription2", suggestion.subDescription2)
+    fill("subDescription3", suggestion.subDescription3)
+    if (suggestion.taxable) form.setValue("taxable", true, { shouldDirty: true })
+    setSuggested({ sku: suggestion.sku ?? "", urls: (suggestion.images ?? []).map((i) => i.url) })
+  }
+
   const handleSubmit = (values: CreateItemFormValues) => {
     // Transform form values to API types (convert undefined to null)
     const transformValues = (v: CreateItemFormValues) => ({
@@ -138,13 +164,29 @@ export function ItemFormPage() {
       updateItem.mutate({ id: item.id, payload: transformValues(values) })
     } else {
       createItem.mutate(transformValues(values), {
-        onSuccess: (created) => navigate(`/business/items/catalog/${created.id}`),
+        onSuccess: (created) => {
+          const sameSku = suggested && suggested.sku.toLowerCase() === (values.sku ?? "").trim().toLowerCase()
+          if (!sameSku || suggested.urls.length === 0) {
+            navigate(`/business/items/catalog/${created.id}`)
+            return
+          }
+          copyImages.mutate(
+            { itemId: created.id, urls: suggested.urls },
+            {
+              onError: (error) => notify.error(getApiErrorMessage(error, t("suggest_images_error"))),
+              onSettled: () => navigate(`/business/items/catalog/${created.id}?tab=images`),
+            }
+          )
+        },
       })
     }
   }
 
-  const isSubmitting = createItem.isPending || updateItem.isPending
-  const [trackInventory, isSellable] = useWatch({ control: form.control, name: ["trackInventory", "isSellable"] })
+  const isSubmitting = createItem.isPending || updateItem.isPending || copyImages.isPending
+  const [trackInventory, isSellable, skuValue] = useWatch({
+    control: form.control,
+    name: ["trackInventory", "isSellable", "sku"],
+  })
   const inventoryUse = inventoryUseOf(trackInventory, isSellable)
 
   if (!isCreateMode && (itemError || (!itemLoading && !item))) {
@@ -177,11 +219,16 @@ export function ItemFormPage() {
               <Skeleton className="h-4 w-1/2 max-w-md" />
             </div>
           ) : (
-            <div className="space-y-1">
-              <CardTitle className="text-2xl font-semibold tracking-tight text-balance text-foreground sm:text-3xl">
-                {heroTitle}
-              </CardTitle>
-              <p className="text-sm leading-6 text-muted-foreground">{heroDescription}</p>
+            <div className="flex items-center gap-4">
+              {item?.images?.[0] ? (
+                <ItemThumbnail url={item.images[0].url} alt={item.name ?? ""} className="size-16 rounded-xl" />
+              ) : null}
+              <div className="min-w-0 space-y-1">
+                <CardTitle className="text-2xl font-semibold tracking-tight text-balance text-foreground sm:text-3xl">
+                  {heroTitle}
+                </CardTitle>
+                <p className="text-sm leading-6 text-muted-foreground">{heroDescription}</p>
+              </div>
             </div>
           )}
         </div>
@@ -205,8 +252,9 @@ export function ItemFormPage() {
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-0 flex-1 flex-col gap-5">
             {!isCreateMode && (
-              <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-2xl border border-border/70 bg-card/70 p-1 sm:grid sm:w-full sm:grid-cols-5">
+              <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-2xl border border-border/70 bg-card/70 p-1 sm:grid sm:w-full sm:grid-cols-6">
                 <TabsTrigger value="info">{t("tab_info")}</TabsTrigger>
+                <TabsTrigger value="images">{t("tab_images")}</TabsTrigger>
                 <TabsTrigger value="taxes">{t("tab_taxes")}</TabsTrigger>
                 <TabsTrigger value="modifiers">{t("tab_modifiers")}</TabsTrigger>
                 <TabsTrigger value="recipe">{t("tab_recipe")}</TabsTrigger>
@@ -251,6 +299,15 @@ export function ItemFormPage() {
                       )}
                     />
                   </div>
+
+                  {isCreateMode ? (
+                    <ItemSuggestionCard
+                      sku={skuValue ?? ""}
+                      onApply={applySuggestion}
+                      onDismiss={() => setSuggested(null)}
+                      appliedImages={suggested?.urls.length ?? 0}
+                    />
+                  ) : null}
 
                   <FormField
                     control={form.control}
@@ -505,6 +562,9 @@ export function ItemFormPage() {
 
             {!isCreateMode && item && (
               <>
+                <TabsContent value="images" className="min-h-0 flex-1 overflow-y-auto pr-1">
+                  <ItemImageGallery item={item} />
+                </TabsContent>
                 <TabsContent value="taxes" className="min-h-0 flex-1 overflow-y-auto pr-1">
                   <ItemTaxEditor item={item} />
                 </TabsContent>

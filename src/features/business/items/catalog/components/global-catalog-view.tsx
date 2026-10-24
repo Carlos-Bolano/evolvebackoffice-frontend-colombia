@@ -20,6 +20,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useTranslation } from "@/i18n/use-i18n"
 import { useItems, useSetItemActive } from "../hooks/use-items"
 import type { ItemResponseDto } from "../types"
+import { ItemThumbnail } from "./item-thumbnail"
 import { ConfirmActionDialog } from "@/components/confirm-action-dialog"
 
 type GlobalCatalogViewProps = {
@@ -202,11 +203,14 @@ export function GlobalCatalogView({ onAssignToBranch }: GlobalCatalogViewProps) 
                       </button>
                     </TableCell>
                     <TableCell>
-                      <div>
-                        <p className="font-medium text-foreground">{item.name}</p>
-                        {item.description && (
-                          <p className="line-clamp-1 text-xs text-muted-foreground">{item.description}</p>
-                        )}
+                      <div className="flex items-center gap-3">
+                        <ItemThumbnail url={item.images?.[0]?.url} alt={item.name ?? ""} />
+                        <div className="min-w-0">
+                          <p className="font-medium text-foreground">{item.name}</p>
+                          {item.description && (
+                            <p className="line-clamp-1 text-xs text-muted-foreground">{item.description}</p>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="hidden px-4 text-muted-foreground sm:table-cell">{item.sku ?? "—"}</TableCell>
