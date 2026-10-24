@@ -30,6 +30,7 @@ import { useInventoryBranch } from "../../hooks/use-inventory-branch"
 import { INVENTORY_PAGE_SIZE } from "../../services/inventory.service"
 import type { StockItemDto } from "../../types"
 import { formatInPackaging, formatMoney, formatQuantity, formatUnitCost, unitSymbol } from "../../utils/units"
+import { MarginsTable } from "../components/margins-table"
 import { MovementsTable } from "../components/movements-table"
 import { SetQuantityDialog, StockLevelsDialog, WriteoffDialog } from "../components/stock-dialogs"
 
@@ -39,10 +40,10 @@ type StockAction = "writeoff" | "correction" | "levels"
 export function StockPage() {
   const { t } = useTranslation("business-inventory")
   const { branches, branch, branchId, selectBranch, isLoading: branchesLoading } = useInventoryBranch()
-  const [tab, setTab] = useState("stock")
-  const [search, setSearch] = useState("")
-  // Los avisos de la portada abren esta pantalla ya filtrada (?filter=below-min | negative).
+  // Los avisos de la portada abren esta pantalla ya filtrada (?filter=below-min | negative) o en ?tab=margins.
   const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState(() => (searchParams.get("tab") === "margins" ? "margins" : "stock"))
+  const [search, setSearch] = useState("")
   const [belowMin, setBelowMin] = useState(() => searchParams.get("filter") === "below-min")
   const [negative, setNegative] = useState(() => searchParams.get("filter") === "negative")
   const [page, setPage] = useState(1)
@@ -103,6 +104,7 @@ export function StockPage() {
             <TabsList>
               <TabsTrigger value="stock">{t("tab_stock")}</TabsTrigger>
               <TabsTrigger value="movements">{t("tab_movements")}</TabsTrigger>
+              <TabsTrigger value="margins">{t("tab_margins")}</TabsTrigger>
             </TabsList>
 
             <TabsContent value="stock" className="space-y-4">
@@ -250,6 +252,10 @@ export function StockPage() {
                 </div>
               ) : null}
               <MovementsTable branchId={branchId} itemId={historyItem?.itemId} />
+            </TabsContent>
+
+            <TabsContent value="margins" className="space-y-4">
+              {branch ? <MarginsTable key={branch.id} branch={branch} /> : null}
             </TabsContent>
           </Tabs>
         ) : null}

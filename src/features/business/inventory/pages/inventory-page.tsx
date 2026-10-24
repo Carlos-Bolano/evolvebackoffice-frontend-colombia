@@ -7,6 +7,7 @@ import {
   ClipboardCheck,
   PackageCheck,
   PackageX,
+  Receipt,
   ShoppingCart,
   Truck,
   Warehouse,
@@ -47,6 +48,13 @@ export function InventoryPage() {
       onClick: () => navigate("/business/inventory/suppliers"),
     },
     {
+      name: t("transfers"),
+      label: t("transfers_desc"),
+      icon: ArrowRightLeft,
+      disabled: false,
+      onClick: () => navigate("/business/inventory/transfers"),
+    },
+    {
       name: t("purchase_orders"),
       label: t("purchase_orders_desc"),
       icon: ShoppingCart,
@@ -54,11 +62,11 @@ export function InventoryPage() {
       onClick: () => navigate("/business/inventory/purchase-orders"),
     },
     {
-      name: t("transfers"),
-      label: t("transfers_desc"),
-      icon: ArrowRightLeft,
+      name: t("sales"),
+      label: t("sales_desc"),
+      icon: Receipt,
       disabled: false,
-      onClick: () => navigate("/business/inventory/transfers"),
+      onClick: () => navigate("/business/inventory/sales"),
     },
     ...(hasProduction
       ? [

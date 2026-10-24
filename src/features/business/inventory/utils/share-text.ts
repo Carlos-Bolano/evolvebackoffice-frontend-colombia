@@ -1,7 +1,8 @@
 import type { TFunction } from "i18next"
 
 import type { PurchaseOrderDto, TransferDto } from "../types/purchasing"
-import { formatInPackaging, formatQuantity } from "./units"
+import type { WholesaleSaleDto } from "../types/sales"
+import { formatInPackaging, formatMoney, formatQuantity } from "./units"
 
 const dateFormat = new Intl.DateTimeFormat("es-CO", { dateStyle: "short" })
 
@@ -46,5 +47,23 @@ export function transferShareText(transfer: TransferDto, t: TFunction): string {
     "",
     ...lines,
     ...(transfer.notes ? ["", `${t("share_note")}: ${transfer.notes}`] : []),
+  ].join("\n")
+}
+
+/** Resumen de una venta para el cliente: productos, cantidades y total (sin costos ni ganancia). */
+export function saleShareText(sale: WholesaleSaleDto, t: TFunction): string {
+  const lines = sale.lines.map((l) => {
+    const packaging = l.packagingName && l.packagingFactor ? { name: l.packagingName, factor: l.packagingFactor } : null
+    return `• ${l.itemName}: ${quantityText(l.quantity, l.baseUnit, packaging)} · ${formatMoney(l.total)}`
+  })
+  return [
+    `${t("share_sale_heading")} ${sale.number}`,
+    `${t("share_from")}: ${sale.branchName}${sale.customerName ? `  →  ${t("share_to")}: ${sale.customerName}` : ""}`,
+    `${t("share_date")}: ${dateFormat.format(new Date(sale.createdAt))}`,
+    "",
+    ...lines,
+    "",
+    `${t("sale_total")}: ${formatMoney(sale.total)}`,
+    ...(sale.notes ? ["", `${t("share_note")}: ${sale.notes}`] : []),
   ].join("\n")
 }
