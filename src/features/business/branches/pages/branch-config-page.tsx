@@ -17,7 +17,9 @@ import {
   useBranchModules,
   useRemoveModuleFromBranch,
   useTenantModules,
+  useTenantPlatformModules,
 } from "@/features/business/branches/hooks/use-branch-modules"
+import { useBranchIntegrations } from "@/features/business/branches/hooks/use-branch-integrations"
 import { useBranchRegisters } from "@/features/business/branches/hooks/use-branch-terminals"
 
 import { IntegrationPanel } from "@/features/business/branches/components/integration-panel"
@@ -100,6 +102,18 @@ export function BranchConfigPage() {
   const { data: branchModules = [], isLoading: branchModulesLoading } = useBranchModules(branchId)
 
   const { data: registers = [], isLoading: registersLoading } = useBranchRegisters(branchId)
+
+  // Cluvi y WooCommerce son independientes: cada pestaña aparece si su módulo
+  // está habilitado (o si la sucursal ya tiene esa integración configurada).
+  const { hasCluvi, hasWooCommerce } = useTenantPlatformModules()
+  const { data: integrations = [] } = useBranchIntegrations(branchId)
+  const hasIntegration = (code: string) => integrations.some((i) => i.platformCode === code)
+  const showWooCommerceTab = hasWooCommerce || hasIntegration("WOOCOMMERCE")
+  const showCluviTab = hasCluvi || hasIntegration("CLUVI")
+  const currentTab =
+    (activeTab === "woocommerce" && !showWooCommerceTab) || (activeTab === "cluvi" && !showCluviTab)
+      ? "info"
+      : activeTab
 
   const assignMutation = useAssignModuleToBranch()
   const removeMutation = useRemoveModuleFromBranch()
@@ -192,13 +206,13 @@ export function BranchConfigPage() {
         </CardContent>
       </Card>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5">
+      <Tabs value={currentTab} onValueChange={setActiveTab} className="space-y-5">
         <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-2xl border border-border/70 bg-card/70 p-1">
           <TabsTrigger value="info">{t("tab_info")}</TabsTrigger>
           <TabsTrigger value="modules">{t("tab_modules")}</TabsTrigger>
           <TabsTrigger value="serials">{t("tab_serials")}</TabsTrigger>
-          <TabsTrigger value="woocommerce">{t("tab_woocommerce")}</TabsTrigger>
-          <TabsTrigger value="cluvi">{t("tab_cluvi")}</TabsTrigger>
+          {showWooCommerceTab && <TabsTrigger value="woocommerce">{t("tab_woocommerce")}</TabsTrigger>}
+          {showCluviTab && <TabsTrigger value="cluvi">{t("tab_cluvi")}</TabsTrigger>}
         </TabsList>
 
         {/* ───── TAB: INFO ───── */}
@@ -424,12 +438,12 @@ export function BranchConfigPage() {
 
         {/* ───── TAB: WOOCOMMERCE ───── */}
         <TabsContent value="woocommerce" className="mt-0 outline-none">
-          {branchId && <IntegrationPanel branchId={branchId} platform="WOOCOMMERCE" />}
+          {branchId && showWooCommerceTab && <IntegrationPanel branchId={branchId} platform="WOOCOMMERCE" />}
         </TabsContent>
 
         {/* ───── TAB: CLUVI ───── */}
         <TabsContent value="cluvi" className="mt-0 outline-none">
-          {branchId && <IntegrationPanel branchId={branchId} platform="CLUVI" />}
+          {branchId && showCluviTab && <IntegrationPanel branchId={branchId} platform="CLUVI" />}
         </TabsContent>
       </Tabs>
     </div>
