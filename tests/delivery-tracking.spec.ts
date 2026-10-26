@@ -252,7 +252,7 @@ test("Tracking: GPS consentido mueve mapas interno y publico sin cambiar zoom; p
     pp = await pc.newPage()
   try {
     await session(dp, courierToken, "Delivery")
-    await dp.goto("http://localhost:5173/delivery")
+    await dp.goto(`${process.env.E2E_BASE_URL ?? "http://localhost:5173"}/delivery`)
     await pp.goto(publicUrl)
     await expect(pp.getByText("Seguimiento en vivo conectado.", { exact: true })).toBeVisible()
     expect((await publicData()).position).toBeNull()
@@ -425,7 +425,9 @@ test("Tracking: muestra GPS vencido sin marcador ni ETA y finaliza al entregar",
   // Advance browser display time only; the server's real clock is asserted separately below.
   await page.clock.install()
   await page.clock.fastForward(65_000)
-  await expect(page.locator('[data-tracking-marker="courier"]')).toHaveCount(0)
+  // El intervalo de refresco (5 s) se creó antes de instalar el reloj falso y sigue en tiempo
+  // real: hay que esperar al menos un ciclo real para que relea Date.now() ya adelantado.
+  await expect(page.locator('[data-tracking-marker="courier"]')).toHaveCount(0, { timeout: 12_000 })
   await expect(page.getByText("Ubicación sin actualizar", { exact: true })).toBeVisible()
   await expect(page.getByText(/Ruta estimada: 5 min/)).toHaveCount(0)
   expect((await api.put(`/api/orders/${order.id}/status`, { data: { status: "Delivered" } })).ok()).toBeTruthy()

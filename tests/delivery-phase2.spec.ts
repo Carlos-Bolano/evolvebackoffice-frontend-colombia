@@ -451,17 +451,28 @@ test("Cluvi conserva cliente, teléfono, propina y notas; pickup no aparece en d
   expect(people.totalCount).toBeGreaterThanOrEqual(3)
 })
 
-test("UI inicia turno de un usuario DELIVERY sin enlaces anónimos", async ({ page }) => {
+test("El turno se abre al iniciar sesión y la UI corrige la base sin enlaces anónimos", async ({ page }) => {
+  // El login (ya con contraseña definitiva) abrió el turno automáticamente con base 0.
+  const opened = await json<{ shifts: (Entity & { courierId: string; openingCash: number })[] }>(
+    await api.get("/api/delivery-operations")
+  )
+  const auto = opened.shifts.find((s) => s.courierId === courier.id)
+  expect(auto?.openingCash).toBe(0)
   await session(page)
   await page.goto("/business/orders/operations")
   await page.getByLabel("Sucursal", { exact: true }).selectOption(branch.id)
-  await page.getByLabel("Selecciona un domiciliario", { exact: true }).selectOption(courier.id)
-  await page.getByLabel("Base entregada", { exact: true }).fill("50000")
-  await page.getByRole("button", { name: "Iniciar turno", exact: true }).click()
   await expect(page.getByText("ANA QA · En turno", { exact: true })).toBeVisible()
+  await page.getByLabel("Base entregada ANA QA", { exact: true }).fill("50000")
+  const corrected = page.waitForResponse((r) => r.url().includes("/opening-cash") && r.request().method() === "PUT")
+  await page.getByRole("button", { name: "Corregir base", exact: true }).click()
+  expect((await corrected).ok()).toBe(true)
   await expect(page.getByRole("button", { name: "Generar enlace móvil", exact: true })).toHaveCount(0)
-  const overview = await json<{ shifts: Entity[] }>(await api.get("/api/delivery-operations"))
-  shift = overview.shifts[0]
+  const overview = await json<{ shifts: (Entity & { courierId: string; openingCash: number })[] }>(
+    await api.get("/api/delivery-operations")
+  )
+  shift = overview.shifts.find((s) => s.courierId === courier.id)!
+  expect(shift.id).toBe(auto!.id)
+  expect(overview.shifts.find((s) => s.id === shift.id)?.openingCash).toBe(50000)
 })
 
 test("UI despacha con paga-con, muestra cambio y envía onWay de inmediato", async ({ page }) => {
@@ -561,7 +572,9 @@ test("No entregado permite retorno y reenvío; cancelación Cluvi avisa al despa
 test("UI vincula pos_id una sola vez y mapea dataphone al catálogo", async ({ page }) => {
   const id = (await webhook(`link-${suffix}`)).orderId
   await session(page)
-  await page.goto("/business/orders/operations")
+  // Vincular productos y mapear pagos vive en el asistente de Cluvi (paso Operación).
+  await page.goto(`/business/branches/${branch.id}/config?tab=cluvi`)
+  await page.getByRole("button", { name: "Paso 4: Operación", exact: true }).click()
   const row = page
     .locator("div.rounded-lg.border.p-3")
     .filter({ hasText: `unlinked-link-${suffix}` })
@@ -601,7 +614,8 @@ test("Cajero puede despachar, pero no administrar domiciliarios ni turnos", asyn
   await check(await cashier.put(`/api/orders/${id}/status`, { data: { status: "Delivered" } }))
   await session(page, jwt("CASHIER", tenant.id))
   await page.goto("/business/orders/deliveries")
-  await expect(page.getByRole("link", { name: "Turnos y Cluvi", exact: true })).toHaveCount(0)
+  await expect(page.getByRole("link", { name: "Turnos", exact: true })).toHaveCount(0)
+  await expect(page.getByRole("link", { name: "Configurar", exact: true })).toHaveCount(0)
   await page.goto("/business/orders/operations")
   await expect(page.getByRole("alert")).toContainText("Solo administradores y gerentes")
 })
@@ -680,18 +694,34 @@ test("UI muestra fallo de sincronización y permite pausar/reanudar Cluvi", asyn
   expect(after.total).toBe(before.total)
   expect(after.needsOutboundSync).toBe(false)
   expect((await json<{ totalCount: number }>(await api.get("/api/transactions"))).totalCount).toBe(txBefore.totalCount)
+  // Turnos solo avisa (tienda pausada) y enlaza al asistente de Cluvi, donde se reanuda.
   await page.goto("/business/orders/operations")
-  await page.getByRole("button", { name: "Reanudar tienda", exact: true }).click()
-  await expect(page.getByText("Centro QA · Tienda activa", { exact: true })).toBeVisible()
+  await expect(page.getByRole("alert").filter({ hasText: "Cluvi necesita atención" })).toBeVisible()
+  await page
+    .getByRole("link", { name: /^Cluvi · / })
+    .first()
+    .click()
+  await expect(page).toHaveURL(/\/config\?tab=cluvi/)
+  await page.getByRole("button", { name: "Paso 4: Operación", exact: true }).click()
+  // Al abrir la pestaña, "Probar conexión" automático puede refrescar el estado real de la tienda.
+  await expect(page.getByRole("button", { name: /^(Reanudar|Pausar) tienda$/ })).toBeVisible()
+  if (await page.getByRole("button", { name: "Reanudar tienda", exact: true }).isVisible()) {
+    await page.getByRole("button", { name: "Reanudar tienda", exact: true }).click()
+    await expect(page.getByText("Tienda activa", { exact: true })).toBeVisible()
+  }
   await page.getByRole("button", { name: "Pausar tienda", exact: true }).click()
-  await expect(page.getByText("Centro QA · Tienda pausada", { exact: true })).toBeVisible()
+  await expect(page.getByText("Tienda pausada", { exact: true })).toBeVisible()
+  await page.getByRole("button", { name: "Reanudar tienda", exact: true }).click()
+  await expect(page.getByText("Tienda activa", { exact: true })).toBeVisible()
 })
 
 test("UI liquida turno y DELIVERY ya no puede operar", async ({ page }) => {
   await session(page)
   await page.goto("/business/orders/operations")
-  await page.getByLabel("Efectivo devuelto ANA QA", { exact: true }).fill("77000")
-  await page.getByRole("button", { name: "Liquidar turno", exact: true }).click()
+  // Luis también tiene turno (se abrió solo al despacharle un pedido): se liquida solo el de Ana.
+  const anaShift = page.locator("div.rounded-lg.border.p-3").filter({ hasText: "ANA QA · En turno" })
+  await anaShift.getByLabel("Efectivo devuelto ANA QA", { exact: true }).fill("77000")
+  await anaShift.getByRole("button", { name: "Liquidar turno", exact: true }).click()
   await expect(page.getByText("ANA QA · Liquidado", { exact: true })).toBeVisible()
   expect(
     (
@@ -706,23 +736,30 @@ test("UI liquida turno y DELIVERY ya no puede operar", async ({ page }) => {
 })
 
 test("E: UI configura zona circular y API protege administración y cobertura", async ({ page }) => {
+  // Las zonas se centran en la ubicación de la sucursal (Órdenes → Configurar).
+  await check(await api.put(`/api/branches/${branch.id}/location`, { data: { latitude: 4.61, longitude: -74.08 } }))
   await session(page)
   await page.goto("/business/orders/routes")
   await page.getByLabel("Sucursal", { exact: true }).selectOption(branch.id)
-  await expect(page.getByRole("region", { name: "Mapa de domicilios pendientes" })).toHaveCount(2)
-  await page.getByLabel("Nombre de zona", { exact: true }).fill("Centro E")
-  await page.getByLabel("Latitud", { exact: true }).fill("4.61")
-  await page.getByLabel("Longitud", { exact: true }).fill("-74.08")
-  await page.getByLabel("Radio (metros)", { exact: true }).fill("2500")
-  await page.getByLabel("Tarifa de envío", { exact: true }).fill("3800")
-  await page.getByLabel("Prioridad", { exact: true }).fill("1")
+  await page.getByRole("link", { name: "Configurar", exact: true }).last().click()
+  await page.getByLabel("Sucursal", { exact: true }).selectOption(branch.id)
+  const zones = page.locator("#zones")
+  await zones.getByLabel("Nombre de zona", { exact: true }).fill("Centro E")
+  await zones.getByRole("slider").fill("2.5")
+  await expect(zones.getByText("Radio: 2.5 km", { exact: true })).toBeVisible()
+  await zones.getByLabel("Tarifa de envío", { exact: true }).fill("3800")
+  await zones.getByText("Opciones avanzadas", { exact: true }).click()
+  await zones.getByLabel("Prioridad", { exact: true }).fill("1")
   const saved = page.waitForResponse(
     (r) => r.url().includes("/delivery-enhancements/zones") && r.request().method() === "POST"
   )
-  await page.getByRole("button", { name: "Agregar zona", exact: true }).click()
+  await zones.getByRole("button", { name: "Agregar zona", exact: true }).click()
   eZone = await (await saved).json()
   expect(eZone.shippingCost).toBe(3800)
-  await expect(page.getByRole("button", { name: "Desactivar zona", exact: true })).toBeVisible()
+  expect(eZone.radiusMeters).toBe(2500)
+  expect(eZone.priority).toBe(1)
+  expect(eZone.latitude).toBeCloseTo(4.61, 6)
+  await expect(zones.getByRole("button", { name: "Desactivar zona", exact: true })).toBeVisible()
   expect(
     (await cashier.post("/api/delivery-enhancements/zones", { data: { ...eZone, name: "No permitido" } })).status()
   ).toBe(403)
@@ -992,15 +1029,20 @@ test("Lote: UI selecciona dos pedidos, los mueve con botón y arrastra el grupo"
     await expect(select(order)).not.toBeChecked()
     await select(order).check()
   }
-  const card = page.locator(`[data-rfd-draggable-id="${first.id}"]`)
-  await page.getByText("Listo", { exact: true }).scrollIntoViewIfNeeded()
-  await card.focus()
-  await card.press("Space")
+  // Usuario de teclado: desde la casilla del pedido, Tab llega al asa "Arrastrar pedido"
+  // (al enfocarla con teclado el tablero se centra en la tarjeta).
+  const handle = page
+    .locator(`[data-rfd-draggable-id="${first.id}"]`)
+    .getByRole("button", { name: /^Arrastrar pedido/ })
+  await select(first).focus()
+  await page.keyboard.press("Tab")
+  await expect(handle).toBeFocused()
+  await handle.press("Space")
   const announcement = page.locator('[id^="rfd-announcement-"]')
   await expect(announcement).toContainText("You have lifted")
-  await card.press("ArrowRight")
+  await handle.press("ArrowRight")
   await expect(announcement).toContainText("Ready")
-  await card.press("Space")
+  await handle.press("Space")
   await expect(page.getByRole("dialog")).toBeVisible()
   await expect(page.getByRole("combobox", { name: "Estado destino" })).toHaveValue("Ready")
   await page.getByRole("button", { name: "Aplicar cambio", exact: true }).click()
