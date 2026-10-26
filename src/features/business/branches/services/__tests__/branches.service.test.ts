@@ -69,6 +69,8 @@ describe("branches.service", () => {
           adminUserId: "22222222-2222-2222-2222-222222222222",
           adminUserName: "Ana Admin",
           createdAt: "2026-09-15T12:00:00Z",
+          latitude: null,
+          longitude: null,
         },
       ],
       pageNumber: 2,

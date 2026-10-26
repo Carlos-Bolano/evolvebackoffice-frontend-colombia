@@ -13,12 +13,24 @@ export interface PreviewZoneCircle {
   name?: string
 }
 
+export interface MapPoint {
+  latitude: number
+  longitude: number
+}
+
 interface Props {
   orders?: DeliveryOrder[]
   zones?: DeliveryZone[]
   previewZone?: PreviewZoneCircle | null
+  /** Ubicación de la sucursal: centra el mapa y se dibuja como tienda. */
+  store?: MapPoint | null
+  /** Punto auxiliar (p. ej. dirección de prueba del simulador). */
+  probe?: MapPoint | null
   onPick?: (lat: number, lon: number) => void
   onToggleOrderStop?: (orderId: string) => void
+  /** Texto de ayuda bajo el mapa cuando se puede pulsar (por defecto e_map_pick). */
+  pickHint?: string
+  className?: string
 }
 const emptyOrders: DeliveryOrder[] = []
 const emptyZones: DeliveryZone[] = []
@@ -26,14 +38,25 @@ export function DeliveryMap({
   orders = emptyOrders,
   zones = emptyZones,
   previewZone = null,
+  store = null,
+  probe = null,
   onPick,
   onToggleOrderStop,
+  pickHint,
+  className,
 }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const { t } = useTranslation("business-orders")
   useEffect(() => {
     if (!container.current) return
-    const map = L.map(container.current, { scrollWheelZoom: false }).setView([4.61, -74.08], 12)
+    const validPoint = (p: MapPoint | null): p is MapPoint =>
+      !!p &&
+      Number.isFinite(p.latitude) &&
+      Number.isFinite(p.longitude) &&
+      Math.abs(p.latitude) <= 90 &&
+      Math.abs(p.longitude) <= 180
+    const initialCenter: [number, number] = validPoint(store) ? [store.latitude, store.longitude] : [4.61, -74.08]
+    const map = L.map(container.current, { scrollWheelZoom: false }).setView(initialCenter, validPoint(store) ? 14 : 12)
     L.tileLayer(import.meta.env.VITE_MAP_TILE_URL || "https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
       referrerPolicy: "strict-origin-when-cross-origin",
@@ -42,6 +65,23 @@ export function DeliveryMap({
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(map)
     const bounds = L.latLngBounds([])
+    if (validPoint(store)) {
+      const label = document.createElement("span")
+      label.textContent = t("e_store_marker")
+      L.circleMarker([store.latitude, store.longitude], { radius: 8, color: "#16a34a", weight: 3, fillOpacity: 1 })
+        .bindTooltip(label, { direction: "top" })
+        .addTo(map)
+      bounds.extend([store.latitude, store.longitude])
+    }
+    if (validPoint(probe)) {
+      L.circleMarker([probe.latitude, probe.longitude], {
+        radius: 7,
+        color: "#dc2626",
+        weight: 2,
+        fillOpacity: 0.9,
+      }).addTo(map)
+      bounds.extend([probe.latitude, probe.longitude])
+    }
     for (const zone of zones.filter((z) => z.isActive)) {
       const circle = L.circle([zone.latitude, zone.longitude], {
         radius: zone.radiusMeters,
@@ -130,7 +170,7 @@ export function DeliveryMap({
       resize.disconnect()
       map.remove()
     }
-  }, [orders, zones, previewZone, onPick, onToggleOrderStop])
+  }, [orders, zones, previewZone, store, probe, onPick, onToggleOrderStop, t])
   const missing = orders.filter((o) => o.shippingLatitude == null || o.shippingLongitude == null).length
   return (
     <section className="space-y-2">
@@ -138,10 +178,10 @@ export function DeliveryMap({
         ref={container}
         role="region"
         aria-label={t("e_map")}
-        className="relative z-0 h-80 w-full rounded-lg border"
+        className={className ?? "relative z-0 h-80 w-full rounded-lg border"}
       />
       {missing > 0 && <p className="text-sm text-amber-700">{t("e_no_coordinates", { count: missing })}</p>}
-      {onPick && <p className="text-xs text-muted-foreground">{t("e_map_pick")}</p>}
+      {onPick && <p className="text-xs text-muted-foreground">{pickHint ?? t("e_map_pick")}</p>}
     </section>
   )
 }

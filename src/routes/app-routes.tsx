@@ -28,6 +28,7 @@ import { OrderClosingPage } from "@/features/business/orders/pages/order-closing
 import { DeliveriesPage } from "@/features/business/orders/pages/deliveries-page"
 import { CourierMobilePage } from "@/features/business/orders/pages/courier-mobile-page"
 import { DeliveryOperationsPage } from "@/features/business/orders/pages/delivery-operations-page"
+import { DeliverySetupPage } from "@/features/business/orders/pages/delivery-setup-page"
 import { DeliveryRoutesPage } from "@/features/business/orders/pages/delivery-routes-page"
 import { DeliveryTrackingPage } from "@/features/business/orders/pages/delivery-tracking-page"
 import { PublicDeliveryTrackingPage } from "@/features/business/orders/pages/public-delivery-tracking-page"
@@ -111,6 +112,7 @@ function AppRoutesContent() {
             <Route path="/business/orders/deliveries" element={<DeliveriesPage />} />
             <Route path="/business/orders/couriers" element={<Navigate to="/business/people/users" replace />} />
             <Route path="/business/orders/operations" element={<DeliveryOperationsPage />} />
+            <Route path="/business/orders/setup" element={<DeliverySetupPage />} />
             <Route path="/business/orders/routes" element={<DeliveryRoutesPage />} />
             <Route path="/business/orders/tracking" element={<DeliveryTrackingPage />} />
             <Route path="/business/items" element={<ItemsPage />} />

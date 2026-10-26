@@ -15,6 +15,9 @@ export interface BranchResponseDto {
   adminUserPublicId: string
   adminUserName: string | null
   createdAt: string
+  /** Ubicación en el mapa (centro de zonas de domicilio); null si no se ha ubicado. */
+  latitude?: number | null
+  longitude?: number | null
 }
 
 export interface CreateBranchDto {

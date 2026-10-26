@@ -42,6 +42,8 @@ import { useDeliveryUpdates } from "../hooks/use-delivery-updates"
 import { DeliveryOrderCard } from "../components/delivery-order-card"
 import { OrderConnectionStatus } from "../components/order-connection-status"
 import { OrdersSubnav } from "../components/orders-subnav"
+import { DeliverySetupChecklist } from "../components/delivery-setup-checklist"
+import { useDeliverySetup } from "../hooks/use-delivery-setup"
 import type { DeliveryCourierGroup, DeliveryOrder } from "../types/delivery"
 import { getApiErrorMessage } from "../utils/order-helpers"
 
@@ -78,6 +80,7 @@ export function DeliveriesPage() {
   const branchId = showAllBranches ? null : branches.some((b) => b.id === selectedBranchId) ? selectedBranchId : null
   const connection = useDeliveryUpdates(branchId)
   const canManage = useCanManageDeliveries()
+  const setup = useDeliverySetup(canManage ? branchId : null)
   const deliveryAction = useDeliveryAction()
 
   const handleBranchChange = (id: string | null) => {
@@ -204,6 +207,9 @@ export function DeliveriesPage() {
     <Card className="overflow-hidden shadow-none">
       <CardContent className="space-y-2 p-3 sm:space-y-4 sm:p-6 lg:p-8">
         <OrdersSubnav />
+        {canManage && branchId && !setup.isLoading && (
+          <DeliverySetupChecklist steps={setup.steps} completed={setup.completed} compact />
+        )}
         <OrderConnectionStatus connection={connection} />
         <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex flex-col gap-2">

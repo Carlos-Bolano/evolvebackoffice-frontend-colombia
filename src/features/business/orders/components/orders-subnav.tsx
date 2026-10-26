@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom"
-import { Bike, KanbanSquare, Lock, MapPinned, Timer } from "lucide-react"
+import { Bike, KanbanSquare, Lock, MapPinned, Settings2, Timer } from "lucide-react"
 
 import { useTranslation } from "@/i18n/use-i18n"
 import { useCanManageDeliveries } from "../hooks/use-delivery-operations"
@@ -20,6 +20,7 @@ export function OrdersSubnav({ onSelectOrder }: OrdersSubnavProps) {
     { to: "/business/orders/tracking", label: t("tracking_title"), icon: MapPinned, end: false, show: canManage },
     { to: "/business/orders/operations", label: t("subnav_operations"), icon: Timer, end: false, show: canManage },
     { to: "/business/orders/closing", label: t("subnav_closing"), icon: Lock, end: false, show: true },
+    { to: "/business/orders/setup", label: t("subnav_setup"), icon: Settings2, end: false, show: canManage },
   ].filter((item) => item.show)
 
   return (

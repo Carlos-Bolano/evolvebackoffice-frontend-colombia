@@ -43,6 +43,7 @@ import { formatDateTime } from "@/utils/format"
 import { useTranslation } from "@/i18n/use-i18n"
 import Spinner from "@/components/Spinner"
 import { cluviWebhookUrl, withCluviStoreId } from "@/features/business/orders/utils/cluvi-settings"
+import { CluviOperationsPanel } from "@/features/business/orders/components/cluvi-operations-panel"
 
 import {
   useActivateBranchIntegrationStore,
@@ -161,7 +162,7 @@ export function IntegrationPanel({ branchId, platform }: Props) {
   const pingUrl = registeredUrls?.ping ?? defaultPingUrl
 
   const steps = isCluvi
-    ? [t("config_step_credentials"), t("config_step_verify"), t("config_step_menu")]
+    ? [t("config_step_credentials"), t("config_step_verify"), t("config_step_menu"), t("config_step_operation")]
     : [t("config_step_credentials"), t("config_step_verify")]
 
   const handleTestConnection = () => {
@@ -377,17 +378,27 @@ export function IntegrationPanel({ branchId, platform }: Props) {
       )}
 
       {/* Step indicator */}
-      <div className="flex items-center justify-center gap-2">
+      <div className="flex flex-wrap items-center justify-center gap-2">
         {steps.map((label, i) => (
           <div key={label} className="flex items-center gap-2">
-            <div
-              className={`flex size-8 items-center justify-center rounded-full text-xs font-bold ${
+            {/* Con la integración creada se puede saltar a cualquier paso. */}
+            <button
+              type="button"
+              title={label}
+              aria-label={t("config_step_goto", { n: i + 1, label })}
+              aria-current={i === step ? "step" : undefined}
+              disabled={!existingIntegration && i > 0}
+              onClick={() => setStepOverride(i)}
+              className={`flex size-8 items-center justify-center rounded-full text-xs font-bold disabled:cursor-not-allowed ${
                 i <= step ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
               }`}
             >
               {i < step ? <CheckCircle className="size-4" /> : i + 1}
-            </div>
-            {i < steps.length - 1 && <div className={`h-0.5 w-12 ${i < step ? "bg-primary" : "bg-muted"}`} />}
+            </button>
+            <span className={`hidden text-xs sm:inline ${i === step ? "font-semibold" : "text-muted-foreground"}`}>
+              {label}
+            </span>
+            {i < steps.length - 1 && <div className={`h-0.5 w-8 ${i < step ? "bg-primary" : "bg-muted"}`} />}
           </div>
         ))}
       </div>
@@ -720,10 +731,28 @@ export function IntegrationPanel({ branchId, platform }: Props) {
               </Button>
             </CardContent>
           </Card>
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setStepOverride(1)}>
               <ArrowLeft className="mr-2 size-4" />
               {t("config_step_verify")}
+            </Button>
+            <Button onClick={() => setStepOverride(3)} disabled={!existingIntegration}>
+              {t("config_step_operation")}
+              <ArrowRight className="ml-2 size-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Step 3: Operación diaria (Cluvi only): recepción, tienda, productos y pagos */}
+      {step === 3 && isCluvi && (
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">{t("config_step_operation_desc")}</p>
+          <CluviOperationsPanel branchId={branchId} integrationId={existingIntegration?.id} />
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={() => setStepOverride(2)}>
+              <ArrowLeft className="mr-2 size-4" />
+              {t("config_step_menu")}
             </Button>
           </div>
         </div>

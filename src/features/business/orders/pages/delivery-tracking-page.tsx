@@ -3,7 +3,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useAuth } from "@/features/auth/hooks/use-auth"
 import { useBranches } from "@/features/business/branches/hooks/use-branches"
 import { useTranslation } from "@/i18n/use-i18n"
+import { Copy, MessageCircle, Smartphone } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { notify } from "@/hooks/use-notify"
+import { useDeliveryOperations } from "../hooks/use-delivery-operations"
 import { OrdersSubnav } from "../components/orders-subnav"
 import { LiveTrackingMap } from "../components/live-tracking-map"
 import { getBranchTracking, getCourierTracking } from "../services/delivery-tracking.service"
@@ -58,6 +61,25 @@ export function DeliveryTrackingPage() {
         ]
       : []
   )
+  // Domiciliarios activos sin turno: el turno se abre solo cuando inician sesión.
+  const { data: operations } = useDeliveryOperations(branchId || null)
+  const withoutShift = (operations?.couriers ?? []).filter((c) => !c.onDuty)
+  // En turno (p. ej. abierto al asignarle un pedido) pero sin poder rastrearse:
+  // aún no entra a la app o no ha cambiado su contraseña temporal.
+  const trackedShifts = new Set(couriers.map((c) => c.shiftId))
+  const notInApp = (operations?.shifts ?? []).filter(
+    (s) => !s.settledAt && s.branchId === branchId && !trackedShifts.has(s.id)
+  )
+  const courierUrl = `${window.location.origin}/delivery`
+  const shareText = t("tracking_access_share", { url: courierUrl })
+  const copyAccessLink = async () => {
+    try {
+      await navigator.clipboard.writeText(courierUrl)
+      notify.success(t("tracking_access_copied"))
+    } catch {
+      notify.error(t("status_update_failed"))
+    }
+  }
   const selected = detail.isError ? null : detail.data
   const route =
     selected?.courier.locationStatus === "live" &&
@@ -109,7 +131,12 @@ export function DeliveryTrackingPage() {
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {couriers.map((c) => {
           const point = markers.find((m) => m.id === c.shiftId)
-          const state = point?.stale ? "stale" : c.locationStatus
+          // "paused" sin ninguna posición = nunca empezó a compartir (no es una pausa).
+          const state = point?.stale
+            ? "stale"
+            : c.locationStatus === "paused" && !c.position
+              ? "not_started"
+              : c.locationStatus
           return (
             <button
               key={c.shiftId}
@@ -128,11 +155,50 @@ export function DeliveryTrackingPage() {
                   {t("tracking_accuracy", { meters: Math.round(c.position.accuracyMeters) })}
                 </span>
               )}
+              {state !== "live" && state !== "finished" && (
+                <span className="block text-xs font-medium text-amber-700">{t(`tracking_hint_${state}`)}</span>
+              )}
             </button>
           )
         })}
       </div>
-      {!board.isLoading && !board.isError && !couriers.length && <p>{t("tracking_no_couriers")}</p>}
+      {!board.isLoading && !board.isError && !couriers.length && !notInApp.length && <p>{t("tracking_no_couriers")}</p>}
+      {notInApp.length > 0 && (
+        <div className="space-y-2 rounded-xl border border-amber-300/60 bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+          <p className="font-medium">{t("tracking_not_in_app_title")}</p>
+          <p>
+            {notInApp.map((s) => s.courierName).join(" · ")} — {t("tracking_not_in_app_hint")}
+          </p>
+        </div>
+      )}
+      {withoutShift.length > 0 && (
+        <div className="space-y-2 rounded-xl border border-dashed p-3 text-sm">
+          <p className="font-medium">{t("tracking_without_shift_title")}</p>
+          <p className="text-muted-foreground">
+            {withoutShift.map((c) => c.name).join(" · ")} — {t("tracking_without_shift_hint")}
+          </p>
+        </div>
+      )}
+      <div className="space-y-2 rounded-xl border bg-card/60 p-3 text-sm">
+        <p className="flex items-center gap-1.5 font-medium">
+          <Smartphone className="size-4 text-primary" />
+          {t("tracking_access_title")}
+        </p>
+        <p className="text-muted-foreground">{t("tracking_access_desc")}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <code className="rounded-lg bg-muted px-2 py-1 text-xs">{courierUrl}</code>
+          <Button size="sm" variant="outline" onClick={() => void copyAccessLink()}>
+            <Copy className="mr-1.5 size-3.5" />
+            {t("tracking_access_copy")}
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <a href={`https://wa.me/?text=${encodeURIComponent(shareText)}`} target="_blank" rel="noreferrer">
+              <MessageCircle className="mr-1.5 size-3.5" />
+              {t("tracking_access_whatsapp")}
+            </a>
+          </Button>
+        </div>
+      </div>
       {detail.isError && <p role="alert">{t("tracking_internal_error")}</p>}
       {selected && (
         <p className="text-sm">

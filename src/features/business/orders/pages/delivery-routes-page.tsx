@@ -3,40 +3,19 @@ import { useOrderPresentation } from "../hooks/use-order-presentation"
 import { useCallback, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Calculator, Trash2 } from "lucide-react"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { notify } from "@/hooks/use-notify"
 import { useBranches } from "@/features/business/branches/hooks/use-branches"
 import { useTranslation } from "@/i18n/use-i18n"
 import { useLocaleFormat } from "@/hooks/use-locale-format"
 import { useDeliveryBoard } from "../hooks/use-couriers"
 import { useCanManageDeliveries, useDeliveryOperations } from "../hooks/use-delivery-operations"
 import { useDeliveryUpdates } from "../hooks/use-delivery-updates"
-import {
-  createDeliveryRun,
-  deleteDeliveryZone,
-  getDeliveryRuns,
-  getDeliveryZones,
-  quoteDelivery,
-  saveDeliveryZone,
-} from "../services/delivery-enhancements.service"
+import { createDeliveryRun, getDeliveryRuns } from "../services/delivery-enhancements.service"
 import { DeliveryMap } from "../components/delivery-map"
 import { DeliveryOrderCard } from "../components/delivery-order-card"
 import { OrdersSubnav } from "../components/orders-subnav"
 import { getApiErrorMessage } from "../utils/order-helpers"
-import type { DeliveryQuote, DeliveryZone } from "../types/enhancements"
 
 export function DeliveryRoutesPage() {
   const { t } = useTranslation("business-orders")
@@ -270,277 +249,15 @@ export function DeliveryRoutesPage() {
             </Card>
           </div>
           {canManage && (
-            <details className="rounded-xl border p-3" open>
-              <summary className="min-h-11 cursor-pointer font-semibold">{t("zone_configuration")}</summary>
-              <DeliveryZones key={branchId} branchId={branchId} />
-            </details>
+            <p className="text-sm text-muted-foreground">
+              {t("routes_zones_moved")}{" "}
+              <Link className="font-medium text-primary underline" to="/business/orders/setup#zones">
+                {t("subnav_setup")}
+              </Link>
+            </p>
           )}
         </>
       )}
     </main>
-  )
-}
-
-function DeliveryZones({ branchId }: { branchId: string }) {
-  const { t } = useTranslation("business-orders")
-  const { formatCurrency } = useLocaleFormat()
-  const qc = useQueryClient()
-  const { data: zones = [], error } = useQuery({
-    queryKey: ["delivery-zones", branchId],
-    queryFn: () => getDeliveryZones(branchId),
-  })
-  const blank = {
-    name: "",
-    latitude: "4.61",
-    longitude: "-74.08",
-    radiusMeters: "2000",
-    shippingCost: "",
-    priority: "0",
-  }
-  const [form, setForm] = useState(blank)
-  const [editing, setEditing] = useState<DeliveryZone | null>(null)
-  const [deleting, setDeleting] = useState<DeliveryZone | null>(null)
-  const [quoteLat, setQuoteLat] = useState("4.61")
-  const [quoteLon, setQuoteLon] = useState("-74.08")
-  const [quoteResult, setQuoteResult] = useState<DeliveryQuote | null>(null)
-  const [quoteError, setQuoteError] = useState<string | null>(null)
-
-  const pick = useCallback((lat: number, lon: number) => {
-    setForm((f) => ({ ...f, latitude: String(lat), longitude: String(lon) }))
-    setQuoteLat(String(lat))
-    setQuoteLon(String(lon))
-  }, [])
-
-  const previewZone = useMemo(
-    () => ({
-      latitude: Number(form.latitude),
-      longitude: Number(form.longitude),
-      radiusMeters: Number(form.radiusMeters),
-      name: form.name || undefined,
-    }),
-    [form.latitude, form.longitude, form.radiusMeters, form.name]
-  )
-
-  const save = useMutation({
-    mutationFn: (zone: { data: Omit<DeliveryZone, "id">; id?: string }) => saveDeliveryZone(zone.data, zone.id),
-    onSuccess: async () => {
-      setEditing(null)
-      setForm(blank)
-      setQuoteResult(null)
-      setQuoteError(null)
-      await qc.invalidateQueries({ queryKey: ["delivery-zones"] })
-    },
-  })
-
-  const removeZone = useMutation({
-    mutationFn: (id: string) => deleteDeliveryZone(id),
-    onSuccess: async () => {
-      setDeleting(null)
-      setQuoteResult(null)
-      setQuoteError(null)
-      notify.success(t("zone_deleted_ok"))
-      await qc.invalidateQueries({ queryKey: ["delivery-zones"] })
-    },
-    onError: (err) => notify.error(getApiErrorMessage(err, t("status_update_failed"))),
-  })
-
-  const simulateQuote = useMutation({
-    mutationFn: () => quoteDelivery(branchId, Number(quoteLat), Number(quoteLon)),
-    onSuccess: (res) => {
-      setQuoteResult(res)
-      setQuoteError(null)
-    },
-    onError: (err) => {
-      setQuoteResult(null)
-      setQuoteError(getApiErrorMessage(err, t("quote_no_coverage")))
-    },
-  })
-
-  const fields = ["name", "latitude", "longitude", "radiusMeters", "shippingCost", "priority"] as const
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("zone_configuration")}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-sm text-muted-foreground">{t("e_zone_help")}</p>
-        <DeliveryMap zones={zones} previewZone={previewZone} onPick={pick} />
-        <form
-          className="grid gap-3 sm:grid-cols-3"
-          onSubmit={(e) => {
-            e.preventDefault()
-            save.mutate({
-              id: editing?.id,
-              data: {
-                branchId,
-                name: form.name,
-                latitude: Number(form.latitude),
-                longitude: Number(form.longitude),
-                radiusMeters: Number(form.radiusMeters),
-                shippingCost: Number(form.shippingCost),
-                priority: Number(form.priority),
-                isActive: editing?.isActive ?? true,
-              },
-            })
-          }}
-        >
-          {fields.map((field) => (
-            <label key={field} className="space-y-1">
-              {t(`e_zone_${field}`)}
-              <Input
-                required
-                aria-label={t(`e_zone_${field}`)}
-                type={field === "name" ? "text" : "number"}
-                step={field === "priority" ? "1" : "any"}
-                value={form[field]}
-                onChange={(e) => setForm((f) => ({ ...f, [field]: e.target.value }))}
-                maxLength={field === "name" ? 100 : undefined}
-              />
-            </label>
-          ))}
-          <Button type="submit" disabled={save.isPending}>
-            {t(editing ? "save" : "e_add_zone")}
-          </Button>
-          {editing && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setEditing(null)
-                setForm(blank)
-              }}
-            >
-              {t("cancel")}
-            </Button>
-          )}
-        </form>
-        {(save.error || error) && (
-          <p role="alert">{getApiErrorMessage(save.error ?? error, t("status_update_failed"))}</p>
-        )}
-
-        {/* Simulador de cotización */}
-        <div className="space-y-2 rounded-xl border border-border/70 bg-muted/20 p-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="flex items-center gap-1.5 text-sm font-semibold">
-                <Calculator className="size-4 text-primary" />
-                {t("quote_simulator_title")}
-              </p>
-              <p className="text-xs text-muted-foreground">{t("quote_simulator_desc")}</p>
-            </div>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="h-7 text-xs"
-              onClick={() => {
-                setQuoteLat(form.latitude)
-                setQuoteLon(form.longitude)
-              }}
-            >
-              {t("quote_use_form_coords")}
-            </Button>
-          </div>
-          <div className="flex flex-wrap items-end gap-2">
-            <Input
-              type="number"
-              step="any"
-              value={quoteLat}
-              onChange={(e) => setQuoteLat(e.target.value)}
-              placeholder={t("e_zone_latitude")}
-              className="w-36"
-            />
-            <Input
-              type="number"
-              step="any"
-              value={quoteLon}
-              onChange={(e) => setQuoteLon(e.target.value)}
-              placeholder={t("e_zone_longitude")}
-              className="w-36"
-            />
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={simulateQuote.isPending}
-              onClick={() => simulateQuote.mutate()}
-            >
-              {t("quote_simulate_btn")}
-            </Button>
-            {quoteResult && (
-              <span className="text-xs font-semibold text-emerald-600">
-                {t("e_quoted_zone", { zone: quoteResult.zoneName, amount: formatCurrency(quoteResult.shippingCost) })}
-              </span>
-            )}
-            {quoteError && <span className="text-xs font-medium text-amber-600">{quoteError}</span>}
-          </div>
-        </div>
-
-        {zones.map((z) => (
-          <div key={z.id} className="flex flex-wrap items-center gap-3 rounded border p-3">
-            <span className="flex-1">
-              {z.name} · {formatCurrency(z.shippingCost)} · {z.radiusMeters}m · {t(z.isActive ? "active" : "inactive")}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={save.isPending}
-              onClick={() => {
-                setEditing(z)
-                setForm({
-                  name: z.name,
-                  latitude: String(z.latitude),
-                  longitude: String(z.longitude),
-                  radiusMeters: String(z.radiusMeters),
-                  shippingCost: String(z.shippingCost),
-                  priority: String(z.priority),
-                })
-              }}
-            >
-              {t("e_edit_zone")}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={save.isPending}
-              onClick={() => save.mutate({ id: z.id, data: { ...z, isActive: !z.isActive } })}
-            >
-              {t(z.isActive ? "e_disable_zone" : "e_enable_zone")}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-destructive hover:text-destructive"
-              disabled={removeZone.isPending}
-              onClick={() => setDeleting(z)}
-            >
-              <Trash2 className="mr-1 size-3.5" />
-              {t("zone_delete")}
-            </Button>
-          </div>
-        ))}
-
-        <AlertDialog open={deleting !== null} onOpenChange={(open) => !open && setDeleting(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>{t("zone_delete_confirm_title")}</AlertDialogTitle>
-              <AlertDialogDescription>
-                {deleting ? t("zone_delete_confirm_desc", { name: deleting.name }) : ""}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
-              <AlertDialogAction
-                variant="destructive"
-                disabled={removeZone.isPending}
-                onClick={() => deleting && removeZone.mutate(deleting.id)}
-              >
-                {t("zone_delete")}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </CardContent>
-    </Card>
   )
 }
