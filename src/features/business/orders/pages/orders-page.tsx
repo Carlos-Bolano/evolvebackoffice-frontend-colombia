@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,9 +21,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import {
   AlertTriangle,
+  ArrowRight,
   Bike,
-  KanbanSquare,
-  List,
   Lock,
   Plus,
   RefreshCw,
@@ -37,7 +37,7 @@ import { useBranches } from "@/features/business/branches/hooks/use-branches"
 import {
   branchModulesKeys,
   useBranchModules,
-  useTenantModules,
+  useTenantPlatformModules,
 } from "@/features/business/branches/hooks/use-branch-modules"
 import { getBranchModules } from "@/features/business/branches/services/branch-modules.service"
 import { BranchSelector } from "@/features/business/items/catalog/components/branch-selector"
@@ -46,19 +46,20 @@ import { useAssignCourier, useCouriers } from "../hooks/use-couriers"
 import { useOrderNotificationsStore } from "../hooks/use-new-order-notifications"
 import { useCancelOrder, useOrders, useUpdateOrderStatus } from "../hooks/use-orders"
 import { useOrderUpdates } from "../hooks/use-order-updates"
-import { OrdersKanban, OrdersTableView } from "../components/orders-kanban"
+import { OrdersKanban } from "../components/orders-kanban"
 import { OrderConnectionStatus } from "../components/order-connection-status"
 import { OrdersSubnav } from "../components/orders-subnav"
 import { BulkOrderStatusDialog } from "../components/bulk-order-status-dialog"
-import { MAX_BULK_ORDERS } from "../utils/bulk-status"
+import { MAX_BULK_ORDERS, isDeliveryOrder } from "../utils/bulk-status"
+import { NEXT_ORDER_STEP } from "../utils/order-status"
 import { OrderDetailDialog } from "../components/order-detail-dialog"
-import { OrderSavedViews } from "../components/order-saved-views"
+import { OrderQuickFilters } from "../components/order-quick-filters"
 import { useOrderViewPreferences, type OrderViewPreferences } from "../hooks/use-order-view-preferences"
 import { useOrderWorkspaceKey, useWorkspaceState } from "../hooks/use-order-workspace"
 import { ManualOrderDialog } from "../components/manual-order-dialog"
 import { EditOrderDialog } from "../components/edit-order-dialog"
 import { CourierPickerDialog } from "../components/courier-picker-dialog"
-import { KANBAN_COLUMNS, ORDER_STATUS_CONFIG } from "../types"
+import { HISTORY_KANBAN_COLUMNS, KANBAN_COLUMNS, ORDER_STATUS_CONFIG } from "../types"
 import { checkOrderStock } from "../services/orders.service"
 import type { OrderCancellationType, OrderFilters, OrderListItem, OrderStatus, OrderStockItem } from "../types/api"
 
@@ -94,12 +95,12 @@ export function OrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<OrderListItem | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [createOrderOpen, setCreateOrderOpen] = useState(false)
+  const [createOrderBranchId, setCreateOrderBranchId] = useState<string | null>(null)
   const [editOrderOpen, setEditOrderOpen] = useState(false)
   const [view, setView] = useOrderViewPreferences()
   const {
     platformFilter,
     orderScope,
-    viewMode,
     datePreset,
     fulfillmentFilter,
     courierFilter,
@@ -111,7 +112,6 @@ export function OrdersPage() {
     setView((old) => ({ ...old, [key]: value }))
   const setPlatformFilter = (v: OrderViewPreferences["platformFilter"]) => updateView("platformFilter", v)
   const setOrderScope = (v: OrderViewPreferences["orderScope"]) => updateView("orderScope", v)
-  const setViewMode = (v: OrderViewPreferences["viewMode"]) => updateView("viewMode", v)
   const setDatePreset = (v: OrderViewPreferences["datePreset"]) => updateView("datePreset", v)
   const setFulfillmentFilter = (v: string) =>
     updateView("fulfillmentFilter", v as OrderViewPreferences["fulfillmentFilter"])
@@ -132,7 +132,13 @@ export function OrdersPage() {
   )
   const [debouncedSearch, setDebouncedSearch] = useState(searchInput)
   const [selection, setSelection] = useState<{ scope: string; ids: string[] }>({ scope: "", ids: [] })
-  const [bulkRequest, setBulkRequest] = useState<{ orders: OrderListItem[]; status?: OrderStatus } | null>(null)
+  const [bulkRequest, setBulkRequest] = useState<{
+    orders: OrderListItem[]
+    status?: OrderStatus
+    advance?: boolean
+  } | null>(null)
+  const [pendingMove, setPendingMove] = useState<{ orderId: string; status: OrderStatus } | null>(null)
+  const [checkingMove, setCheckingMove] = useState(false)
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(searchInput.trim()), 250)
@@ -189,10 +195,9 @@ export function OrdersPage() {
   const couriers = couriersData?.data ?? []
   const courierOutsideList = Boolean(courierFilter) && !couriers.some((courier) => courier.id === courierFilter)
 
-  // La configuración de Cluvi solo se expone si el módulo CLUVI está
-  // habilitado para el tenant (licencia dada de baja en la consola de plataforma).
-  const { data: tenantModules = [], isLoading: tenantModulesLoading } = useTenantModules()
-  const hasCluviModule = !tenantModulesLoading && tenantModules.some((m) => m.moduleCode === "CLUVI" && m.isEnabled)
+  // Cluvi y WooCommerce son independientes: la configuración de cada una solo
+  // se expone si su propio módulo está habilitado para el tenant.
+  const { hasCluvi: hasCluviModule, hasWooCommerce: hasWooCommerceModule } = useTenantPlatformModules()
 
   /** Estado de una integración en la sucursal seleccionada. */
   const integrationState = (platform: string): "active" | "configured" | "none" => {
@@ -228,7 +233,13 @@ export function OrdersPage() {
   const cancelOrderMutation = useCancelOrder()
   const assignCourierMutation = useAssignCourier()
 
-  const allOrders = useMemo(() => ordersData?.data ?? [], [ordersData])
+  const allOrders = useMemo(
+    () =>
+      (ordersData?.data ?? []).map((order) =>
+        pendingMove?.orderId === order.id ? { ...order, statusCode: pendingMove.status } : order
+      ),
+    [ordersData, pendingMove]
+  )
 
   // Registrar alertas operativas (error de sync o cancelado en camino) en el centro de notificaciones
   useEffect(() => {
@@ -316,7 +327,8 @@ export function OrdersPage() {
   }
   const selectedOrders = selectableOrders.filter((order) => selectedIds.has(order.id))
 
-  const ordersByStatus = KANBAN_COLUMNS.reduce(
+  const kanbanColumns = orderScope === "history" ? HISTORY_KANBAN_COLUMNS : KANBAN_COLUMNS
+  const ordersByStatus = kanbanColumns.reduce(
     (acc, status) => {
       acc[status] = filteredOrders.filter((o) => o.statusCode === status)
       return acc
@@ -344,9 +356,11 @@ export function OrdersPage() {
   const pendingConfirmRef = useRef<{ orderId: string; status: OrderStatus } | null>(null)
 
   const applyStatus = (orderId: string, newStatus: OrderStatus, courierId?: string | null) => {
+    setPendingMove({ orderId, status: newStatus })
     updateStatusMutation.mutate(
       { id: orderId, status: newStatus, courierId },
       {
+        onSettled: () => setPendingMove(null),
         onSuccess: () => {
           setDispatchOrder(null)
           notify.success(t("status") + " → " + (ORDER_STATUS_CONFIG[newStatus]?.label ?? newStatus))
@@ -365,7 +379,7 @@ export function OrdersPage() {
    * bloquea la orden, solo se avisa antes de enviar el cambio.
    */
   const handleDragEnd = async (orderId: string, newStatus: OrderStatus) => {
-    if (bulkRequest || updateStatusMutation.isPending) return
+    if (bulkRequest || checkingMove || updateStatusMutation.isPending) return
     if (selectedIds.has(orderId) && selectedOrders.length > 1) {
       setBulkRequest({ orders: selectedOrders, status: newStatus })
       return
@@ -373,12 +387,13 @@ export function OrdersPage() {
     // Un pedido a domicilio no sale sin domiciliario: se elige (o confirma) al enviarlo.
     if (newStatus === "Shipped") {
       const order = allOrders.find((o) => o.id === orderId)
-      if (order?.shippingStreet && !order.courierId) {
+      if (order && isDeliveryOrder(order) && !order.courierId) {
         setDispatchOrder(order)
         return
       }
     }
     if (newStatus === "Confirmed") {
+      setCheckingMove(true)
       try {
         const check = await checkOrderStock(orderId)
         if (check.hasShortage) {
@@ -388,6 +403,8 @@ export function OrdersPage() {
         }
       } catch {
         // Sin verificación no se bloquea el movimiento.
+      } finally {
+        setCheckingMove(false)
       }
     }
     applyStatus(orderId, newStatus)
@@ -448,10 +465,23 @@ export function OrdersPage() {
       />
 
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t("orders")}</h1>
-          <p className="hidden text-muted-foreground sm:block">{t("orders_desc")}</p>
+      <div className="space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">{t("orders")}</h1>
+            <p className="hidden text-muted-foreground sm:block">{t("orders_desc")}</p>
+          </div>
+          <Button
+            className="min-h-11 shrink-0"
+            onClick={() => {
+              setCreateOrderBranchId(branchId || null)
+              setCreateOrderOpen(true)
+            }}
+            disabled={!branchesWithOrdersModule.length}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            {t("create_order")}
+          </Button>
         </div>
         <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
           <span className="hidden text-sm text-muted-foreground md:inline">{t("viewing_branch")}</span>
@@ -464,10 +494,6 @@ export function OrdersPage() {
             selectedId={showAllBranches ? null : branchId || null}
             onSelect={handleBranchChange}
           />
-          <Button size="sm" onClick={() => setCreateOrderOpen(true)} disabled={!branchId}>
-            <Plus className="mr-2 h-4 w-4" />
-            {t("create_order")}
-          </Button>
           <Button className="hidden sm:inline-flex" variant="outline" size="sm" onClick={() => refetch()}>
             <RefreshCw className="mr-2 h-4 w-4" />
             {t("refresh")}
@@ -504,18 +530,20 @@ export function OrdersPage() {
               {!showAllBranches && <StatusDot state={integrationState("CLUVI")} />}
             </Button>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            className="hidden sm:inline-flex"
-            onClick={() => goToIntegration("woocommerce")}
-            disabled={!hasOrdersModule || showAllBranches}
-            title={integrationTitle(integrationState("WOOCOMMERCE"), t)}
-          >
-            <Store className="mr-2 h-4 w-4" />
-            WooCommerce
-            {!showAllBranches && <StatusDot state={integrationState("WOOCOMMERCE")} />}
-          </Button>
+          {hasWooCommerceModule && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden sm:inline-flex"
+              onClick={() => goToIntegration("woocommerce")}
+              disabled={!hasOrdersModule || showAllBranches}
+              title={integrationTitle(integrationState("WOOCOMMERCE"), t)}
+            >
+              <Store className="mr-2 h-4 w-4" />
+              WooCommerce
+              {!showAllBranches && <StatusDot state={integrationState("WOOCOMMERCE")} />}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -533,7 +561,7 @@ export function OrdersPage() {
       )}
 
       <OrderConnectionStatus connection={connection} />
-      <OrderSavedViews
+      <OrderQuickFilters
         value={view}
         onChange={(next) => {
           setView(next)
@@ -555,7 +583,7 @@ export function OrdersPage() {
         </div>
       )}
 
-      {/* Barra de búsqueda, filtros avanzados y alternancia Kanban / Tabla */}
+      {/* Búsqueda y filtros del tablero Kanban. */}
       <div className="space-y-2.5 rounded-2xl border border-border/70 bg-card/60 p-3">
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative min-w-60 flex-1">
@@ -568,31 +596,6 @@ export function OrdersPage() {
               aria-label={t("search_orders_placeholder")}
               className="h-9 pl-9 text-xs"
             />
-          </div>
-
-          <div className="flex items-center gap-1 rounded-xl border bg-background p-1">
-            <Button
-              type="button"
-              size="sm"
-              variant={viewMode === "kanban" ? "default" : "ghost"}
-              aria-pressed={viewMode === "kanban"}
-              className="h-7 px-2.5 text-xs"
-              onClick={() => setViewMode("kanban")}
-            >
-              <KanbanSquare className="mr-1 size-3.5" />
-              {t("view_kanban")}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={viewMode === "table" ? "default" : "ghost"}
-              aria-pressed={viewMode === "table"}
-              className="h-7 px-2.5 text-xs"
-              onClick={() => setViewMode("table")}
-            >
-              <List className="mr-1 size-3.5" />
-              {t("view_table")}
-            </Button>
           </div>
         </div>
 
@@ -727,27 +730,33 @@ export function OrdersPage() {
               {platformCounts.POSCO}
             </Badge>
           </TabsTrigger>
-          <TabsTrigger value="CLUVI" className="gap-1.5">
-            Cluvi
-            <Badge tone="neutral" className="ml-1 text-[10px]">
-              {platformCounts.CLUVI}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="WOOCOMMERCE" className="gap-1.5">
-            WooCommerce
-            <Badge tone="neutral" className="ml-1 text-[10px]">
-              {platformCounts.WOOCOMMERCE}
-            </Badge>
-          </TabsTrigger>
+          {(hasCluviModule || platformCounts.CLUVI > 0 || platformFilter === "CLUVI") && (
+            <TabsTrigger value="CLUVI" className="gap-1.5">
+              Cluvi
+              <Badge tone="neutral" className="ml-1 text-[10px]">
+                {platformCounts.CLUVI}
+              </Badge>
+            </TabsTrigger>
+          )}
+          {(hasWooCommerceModule || platformCounts.WOOCOMMERCE > 0 || platformFilter === "WOOCOMMERCE") && (
+            <TabsTrigger value="WOOCOMMERCE" className="gap-1.5">
+              WooCommerce
+              <Badge tone="neutral" className="ml-1 text-[10px]">
+                {platformCounts.WOOCOMMERCE}
+              </Badge>
+            </TabsTrigger>
+          )}
         </TabsList>
       </Tabs>
 
       {selectableOrders.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border p-3">
+        <div
+          className={`flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3 ${selectedOrders.length ? "sticky top-20 z-20 border-primary/40 shadow-lg" : ""}`}
+        >
           <Button
             variant="outline"
             size="sm"
-            disabled={!!bulkRequest || updateStatusMutation.isPending}
+            disabled={!!bulkRequest || checkingMove || updateStatusMutation.isPending}
             onClick={() => toggleSelection(selectableOrders.map((order) => order.id))}
           >
             {t("bulk_select_visible")}
@@ -757,11 +766,28 @@ export function OrdersPage() {
           </span>
           <Button
             size="sm"
-            disabled={selectedOrders.length === 0 || !!bulkRequest || updateStatusMutation.isPending}
+            variant="outline"
+            disabled={selectedOrders.length === 0 || !!bulkRequest || checkingMove || updateStatusMutation.isPending}
             onClick={() => setBulkRequest({ orders: selectedOrders })}
           >
             {t("bulk_move")}
           </Button>
+          {selectedOrders.length > 0 && (
+            <Button
+              size="sm"
+              className="min-h-11 gap-2"
+              disabled={
+                !!bulkRequest ||
+                checkingMove ||
+                updateStatusMutation.isPending ||
+                selectedOrders.some((order) => !NEXT_ORDER_STEP[order.statusCode])
+              }
+              onClick={() => setBulkRequest({ orders: selectedOrders, advance: true })}
+            >
+              {t("bulk_next")}
+              <ArrowRight className="size-4" />
+            </Button>
+          )}
           {selectedOrders.length > 0 && (
             <Button
               variant="ghost"
@@ -775,25 +801,15 @@ export function OrdersPage() {
         </div>
       )}
 
-      {/* Kanban Board o Tabla compacta */}
+      {/* Tablero Kanban para pedidos activos e historial. */}
       {isLoading ? (
         <div className="flex justify-center py-16">
           <Spinner className="h-8 w-8" />
         </div>
-      ) : viewMode === "table" || orderScope === "history" ? (
-        <OrdersTableView
-          orders={filteredOrders}
-          onChangeStatus={handleDragEnd}
-          onViewDetail={handleViewDetail}
-          onAssignCourier={(order) => setAssigningCourierOrder(order)}
-          onRequestCancel={handleRequestCancel}
-          showBranch={showAllBranches}
-          selectedIds={selectedIds}
-          onToggleSelection={toggleSelection}
-          disabled={!!bulkRequest || updateStatusMutation.isPending}
-        />
       ) : (
         <OrdersKanban
+          columns={kanbanColumns}
+          readOnly={orderScope === "history"}
           ordersByStatus={ordersByStatus}
           onDragEnd={handleDragEnd}
           onViewDetail={handleViewDetail}
@@ -802,7 +818,7 @@ export function OrdersPage() {
           showBranch={showAllBranches}
           selectedIds={selectedIds}
           onToggleSelection={toggleSelection}
-          disabled={!!bulkRequest || updateStatusMutation.isPending}
+          disabled={!!bulkRequest || checkingMove || updateStatusMutation.isPending}
         />
       )}
 
@@ -810,6 +826,7 @@ export function OrdersPage() {
         <BulkOrderStatusDialog
           orders={bulkRequest.orders}
           initialStatus={bulkRequest.status}
+          advance={bulkRequest.advance}
           onClose={() => setBulkRequest(null)}
           onResults={(result) => {
             const successes = new Set(result.results.filter((r) => r.succeeded).map((r) => r.orderId))
@@ -969,7 +986,36 @@ export function OrdersPage() {
       />
 
       {/* Creación manual de órdenes (venta de caja / domicilio) */}
-      <ManualOrderDialog open={createOrderOpen} onOpenChange={setCreateOrderOpen} branchId={branchId || null} />
+      <Dialog open={createOrderOpen && !createOrderBranchId} onOpenChange={setCreateOrderOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("create_order")}</DialogTitle>
+            <DialogDescription>{t("create_order_branch_hint")}</DialogDescription>
+          </DialogHeader>
+          <label className="space-y-2 text-sm">
+            <span>{t("viewing_branch")}</span>
+            <select
+              className="h-11 w-full rounded-md border bg-background px-3"
+              value=""
+              onChange={(event) => setCreateOrderBranchId(event.target.value)}
+            >
+              <option value="" disabled>
+                {t("select_branch")}
+              </option>
+              {branchesWithOrdersModule.map((branch) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </DialogContent>
+      </Dialog>
+      <ManualOrderDialog
+        open={createOrderOpen && Boolean(createOrderBranchId)}
+        onOpenChange={setCreateOrderOpen}
+        branchId={createOrderBranchId}
+      />
     </div>
   )
 }

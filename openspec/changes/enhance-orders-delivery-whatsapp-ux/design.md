@@ -6,7 +6,7 @@ El frontend (`src/features/business/orders/` y `src/features/business/branches/`
 
 1. **Filtros y vistas de órdenes (`orders.service.ts`, `use-orders.ts`, `orders-page.tsx`, `orders-kanban.tsx`)**:
    - Enviar `search`, `fulfillmentType`, `origin`, `paymentState`, `syncAlert`, `from`, `to` y `courierId` a `GET /api/orders`.
-   - Soportar vista Kanban y vista Tabla compacta compartiendo selección por lote y acciones rápidas de transición de estado.
+   - Usar únicamente Kanban con selección por lote y acciones rápidas; el historial muestra Delivered/Cancelled/Refunded sin arrastre ni selección. Las preferencias locales conservan filtros e ignoran el modo tabla. No se ofrece gestión de vistas personalizadas; permanecen los filtros rápidos. Crear Orden permanece visible en cabecera y solicita una sucursal al crear desde la vista global.
    - Añadir subnavegación unificada (`OrdersSubnav`) entre Tablero, Domicilios, Zonas y Rutas, Operaciones y Cierre.
 2. **Cierre y conciliación (`order-closings.service.ts`, `closing-resolve-table.tsx`, `closing-orders-table.tsx`, `order-closing-page.tsx`)**:
    - `cancelOrderFromClosing(orderId, reason, cancellationType)` enviará `{ reason, cancellationType }` en el cuerpo JSON de `POST /api/orders/{id}/cancel`.

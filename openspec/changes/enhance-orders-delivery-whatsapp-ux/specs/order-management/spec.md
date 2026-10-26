@@ -2,7 +2,7 @@
 
 ### Requirement: Filtros avanzados y transiciones rápidas de pedidos
 
-El listado de pedidos SHALL enviar al backend los filtros opcionales `search`, `fulfillmentType`, `origin`, `paymentState` y `syncAlert`, y la interfaz SHALL permitir avanzar el pedido a su siguiente estado válido con un clic o alternar entre vista Kanban y vista Tabla.
+El listado de pedidos SHALL enviar al backend los filtros opcionales `search`, `fulfillmentType`, `origin`, `paymentState` y `syncAlert`, y la interfaz SHALL permitir avanzar el pedido a su siguiente estado válido con un clic desde una vista únicamente Kanban, incluido el historial de estados finales.
 
 #### Scenario: Buscar pedido por texto y filtrar por estado de pago
 
@@ -41,7 +41,7 @@ El detalle del pedido SHALL permitir gestionar la autorización de contacto, pre
 
 La interfaz SHALL indicar no cobrar pedidos cancelados/reembolsados y mostrar medios traducidos, importes locales y referencias operativas consistentes. SHALL diferenciar pedidos activos e históricos con contadores correspondientes.
 
-#### Scenario: Abrir cancelado desde tabla o notificación
+#### Scenario: Abrir cancelado desde Kanban o notificación
 
 - **WHEN** se abre un pedido Cancelled o Refunded
 - **THEN** no aparece una instrucción de cobrar y se identifica el estado terminal.

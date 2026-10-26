@@ -18,6 +18,7 @@ export function WhatsAppSetupAssistant({
   branchId,
   channel,
   onConnect,
+  canConnect,
   connecting,
   onAutomations,
   onEnableChannel,
@@ -25,6 +26,7 @@ export function WhatsAppSetupAssistant({
   branchId: string
   channel: BranchWhatsAppChannel | undefined
   onConnect: () => void
+  canConnect: boolean
   connecting: boolean
   onEnableChannel: () => void
   onAutomations: () => void
@@ -82,7 +84,7 @@ export function WhatsAppSetupAssistant({
           <Button type="button" variant="outline" onClick={onEnableChannel}>
             {t("wa_setup_enable_channel")}
           </Button>
-          <Button type="button" variant="outline" disabled={!channel || connecting || connected} onClick={onConnect}>
+          <Button type="button" variant="outline" disabled={!canConnect || connecting || connected} onClick={onConnect}>
             {t("wa_setup_link")}
           </Button>
           <Button type="button" variant="ghost" onClick={() => setStep(1)}>

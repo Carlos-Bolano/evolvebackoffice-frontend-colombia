@@ -1,5 +1,31 @@
 import { api } from "@/config/axios-client"
 import type { BulkOrderStatusRequest, BulkOrderStatusResult } from "../types/bulk-status"
+
+export class BulkStatusNetworkError extends Error {
+  constructor(
+    public readonly completed: BulkOrderStatusResult,
+    public readonly cause: unknown
+  ) {
+    super("bulk_network_failed")
+    this.name = "BulkStatusNetworkError"
+  }
+}
+
+/** Stop on an uncertain HTTP result and retain successes from completed batches. */
+export async function updateOrderStatusBatches(batches: BulkOrderStatusRequest[]): Promise<BulkOrderStatusResult> {
+  const completed: BulkOrderStatusResult = { results: [], successCount: 0, failureCount: 0 }
+  for (const batch of batches) {
+    try {
+      const result = await bulkUpdateOrderStatus(batch)
+      completed.results.push(...result.results)
+      completed.successCount += result.successCount
+      completed.failureCount += result.failureCount
+    } catch (error) {
+      throw new BulkStatusNetworkError(completed, error)
+    }
+  }
+  return completed
+}
 import type {
   PagedOrders,
   OrderCancellationType,

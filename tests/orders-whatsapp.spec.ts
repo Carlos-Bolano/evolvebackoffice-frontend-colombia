@@ -17,6 +17,41 @@ const suffix = randomUUID().slice(0, 8)
 const tenantName = `Playwright UX ${suffix}`
 const proofPng = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII="
 
+async function workflowOrder(name: string, status = "Pending", delivery = false) {
+  return json<{ id: string }>(
+    await api.post("/api/orders", {
+      data: {
+        branchId: branch.id,
+        status,
+        customerName: name,
+        customerPhone: "+573000000001",
+        paymentMethod: "CASH",
+        shippingStreet: delivery ? "Calle QA 1" : null,
+        shippingCity: delivery ? "Bogotá" : null,
+        items: [{ itemPublicId: item.id, quantity: 1 }],
+      },
+    })
+  )
+}
+
+async function dragWorkflowOrder(page: Page, id: string, targetStatus: string, valid = true) {
+  const handle = page.locator(`[data-rfd-draggable-id="${id}"]`).getByRole("button", { name: /^Arrastrar pedido/ })
+  await handle.scrollIntoViewIfNeeded()
+  const target = page.locator(`[data-rfd-droppable-id="${targetStatus}"]`)
+  const from = (await handle.boundingBox())!
+  const to = (await target.boundingBox())!
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(from.x + from.width / 2 + 12, from.y + from.height / 2, { steps: 3 })
+  await expect(page.locator('body > [data-order-dragging="true"]')).toBeVisible()
+  await page.mouse.move(to.x + Math.min(to.width / 2, 120), Math.min(to.y + 270, page.viewportSize()!.height - 40), {
+    steps: 20,
+  })
+  if (valid) await expect(target).toHaveAttribute("data-drag-over", "true")
+  await page.mouse.up()
+  await expect(page.locator('body > [data-order-dragging="true"]')).toHaveCount(0)
+}
+
 async function createScopedCourier(name: string) {
   return json<{ id: string }>(
     await api.post("/api/users", {
@@ -164,7 +199,7 @@ test.afterAll(async () => {
   await platform?.dispose()
 })
 
-test("Filtros: busca cliente, combina servicio/pago y alterna tabla/kanban", async ({ page }) => {
+test("Filtros: busca cliente y combina servicio/pago en Kanban", async ({ page }) => {
   await session(page)
   await page.goto("/business/orders")
   await page.getByRole("searchbox").fill(`Cliente búsqueda ${suffix}`)
@@ -178,11 +213,8 @@ test("Filtros: busca cliente, combina servicio/pago y alterna tabla/kanban", asy
   await expect(page.locator(`[data-rfd-draggable-id="${pendingId}"]`)).toHaveCount(0)
   await payment.selectOption("pending")
   await expect(page.locator(`[data-rfd-draggable-id="${pendingId}"]`)).toBeVisible()
-  await page.getByRole("button", { name: "Tabla compacta", exact: true }).click()
-  await expect(page.getByRole("row").filter({ hasText: `Cliente búsqueda ${suffix}` })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Tabla compacta", exact: true })).toHaveCount(0)
   await page.getByRole("button", { name: "Limpiar filtros", exact: true }).click()
-  await expect(page.getByRole("row").filter({ hasText: `Cliente merma ${suffix}` })).toBeVisible()
-  await page.getByRole("button", { name: "Kanban", exact: true }).click()
   await expect(page.locator(`[data-rfd-draggable-id="${wasteId}"]`)).toBeVisible()
 })
 
@@ -196,6 +228,115 @@ test("Acción rápida: confirma, prepara y deja listo sin arrastrar", async ({ p
   await expect
     .poll(async () => (await json<{ statusCode: string }>(await api.get(`/api/orders/${pendingId}`))).statusCode)
     .toBe("Ready")
+})
+
+for (const width of [1440, 390]) {
+  test(`Kanban ${width}px: crear pedido visible con sucursal y en vista global`, async ({ page }) => {
+    await session(page)
+    await page.addInitScript(
+      ({ tenantId }) => {
+        const legacyView = {
+          platformFilter: "all",
+          orderScope: "active",
+          viewMode: "table",
+          datePreset: "all",
+          fulfillmentFilter: "",
+          courierFilter: "",
+          paymentFilter: "",
+          syncAlertFilter: "",
+          quickView: "",
+        }
+        localStorage.setItem(`order-view:${tenantId}:qa:all`, JSON.stringify(legacyView))
+        localStorage.setItem(
+          `order-saved-views:${tenantId}:qa:all`,
+          JSON.stringify([
+            {
+              id: "00000000-0000-4000-8000-000000000001",
+              name: "Vista anterior",
+              view: legacyView,
+            },
+          ])
+        )
+      },
+      { tenantId: tenant.tenantId }
+    )
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto("/business/orders")
+    const create = page.getByRole("button", { name: "Crear Orden", exact: true })
+    await expect(create).toBeEnabled()
+    await expect(create).toBeInViewport()
+    await expect(page.getByRole("button", { name: "Tabla compacta", exact: true })).toHaveCount(0)
+    await expect(page.getByRole("table")).toHaveCount(0)
+    await expect(page.locator(`[data-rfd-draggable-id="${pendingId}"]`)).toBeVisible()
+    await expect(page.getByText(/Mis vistas guardadas/)).toHaveCount(0)
+    await expect(page.getByRole("button", { name: "Guardar vista actual", exact: true })).toHaveCount(0)
+    await expect(page.getByRole("table")).toHaveCount(0)
+    await expect(page.locator(`[data-rfd-draggable-id="${pendingId}"]`)).toBeVisible()
+    await create.click()
+    await expect(page.getByRole("dialog").getByRole("radio", { name: "Para recoger", exact: true })).toBeVisible()
+    await page.keyboard.press("Escape")
+    await expect(page.getByRole("dialog")).toHaveCount(0)
+    if (width < 640)
+      await page.getByRole("combobox", { name: "Sucursal consultada", exact: true }).selectOption("__ALL__")
+    else await page.getByRole("button", { name: /Todas las sucursales|Global/ }).click()
+    await expect(create).toBeEnabled()
+    await create.click()
+    const chooser = page.getByRole("dialog")
+    await expect(chooser).toContainText("Selecciona la sucursal donde quieres crear el pedido.")
+    await chooser.getByRole("combobox", { name: "Sucursal consultada", exact: true }).selectOption(branch.id)
+    const dialog = page.getByRole("dialog")
+    await expect(dialog.getByRole("radio", { name: "Para recoger", exact: true })).toBeVisible()
+    await expect(dialog.getByLabel("Productos", { exact: true })).toBeVisible()
+  })
+}
+
+test("WhatsApp: bloquea ambas conexiones hasta guardar el canal y sus cambios", async ({ page }) => {
+  const initial = await api.get(`/api/branches/${branch.id}/whatsapp`)
+  expect(initial.status()).toBe(204)
+  expect(await initial.text()).toBe("")
+  expect((await api.get(`/api/branches/${randomUUID()}/whatsapp`)).status()).toBe(404)
+  let channelReads = 0
+  page.on("request", (req) => {
+    if (req.method() === "GET" && req.url().endsWith(`/api/branches/${branch.id}/whatsapp`)) channelReads++
+  })
+  await session(page)
+  await page.goto(`/business/branches/${branch.id}/config#whatsapp`)
+  const card = page.locator("#whatsapp")
+  const connect = card.getByRole("button", { name: "Conectar / Generar QR", exact: true })
+  const link = card.getByRole("button", { name: "Vincular número", exact: true })
+  await expect(connect).toBeVisible()
+  await expect(connect).toBeDisabled()
+  await expect(link).toBeDisabled()
+  await expect(card.getByText(/Esta sucursal aún no tiene un canal WhatsApp/)).toBeVisible()
+  const initialReads = channelReads
+  await page.waitForTimeout(6500) // An unconfigured channel must not trigger the six-second polling loop.
+  expect(channelReads).toBe(initialReads)
+  await card.getByRole("switch", { name: "Habilitar notificaciones WhatsApp en esta sucursal", exact: true }).check()
+  await expect(connect).toBeDisabled()
+  const save = card.getByRole("button", { name: "Guardar configuración WhatsApp", exact: true })
+  const saved = page.waitForResponse(
+    (r) => r.url().endsWith(`/api/branches/${branch.id}/whatsapp`) && r.request().method() === "PUT"
+  )
+  await save.click()
+  expect((await saved).status()).toBe(202)
+  await expect(connect).toBeEnabled()
+  await expect(link).toBeEnabled()
+  await card.getByRole("textbox", { name: "Plantillas de mensajes", exact: true }).fill("Borrador sin guardar")
+  await expect(connect).toBeDisabled()
+  await expect(link).toBeDisabled()
+  await page.reload()
+  await expect(connect).toBeDisabled()
+  await expect(link).toBeDisabled()
+  page.once("dialog", (dialog) => dialog.accept())
+  await card.getByRole("button", { name: "Descartar borrador", exact: true }).click()
+  await expect(connect).toBeEnabled()
+  await expect(link).toBeEnabled()
+  await card.getByRole("switch", { name: "Habilitar notificaciones WhatsApp en esta sucursal", exact: true }).uncheck()
+  const paused = page.waitForResponse(
+    (r) => r.url().endsWith(`/api/branches/${branch.id}/whatsapp`) && r.request().method() === "PUT"
+  )
+  await save.click()
+  expect((await paused).status()).toBe(202)
 })
 
 test("WhatsApp: guarda plantillas desde navegador y conserva texto al recargar", async ({ page }) => {
@@ -259,12 +400,20 @@ test("WhatsApp real local: aprovisiona, obtiene QR y pausa notificaciones", asyn
 
 test("Zonas: crea, cotiza cobertura y elimina desde la interfaz", async ({ page }) => {
   await session(page)
+  // Las zonas viven ahora en Órdenes → Configurar (Rutas solo enlaza aquí).
   await page.goto("/business/orders/routes")
-  await page.getByLabel("Nombre de zona", { exact: true }).fill(`Zona UX ${suffix}`)
-  await page.getByLabel("Tarifa de envío", { exact: true }).fill("4200")
-  await page.getByRole("button", { name: "Agregar zona", exact: true }).click()
-  await expect(page.getByText(`Zona UX ${suffix} ·`, { exact: false })).toBeVisible()
-  await page.getByRole("button", { name: "Simular tarifa", exact: true }).click()
+  await page.getByRole("link", { name: "Configurar", exact: true }).last().click()
+  await expect(page).toHaveURL(/\/business\/orders\/setup/)
+  const zones = page.locator("#zones")
+  const map = zones.getByRole("region", { name: "Mapa de domicilios pendientes" })
+  // Sin ubicación de sucursal, el centro de la zona se elige pulsando el mapa.
+  await map.click()
+  await zones.getByLabel("Nombre de zona", { exact: true }).fill(`Zona UX ${suffix}`)
+  await zones.getByLabel("Tarifa de envío", { exact: true }).fill("4200")
+  await zones.getByRole("button", { name: "Agregar zona", exact: true }).click()
+  await expect(page.getByText(`Zona UX ${suffix}`, { exact: true })).toBeVisible()
+  await zones.getByRole("switch").click()
+  await map.click()
   await expect(page.getByText(/Zona UX.*4\.200/).last()).toBeVisible()
   await page.getByRole("button", { name: "Eliminar zona", exact: true }).click()
   await page.getByRole("alertdialog").getByRole("button", { name: "Eliminar zona", exact: true }).click()
@@ -352,9 +501,12 @@ test("UX: cancelado aparece en historial y nunca indica cobrar", async ({ page }
   await session(page)
   await page.goto("/business/orders")
   await page.getByRole("button", { name: /^Historial \(/ }).click()
-  const row = page.getByRole("row").filter({ hasText: `Cliente merma ${suffix}` })
-  await expect(row).toContainText("Cancelado")
-  await row.getByRole("button", { name: "Productos del pedido", exact: true }).click()
+  const card = page.locator(`[data-rfd-draggable-id="${wasteId}"]`)
+  await expect(
+    page.locator('[data-rfd-droppable-id="Cancelled"]').locator(`[data-rfd-draggable-id="${wasteId}"]`)
+  ).toBeVisible()
+  await expect(card.locator('input[type="checkbox"]')).toHaveCount(0)
+  await card.getByRole("button", { name: "Productos del pedido", exact: true }).click()
   const dialog = page.getByRole("dialog")
   await expect(dialog.getByText("Pedido cancelado · no cobrar", { exact: true })).toBeVisible()
   await expect(dialog.getByText(/^COBRAR/)).toHaveCount(0)
@@ -587,32 +739,23 @@ test("UX2: recuperación revisa cambios de precio antes de permitir crear", asyn
   await expect(dialog.getByRole("button", { name: "Crear Orden", exact: true })).toBeEnabled()
 })
 
-test("UX2: vistas guardadas persisten filtros y presentación al volver", async ({ page }) => {
+test("UX2: filtros rápidos persisten al volver sin vistas guardadas", async ({ page }) => {
   await session(page)
   await page.goto("/business/orders")
   await page.getByRole("button", { name: "Listos sin asignar", exact: true }).click()
-  await page.getByRole("button", { name: "Tabla compacta", exact: true }).click()
-  await page.getByText("Mis vistas guardadas", { exact: true }).click()
-  await page.getByLabel("Nombre de la vista", { exact: true }).fill("Despacho QA")
-  await page.getByRole("button", { name: "Guardar vista actual", exact: true }).click()
   await page.reload()
   await expect(page.getByRole("button", { name: "Listos sin asignar", exact: true })).toHaveAttribute(
     "aria-pressed",
     "true"
   )
-  await expect(page.getByRole("button", { name: "Tabla compacta", exact: true })).toHaveAttribute(
-    "aria-pressed",
-    "true"
-  )
+  await expect(page.locator('[data-rfd-droppable-id="Ready"]')).toBeVisible()
+  await expect(page.getByText(/Mis vistas guardadas/)).toHaveCount(0)
+  await expect(page.getByLabel("Nombre de la vista", { exact: true })).toHaveCount(0)
   await page.getByRole("button", { name: "Todos los activos", exact: true }).click()
-  await page.getByText(/Mis vistas guardadas \(1\)/).click()
-  await page.getByLabel("Aplicar vista", { exact: true }).selectOption({ label: "Despacho QA" })
-  await expect(page.getByRole("button", { name: "Listos sin asignar", exact: true })).toHaveAttribute(
+  await expect(page.getByRole("button", { name: "Todos los activos", exact: true })).toHaveAttribute(
     "aria-pressed",
     "true"
   )
-  await page.getByRole("button", { name: "Eliminar vista", exact: true }).click()
-  await expect(page.getByLabel("Aplicar vista", { exact: true })).toHaveCount(0)
 })
 
 test("UX2: muestra desconexión y recupera seguimiento al volver la red", async ({ page, context }) => {
@@ -833,9 +976,6 @@ test("UX3: cambia de sucursal sin filtros invisibles y conserva borradores por s
     "false"
   )
   expect((await filtered)?.status()).toBe(200)
-  await page.getByText("Mis vistas guardadas", { exact: true }).click()
-  await page.getByLabel("Nombre de la vista", { exact: true }).fill("Domiciliario sede original")
-  await page.getByRole("button", { name: "Guardar vista actual", exact: true }).click()
   await page.getByRole("button", { name: "Crear Orden", exact: true }).click()
   const dialog = page.getByRole("dialog")
   await dialog.getByLabel("Nombre del cliente", { exact: true }).fill("Borrador sede original")
@@ -843,12 +983,6 @@ test("UX3: cambia de sucursal sin filtros invisibles y conserva borradores por s
   await page.getByRole("combobox", { name: "Sucursal consultada", exact: true }).selectOption(otherBranch.id)
   await expect(courierSelect).toHaveValue("")
   await expect(page.locator(`[data-rfd-draggable-id="${otherOrder.id}"]`)).toBeVisible()
-  await page.getByLabel("Aplicar vista", { exact: true }).selectOption({ label: "Domiciliario sede original" })
-  await expect(
-    page.getByText("El domiciliario guardado no figura en la lista actual. El filtro sigue aplicado.", { exact: true })
-  ).toBeVisible()
-  await expect(courierSelect).toHaveValue(courier.id)
-  await page.getByRole("button", { name: "Quitar filtro de domiciliario", exact: true }).click()
   await expect(page.locator(`[data-rfd-draggable-id="${otherOrder.id}"]`)).toBeVisible()
   await page.getByRole("button", { name: "Crear Orden", exact: true }).click()
   await expect(dialog.getByLabel("Nombre del cliente", { exact: true })).toHaveValue("")
@@ -887,4 +1021,217 @@ test("UX3: identifica un domiciliario guardado que dejó de estar disponible", a
   await expect(
     page.getByText("El domiciliario guardado no figura en la lista actual. El filtro sigue aplicado.", { exact: true })
   ).toHaveCount(0)
+})
+
+for (const width of [1440, 390]) {
+  test(`Operativa: popup ${width}px mantiene cabecera y acciones sin tapar contenido`, async ({ page }, testInfo) => {
+    const order = await workflowOrder("Popup QA " + width, "Confirmed", true)
+    await session(page)
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto("/business/orders")
+    if (width > 640) {
+      await page.getByRole("button", { name: "Oscuro", exact: true }).click()
+      await expect(page.locator("html")).toHaveClass(/dark/)
+    }
+    await page
+      .locator(`[data-rfd-draggable-id="${order.id}"]`)
+      .getByRole("button", { name: "Productos del pedido", exact: true })
+      .click()
+    const dialog = page.getByRole("dialog")
+    const content = dialog.getByRole("region", { name: "Contenido del pedido", exact: true })
+    const actions = dialog.getByRole("group", { name: "Acciones del pedido", exact: true })
+    const next = actions.getByRole("button", { name: /^Preparar/ })
+    await expect(next).toBeEnabled()
+    await expect(next).toBeInViewport()
+    if (width > 640) expect((await dialog.boundingBox())!.width).toBeGreaterThan(800)
+    const close = dialog.getByRole("button", { name: "Close", exact: true })
+    const closeRect = (await close.boundingBox())!
+    const badge = (await dialog.getByText("Confirmado", { exact: true }).boundingBox())!
+    expect(
+      badge.x < closeRect.x + closeRect.width &&
+        badge.x + badge.width > closeRect.x &&
+        badge.y < closeRect.y + closeRect.height &&
+        badge.y + badge.height > closeRect.y
+    ).toBe(false)
+    const before = (await actions.boundingBox())!
+    await content.evaluate((element) => {
+      element.scrollTop = element.scrollHeight
+    })
+    await expect(next).toBeInViewport()
+    await expect(close).toBeInViewport()
+    expect(Math.abs((await actions.boundingBox())!.y - before.y)).toBeLessThan(2)
+    await content.evaluate((element) => {
+      element.scrollTop = 0
+    })
+    await page.screenshot({ path: testInfo.outputPath("popup-" + width + ".png"), animations: "disabled" })
+  })
+}
+
+test("Operativa: flecha avanza una selección mixta exactamente un estado", async ({ page }) => {
+  const first = await workflowOrder("Lote siguiente A")
+  const second = await workflowOrder("Lote siguiente B")
+  const third = await workflowOrder("Lote siguiente C", "Confirmed")
+  await session(page)
+  await page.goto("/business/orders")
+  const requests: { orderIds: string[]; status: string }[] = []
+  page.on("request", (request) => {
+    if (request.method() === "PUT" && request.url().endsWith("/api/orders/status/bulk"))
+      requests.push(request.postDataJSON())
+  })
+  for (const order of [first, second, third])
+    await page.locator(`[data-rfd-draggable-id="${order.id}"]`).getByRole("checkbox").check()
+  await page.getByRole("button", { name: "Siguiente estado", exact: true }).click()
+  const dialog = page.getByRole("dialog")
+  await expect(dialog).toContainText("Pendiente → Confirmado")
+  await expect(dialog).toContainText("Confirmado → Preparando")
+  await dialog.getByRole("button", { name: "Aplicar cambio", exact: true }).click()
+  await expect(dialog).toHaveCount(0)
+  expect(requests).toHaveLength(2)
+  expect(requests.find((request) => request.status === "Confirmed")!.orderIds.sort()).toEqual(
+    [first.id, second.id].sort()
+  )
+  expect(requests.find((request) => request.status === "Preparing")!.orderIds).toEqual([third.id])
+  for (const [order, status] of [
+    [first, "Confirmed"],
+    [second, "Confirmed"],
+    [third, "Preparing"],
+  ] as const)
+    expect((await json<{ statusCode: string }>(await api.get(`/api/orders/${order.id}`))).statusCode).toBe(status)
+})
+
+test("Operativa: selección individual exige domiciliario antes de avanzar a envío", async ({ page }) => {
+  const order = await workflowOrder("Sin domiciliario QA", "Confirmed", true)
+  for (const status of ["Preparing", "Ready"])
+    expect((await api.put(`/api/orders/${order.id}/status`, { data: { status } })).ok()).toBe(true)
+  await session(page)
+  await page.goto("/business/orders")
+  await page.locator(`[data-rfd-draggable-id="${order.id}"]`).getByRole("checkbox").check()
+  await page.getByRole("button", { name: "Siguiente estado", exact: true }).click()
+  const dialog = page.getByRole("dialog")
+  await expect(dialog).toContainText("Elija un domiciliario")
+  await expect(dialog.getByRole("button", { name: "Aplicar cambio", exact: true })).toBeDisabled()
+  expect((await json<{ statusCode: string }>(await api.get(`/api/orders/${order.id}`))).statusCode).toBe("Ready")
+})
+
+test("Operativa: fallo entre grupos conserva éxitos y bloquea reenvío incierto", async ({ page }) => {
+  const first = await workflowOrder("Parcial A")
+  const second = await workflowOrder("Parcial B", "Confirmed")
+  await session(page)
+  await page.route("**/api/orders/status/bulk", (route) =>
+    route.request().postDataJSON().status === "Preparing" ? route.abort("failed") : route.continue()
+  )
+  await page.goto("/business/orders")
+  for (const order of [first, second])
+    await page.locator(`[data-rfd-draggable-id="${order.id}"]`).getByRole("checkbox").check()
+  await page.getByRole("button", { name: "Siguiente estado", exact: true }).click()
+  const dialog = page.getByRole("dialog")
+  await dialog.getByRole("button", { name: "Aplicar cambio", exact: true }).click()
+  await expect(
+    dialog
+      .getByText("No se recibió el resultado del lote. Actualice el tablero antes de reintentar.", { exact: true })
+      .first()
+  ).toBeVisible()
+  await expect(dialog.getByRole("button", { name: "Reintentar fallidos", exact: true })).toBeDisabled()
+  expect((await json<{ statusCode: string }>(await api.get(`/api/orders/${first.id}`))).statusCode).toBe("Confirmed")
+  expect((await json<{ statusCode: string }>(await api.get(`/api/orders/${second.id}`))).statusCode).toBe("Confirmed")
+  await dialog.getByRole("button", { name: "Cancelar", exact: true }).click()
+  await expect(page.locator(`[data-rfd-draggable-id="${first.id}"]`).getByRole("checkbox")).not.toBeChecked()
+  await expect(page.locator(`[data-rfd-draggable-id="${second.id}"]`).getByRole("checkbox")).toBeChecked()
+})
+
+test("Operativa: arrastre con ratón rechaza saltos y acepta la zona baja de la columna", async ({ page }) => {
+  const order = await workflowOrder("Arrastre ratón QA")
+  await session(page)
+  await page.setViewportSize({ width: 1600, height: 1200 })
+  await page.goto("/business/orders")
+  const filtered = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/orders" &&
+      new URL(response.url()).searchParams.get("search") === "Arrastre ratón QA"
+  )
+  await page.getByRole("searchbox").fill("Arrastre ratón QA")
+  await filtered
+  const target = page.locator('[data-rfd-droppable-id="Confirmed"]')
+  await expect(target.locator("[data-rfd-draggable-id]")).toHaveCount(0)
+  let changes = 0
+  page.on("request", (request) => {
+    if (request.method() === "PUT" && request.url().endsWith(`/api/orders/${order.id}/status`)) changes++
+  })
+  await dragWorkflowOrder(page, order.id, "Preparing", false)
+  expect(changes).toBe(0)
+  await dragWorkflowOrder(page, order.id, "Confirmed")
+  await expect
+    .poll(async () => (await json<{ statusCode: string }>(await api.get(`/api/orders/${order.id}`))).statusCode)
+    .toBe("Confirmed")
+  expect(changes).toBe(1)
+  await expect(target.locator(`[data-rfd-draggable-id="${order.id}"]`)).toBeVisible()
+  let release: () => void = () => {}
+  const failResponse = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  await page.route(`**/api/orders/${order.id}/status`, async (route) => {
+    await failResponse
+    await route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ message: "Cambio rechazado QA" }),
+    })
+  })
+  await dragWorkflowOrder(page, order.id, "Preparing")
+  await expect(
+    page.locator('[data-rfd-droppable-id="Preparing"]').locator(`[data-rfd-draggable-id="${order.id}"]`)
+  ).toBeVisible()
+  release()
+  await expect(target.locator(`[data-rfd-draggable-id="${order.id}"]`)).toBeVisible()
+  expect((await json<{ statusCode: string }>(await api.get(`/api/orders/${order.id}`))).statusCode).toBe("Confirmed")
+})
+
+test("Operativa: arrastrar una selección mueve el grupo después de confirmar", async ({ page }) => {
+  const first = await workflowOrder("Arrastre grupo QA A")
+  const second = await workflowOrder("Arrastre grupo QA B")
+  await session(page)
+  await page.setViewportSize({ width: 1600, height: 1200 })
+  await page.goto("/business/orders")
+  const filtered = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/orders" &&
+      new URL(response.url()).searchParams.get("search") === "Arrastre grupo QA"
+  )
+  await page.getByRole("searchbox").fill("Arrastre grupo QA")
+  await filtered
+  for (const order of [first, second])
+    await page.locator(`[data-rfd-draggable-id="${order.id}"]`).getByRole("checkbox").check()
+  await dragWorkflowOrder(page, first.id, "Confirmed")
+  const dialog = page.getByRole("dialog")
+  await expect(dialog.getByRole("heading", { name: "Mover 2 pedidos", exact: true })).toBeVisible()
+  await dialog.getByRole("button", { name: "Aplicar cambio", exact: true }).click()
+  await expect(dialog).toHaveCount(0)
+  for (const order of [first, second])
+    expect((await json<{ statusCode: string }>(await api.get(`/api/orders/${order.id}`))).statusCode).toBe("Confirmed")
+})
+
+test("Operativa: arrastre por teclado funciona en móvil con desplazamiento horizontal", async ({ page }) => {
+  const order = await workflowOrder("Arrastre teclado QA")
+  await session(page)
+  await page.setViewportSize({ width: 390, height: 900 })
+  await page.goto("/business/orders")
+  const filtered = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/orders" &&
+      new URL(response.url()).searchParams.get("search") === "Arrastre teclado QA"
+  )
+  await page.getByRole("searchbox").fill("Arrastre teclado QA")
+  await filtered
+  const handle = page
+    .locator(`[data-rfd-draggable-id="${order.id}"]`)
+    .getByRole("button", { name: /^Arrastrar pedido/ })
+  await handle.focus()
+  await page.keyboard.press("Space")
+  await expect(page.locator('body > [data-order-dragging="true"]')).toBeVisible()
+  await page.keyboard.press("ArrowRight")
+  await expect(page.locator('[data-rfd-droppable-id="Confirmed"]')).toHaveAttribute("data-drag-over", "true")
+  await page.keyboard.press("Space")
+  await expect
+    .poll(async () => (await json<{ statusCode: string }>(await api.get(`/api/orders/${order.id}`))).statusCode)
+    .toBe("Confirmed")
 })
