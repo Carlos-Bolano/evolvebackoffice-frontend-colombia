@@ -2,7 +2,7 @@ import { WhatsAppSetupAssistant } from "./whatsapp-setup-assistant"
 import { useWhatsAppDraft } from "../hooks/use-whatsapp-draft"
 import { useEffect, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { MessageCircle, QrCode, RefreshCw, Unplug } from "lucide-react"
+import { MessageCircle, QrCode, RefreshCw, Send, Unplug } from "lucide-react"
 
 import { Badge, type BadgeTone } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -16,6 +16,7 @@ import {
   disconnectBranchWhatsAppChannel,
   getBranchWhatsAppChannel,
   getBranchWhatsAppQr,
+  sendBranchWhatsAppTestMessage,
   updateBranchWhatsAppChannel,
   WHATSAPP_EVENTS,
   WHATSAPP_VARIABLES,
@@ -89,13 +90,20 @@ export function BranchWhatsAppCard({ branchId }: { branchId: string }) {
   const qc = useQueryClient()
   const queryKey = ["branch-whatsapp", branchId]
 
-  const { data: channel, isLoading } = useQuery({
+  const {
+    data: channelData,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey,
     queryFn: () => getBranchWhatsAppChannel(branchId),
     enabled: Boolean(branchId),
     retry: false,
-    refetchInterval: 6000,
+    refetchInterval: (query) => (query.state.data && !query.state.error ? 6000 : false),
   })
+  const channel = channelData ?? undefined
 
   useEffect(() => {
     if (location.hash === "#whatsapp" && !isLoading)
@@ -169,6 +177,22 @@ export function BranchWhatsAppCard({ branchId }: { branchId: string }) {
     onError: (err) => notify.error(getApiErrorMessage(err, t("status_update_failed"))),
   })
 
+  const testMutation = useMutation({
+    mutationFn: () => sendBranchWhatsAppTestMessage(branchId),
+    onSuccess: (result) =>
+      result.sent
+        ? notify.success(t("wa_test_sent", { phone: result.maskedPhone ?? "" }))
+        : notify.error(result.errorMessage ?? t("wa_test_failed")),
+    onError: (err) => notify.error(getApiErrorMessage(err, t("wa_test_failed"))),
+  })
+
+  const connectionBusy =
+    isLoading || isError || saveMutation.isPending || connectMutation.isPending || disconnectMutation.isPending
+  const canConnect = Boolean(channel) && !isDirty && !connectionBusy
+  const connect = () => {
+    if (canConnect) connectMutation.mutate()
+  }
+
   const toggleEvent = (code: WhatsAppEventCode) => {
     setDraft((prev) => ({
       ...prev,
@@ -220,12 +244,21 @@ export function BranchWhatsAppCard({ branchId }: { branchId: string }) {
       </CardHeader>
 
       <CardContent className="space-y-5 pt-4">
+        {isError && (
+          <div role="alert" className="space-y-2 rounded-lg border border-destructive/40 p-3 text-sm">
+            <p>{getApiErrorMessage(error, t("wa_channel_load_failed"))}</p>
+            <Button type="button" variant="outline" onClick={() => void refetch()}>
+              {t("refresh")}
+            </Button>
+          </div>
+        )}
         {!isLoading && (
           <WhatsAppSetupAssistant
             key={`${branchId}:${channel?.sessionGeneration ?? 0}`}
             branchId={branchId}
             channel={channel}
-            onConnect={() => connectMutation.mutate()}
+            onConnect={connect}
+            canConnect={canConnect}
             connecting={connectMutation.isPending}
             onEnableChannel={() =>
               document.getElementById("whatsapp-channel-settings")?.scrollIntoView({ block: "center" })
@@ -263,14 +296,11 @@ export function BranchWhatsAppCard({ branchId }: { branchId: string }) {
 
             {/* Conexión / QR */}
             <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" size="sm" disabled={connectionBusy} onClick={() => saveMutation.mutate(draft)}>
+                {t("wa_save_config")}
+              </Button>
               {status !== "Connected" && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={connectMutation.isPending}
-                  onClick={() => connectMutation.mutate()}
-                >
+                <Button type="button" size="sm" variant="outline" disabled={!canConnect} onClick={connect}>
                   <QrCode className="mr-1.5 size-4" />
                   {t("wa_connect_btn")}
                 </Button>
@@ -281,12 +311,24 @@ export function BranchWhatsAppCard({ branchId }: { branchId: string }) {
                   {t("wa_refresh_qr_btn")}
                 </Button>
               )}
+              {status === "Connected" && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={connectionBusy || testMutation.isPending}
+                  onClick={() => testMutation.mutate()}
+                >
+                  <Send className="mr-1.5 size-4" />
+                  {t("wa_test_btn")}
+                </Button>
+              )}
               {status !== "Disconnected" && (
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  disabled={disconnectMutation.isPending}
+                  disabled={connectionBusy}
                   onClick={() => disconnectMutation.mutate()}
                 >
                   <Unplug className="mr-1.5 size-4" />
@@ -294,6 +336,12 @@ export function BranchWhatsAppCard({ branchId }: { branchId: string }) {
                 </Button>
               )}
             </div>
+
+            {!isError && (!channel || isDirty) && (
+              <p className="text-sm text-muted-foreground">
+                {t(channel ? "wa_save_before_connect" : "wa_channel_not_configured")}
+              </p>
+            )}
 
             {qrData && (qrSrc || qrData.pairingCode) && (
               <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border p-4 text-center sm:flex-row sm:text-left">
@@ -399,17 +447,6 @@ export function BranchWhatsAppCard({ branchId }: { branchId: string }) {
                   </div>
                 </div>
               )}
-            </div>
-
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                size="sm"
-                disabled={saveMutation.isPending}
-                onClick={() => saveMutation.mutate(draft)}
-              >
-                {t("wa_save_config")}
-              </Button>
             </div>
           </>
         )}

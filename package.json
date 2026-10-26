@@ -39,6 +39,7 @@
     "date-fns": "^4.4.0",
     "i18next": "^26.3.6",
     "leaflet": "1.9.4",
+    "libphonenumber-js": "1.12.10",
     "lucide-react": "^0.552.0",
     "marked": "^18.1.0",
     "radix-ui": "^1.5.0",

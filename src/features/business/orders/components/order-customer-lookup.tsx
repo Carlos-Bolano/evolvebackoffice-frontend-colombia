@@ -2,6 +2,8 @@ import { useQuery } from "@tanstack/react-query"
 import { api } from "@/config/axios-client"
 import { Button } from "@/components/ui/button"
 import { useTranslation } from "@/i18n/use-i18n"
+import { useTenantCountry } from "@/hooks/use-tenant-country"
+import { analyzePhone } from "@/lib/phone"
 import type { CustomerResponseDto } from "@/features/business/people/customers/types"
 import { useDebouncedValue, useOrderWorkspaceKey } from "../hooks/use-order-workspace"
 
@@ -18,7 +20,10 @@ export function OrderCustomerLookup({
 }) {
   const { t } = useTranslation("business-orders")
   const workspace = useOrderWorkspaceKey("order-customer")
-  const digits = useDebouncedValue(phone.replace(/\D/g, ""))
+  const country = useTenantCountry()
+  // Se busca por número nacional: coincide con registros guardados con o sin indicativo.
+  const lookupDigits = (value: string) => analyzePhone(value, country).nationalNumber ?? value.replace(/\D/g, "")
+  const digits = useDebouncedValue(lookupDigits(phone))
   const query = useQuery({
     queryKey: ["order-customer-lookup", workspace, digits],
     queryFn: async ({ signal }) =>
@@ -44,7 +49,7 @@ export function OrderCustomerLookup({
         </div>
       )}
       {!selectedId &&
-        digits === phone.replace(/\D/g, "") &&
+        digits === lookupDigits(phone) &&
         query.data?.data
           .filter((c) => c.isActive)
           .map((c) => (

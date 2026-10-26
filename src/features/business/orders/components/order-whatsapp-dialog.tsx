@@ -1,7 +1,8 @@
 import { useState } from "react"
 import { Link } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Eye, RefreshCw, RotateCcw, Send } from "lucide-react"
+import { Eye, RefreshCw, RotateCcw } from "lucide-react"
+import { WhatsappLogoIcon } from "@phosphor-icons/react"
 
 import { Badge, type BadgeTone } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -12,6 +13,7 @@ import { notify } from "@/hooks/use-notify"
 import { useTranslation } from "@/i18n/use-i18n"
 import {
   getOrderWhatsAppMessages,
+  checkWhatsAppPhone,
   previewOrderWhatsAppNotification,
   resendOrderWhatsAppMessage,
   retryOrderWhatsAppMessage,
@@ -33,6 +35,9 @@ export type ContactOrder = Pick<DeliveryOrder, "reference" | "status" | "custome
       "id" | "branchId" | "total" | "shippingStreet" | "shippingCity" | "paymentConfirmed" | "isReconciled"
     >
   >
+
+const WHATSAPP_BUTTON_CLASS =
+  "min-h-11 gap-2 border-[#25D366] bg-[#25D366] font-semibold text-[#052e16] shadow-[0_4px_14px_rgba(37,211,102,0.24)] hover:border-[#20bd5a] hover:bg-[#20bd5a] focus-visible:border-[#25D366] focus-visible:ring-[#25D366]/40"
 
 const MESSAGE_STATUS_TONE: Record<WhatsAppMessageStatus, BadgeTone> = {
   Queued: "info",
@@ -187,7 +192,7 @@ export function OrderWhatsAppDialog({
     <>
       <Button
         size="sm"
-        variant="outline"
+        className={WHATSAPP_BUTTON_CLASS}
         onClick={() => {
           const initial = initialTemplate ?? defaultTemplateForStatus(order.status, recipient)
           setTemplateCode(initial)
@@ -197,6 +202,7 @@ export function OrderWhatsAppDialog({
           previewMutation.mutate(initial)
         }}
       >
+        <WhatsappLogoIcon className="size-5" weight="fill" aria-hidden="true" />
         {triggerLabel ?? t(recipient === "courier" ? "e_notify_courier" : "e_notify_customer")}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
@@ -267,6 +273,7 @@ export function OrderWhatsAppDialog({
                 <Button
                   type="button"
                   size="sm"
+                  className={WHATSAPP_BUTTON_CLASS}
                   disabled={
                     sendMutation.isPending ||
                     previewMutation.isPending ||
@@ -277,7 +284,7 @@ export function OrderWhatsAppDialog({
                   }
                   onClick={() => sendMutation.mutate()}
                 >
-                  <Send className="mr-1.5 size-3.5" />
+                  <WhatsappLogoIcon className="size-5" weight="fill" aria-hidden="true" />
                   {t("wa_send_api_btn")}
                 </Button>
               </div>
@@ -292,6 +299,12 @@ export function OrderWhatsAppDialog({
                       {t(`wa_status_${preview.channelStatus}`)}
                     </Badge>
                   </div>
+                  {order.branchId && (
+                    <WhatsAppPhoneStatus
+                      branchId={order.branchId}
+                      phone={recipient === "courier" ? courierPhone : order.customerPhone}
+                    />
+                  )}
                   <p className="whitespace-pre-wrap text-muted-foreground">{preview.renderedText}</p>
                   {!preview.eligible && preview.ineligibleReason && (
                     <p className="font-medium text-amber-600">
@@ -333,8 +346,7 @@ export function OrderWhatsAppDialog({
                             <Button
                               type="button"
                               size="sm"
-                              variant="outline"
-                              className="min-h-11 px-3 text-xs sm:min-h-8"
+                              className={WHATSAPP_BUTTON_CLASS + " px-3 text-xs"}
                               disabled={retryMutation.isPending}
                               onClick={() => retryMutation.mutate(msg.id)}
                             >
@@ -346,10 +358,10 @@ export function OrderWhatsAppDialog({
                             <Button
                               type="button"
                               size="sm"
-                              variant="outline"
-                              className="min-h-11 px-3 text-xs sm:min-h-8"
+                              className={WHATSAPP_BUTTON_CLASS + " px-3 text-xs"}
                               onClick={() => setResendingMessageId(msg.id)}
                             >
+                              <WhatsappLogoIcon className="size-4" weight="fill" aria-hidden="true" />
                               {t("wa_resend_btn")}
                             </Button>
                           )}
@@ -375,10 +387,11 @@ export function OrderWhatsAppDialog({
                               <Button
                                 type="button"
                                 size="sm"
-                                className="min-h-11 text-xs sm:min-h-8"
+                                className={WHATSAPP_BUTTON_CLASS + " text-xs"}
                                 disabled={!ackDuplicate || resendMutation.isPending}
                                 onClick={() => resendMutation.mutate(msg.id)}
                               >
+                                <WhatsappLogoIcon className="size-4" weight="fill" aria-hidden="true" />
                                 {t("wa_resend_submit")}
                               </Button>
                               <Button
@@ -403,5 +416,28 @@ export function OrderWhatsAppDialog({
         </DialogContent>
       </Dialog>
     </>
+  )
+}
+
+/** Indica si el teléfono del destinatario es válido y si tiene WhatsApp. */
+function WhatsAppPhoneStatus({ branchId, phone }: { branchId: string; phone: string | null | undefined }) {
+  const { t } = useTranslation("business-orders")
+  const value = (phone ?? "").trim()
+  const { data, isFetching } = useQuery({
+    queryKey: ["whatsapp-phone-check", branchId, value],
+    queryFn: ({ signal }) => checkWhatsAppPhone(branchId, value, signal),
+    enabled: Boolean(value),
+    staleTime: 10 * 60 * 1000,
+    retry: false,
+  })
+  if (!value) return null
+  if (isFetching && !data) return <p className="text-muted-foreground">{t("wa_phone_checking")}</p>
+  if (!data) return null
+  if (!data.valid) return <p className="font-medium text-destructive">{t("wa_phone_invalid")}</p>
+  if (data.onWhatsApp === false) return <p className="font-medium text-destructive">{t("wa_phone_not_on_whatsapp")}</p>
+  return (
+    <p className={data.onWhatsApp ? "text-emerald-600" : "text-muted-foreground"}>
+      {data.e164} · {t(data.onWhatsApp ? "wa_phone_on_whatsapp" : "wa_phone_unknown")}
+    </p>
   )
 }

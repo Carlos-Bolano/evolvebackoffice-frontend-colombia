@@ -158,9 +158,9 @@ function makeIdempotencyHeader(idempotencyKey?: string): Record<string, string> 
   }
 }
 
-export async function getBranchWhatsAppChannel(branchId: string): Promise<BranchWhatsAppChannel> {
-  const { data } = await api.get<BranchWhatsAppChannelResponse>(`/api/branches/${branchId}/whatsapp`)
-  return mapChannel(data)
+export async function getBranchWhatsAppChannel(branchId: string): Promise<BranchWhatsAppChannel | null> {
+  const response = await api.get<BranchWhatsAppChannelResponse>(`/api/branches/${branchId}/whatsapp`)
+  return response.status === 204 ? null : mapChannel(response.data)
 }
 
 export interface WhatsAppConnectionVerification {
@@ -207,6 +207,39 @@ export async function getBranchWhatsAppQr(branchId: string): Promise<BranchWhats
     return null
   }
   return response.data
+}
+
+/** Resultado de validar un teléfono para WhatsApp (formato + registro en WhatsApp). */
+export interface WhatsAppPhoneCheck {
+  valid: boolean
+  e164: string | null
+  maskedPhone: string | null
+  numberType: string | null
+  /** null = no se pudo consultar (canal sin conectar o proveedor sin respuesta). */
+  onWhatsApp: boolean | null
+  region: string
+}
+
+export async function checkWhatsAppPhone(
+  branchId: string,
+  phone: string,
+  signal?: AbortSignal
+): Promise<WhatsAppPhoneCheck> {
+  return (
+    await api.get<WhatsAppPhoneCheck>(`/api/branches/${branchId}/whatsapp/check-phone`, { params: { phone }, signal })
+  ).data
+}
+
+export interface WhatsAppTestMessageResult {
+  sent: boolean
+  maskedPhone: string | null
+  errorCode: string | null
+  errorMessage: string | null
+}
+
+/** Envía un mensaje de prueba al propio número conectado de la sucursal. */
+export async function sendBranchWhatsAppTestMessage(branchId: string): Promise<WhatsAppTestMessageResult> {
+  return (await api.post<WhatsAppTestMessageResult>(`/api/branches/${branchId}/whatsapp/test-message`, {})).data
 }
 
 export async function disconnectBranchWhatsAppChannel(branchId: string): Promise<BranchWhatsAppChannel> {

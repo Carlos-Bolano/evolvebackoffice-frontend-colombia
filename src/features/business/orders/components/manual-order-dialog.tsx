@@ -14,6 +14,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { PhoneInput } from "@/components/ui/phone-input"
+import { useTenantCountry } from "@/hooks/use-tenant-country"
+import { analyzePhone } from "@/lib/phone"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
@@ -93,6 +96,7 @@ export function ManualOrderDialog({ open, onOpenChange, branchId }: ManualOrderD
     update("customerId", null)
     update("personId", null)
   }
+  const phoneCountry = useTenantCountry()
   const setCustomerPhone = (value: string) => {
     update("customerPhone", value)
     update("customerId", null)
@@ -198,7 +202,7 @@ export function ManualOrderDialog({ open, onOpenChange, branchId }: ManualOrderD
       (!!street.trim() &&
         (!automaticShipping || (!!quote.data && !quote.isFetching && coordinatesValid)) &&
         ((!latitude && !longitude) || coordinatesValid))) &&
-    (!customerPhone.trim() || !!customerName.trim())
+    (!customerPhone.trim() || (!!customerName.trim() && analyzePhone(customerPhone, phoneCountry).valid))
 
   const handleSubmit = () => {
     if (!branchId || !canSubmit) return
@@ -459,15 +463,10 @@ export function ManualOrderDialog({ open, onOpenChange, branchId }: ManualOrderD
                   onChange={(e) => setCustomerName(e.target.value)}
                 />
               </label>
-              <label className="space-y-1">
+              <div className="space-y-1">
                 {t("phone")}
-                <Input
-                  aria-label={t("phone")}
-                  value={customerPhone}
-                  maxLength={30}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                />
-              </label>
+                <PhoneInput aria-label={t("phone")} value={customerPhone} maxLength={30} onChange={setCustomerPhone} />
+              </div>
             </div>
             <OrderCustomerLookup
               phone={customerPhone}
