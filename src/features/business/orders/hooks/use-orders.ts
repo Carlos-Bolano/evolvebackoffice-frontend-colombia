@@ -8,7 +8,7 @@ import {
   updateOrderDetails,
   retryOrderSync,
 } from "../services/orders.service"
-import type { CreateManualOrderDto, OrderCancellationType, OrderFilters, UpdateOrderDetailsDto } from "../types/api"
+import type { CreateManualOrderDto, OrderFilters, UpdateOrderDetailsDto, CancelOrderDto } from "../types/api"
 
 export const ordersKeys = {
   all: ["orders"] as const,
@@ -22,22 +22,6 @@ export function useOrders(page: number, pageSize: number, filters?: OrderFilters
     queryKey: ordersKeys.list(page, pageSize, filters),
     queryFn: () => getOrders(page, pageSize, filters),
     enabled,
-  })
-}
-
-export function useCancelOrder() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({
-      id,
-      reason,
-      cancellationType,
-    }: {
-      id: string
-      reason?: string | null
-      cancellationType?: OrderCancellationType | null
-    }) => cancelOrder(id, reason, cancellationType),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ordersKeys.all }),
   })
 }
 
@@ -89,6 +73,21 @@ export function useUpdateOrderDetails() {
 
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: UpdateOrderDetailsDto }) => updateOrderDetails(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ordersKeys.all })
+    },
+  })
+}
+
+/**
+ * Cancela una orden especificando la disposición de inventario (Restocked/Waste)
+ * y motivo opcional. Invalida todas las queries de órdenes.
+ */
+export function useCancelOrder() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload?: CancelOrderDto }) => cancelOrder(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ordersKeys.all })
     },

@@ -49,6 +49,10 @@ interface OrdersKanbanProps {
   disabled?: boolean
 }
 
+/**
+ * Tablero Kanban de órdenes con columnas por estado, soporte de arrastrar y soltar (DnD),
+ * selección múltiple para acciones por lote y columna opcional de órdenes canceladas.
+ */
 export function OrdersKanban({
   columns = KANBAN_COLUMNS,
   readOnly = false,
@@ -114,6 +118,7 @@ export function OrdersKanban({
     scroller.scrollTop += cardBox.top + cardBox.height / 2 - (scrollerBox.top + scrollerBox.height / 2)
   }
 
+  /** Gestiona el evento de finalización del arrastre de una tarjeta en el tablero. */
   const handleDragEnd = (result: DropResult) => {
     setDraggingId(null)
     if (readOnly || disabled) return
@@ -155,7 +160,7 @@ export function OrdersKanban({
                 <CardHeader className="shrink-0 pb-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      {!readOnly && status !== "Delivered" && orders.length > 0 && (
+                      {!readOnly && status !== "Delivered" && status !== "Cancelled" && orders.length > 0 && (
                         <input
                           type="checkbox"
                           aria-label={t("bulk_select_column", { status: statusLabel(status) })}
@@ -222,7 +227,7 @@ export function OrdersKanban({
                                   } ${snapshot.isDragging ? "shadow-2xl ring-2 ring-primary" : ""}`}
                                 >
                                   <div className="mb-2 flex items-center gap-2">
-                                    {!readOnly && status !== "Delivered" && (
+                                    {!readOnly && status !== "Delivered" && status !== "Cancelled" && (
                                       <input
                                         type="checkbox"
                                         aria-label={t("bulk_select_order", {
@@ -310,6 +315,26 @@ export function OrdersKanban({
                                       {collectionLabel(order)}
                                     </Badge>
                                   </div>
+
+                                  {order.statusCode === "Cancelled" && (
+                                    <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+                                      {order.cancellationType && (
+                                        <Badge
+                                          tone={order.cancellationType === "Waste" ? "warning" : "info"}
+                                          className="px-1.5 py-0 text-[10px]"
+                                        >
+                                          {order.cancellationType === "Waste"
+                                            ? t("cancellation_type_waste")
+                                            : t("cancellation_type_restocked")}
+                                        </Badge>
+                                      )}
+                                      {order.wasteCost != null && order.wasteCost > 0 && (
+                                        <span className="font-mono text-[10px] font-medium text-destructive">
+                                          -${order.wasteCost.toFixed(2)}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
 
                                   {(order.cancelledWhileDispatched ||
                                     order.deliveryFailureReason ||

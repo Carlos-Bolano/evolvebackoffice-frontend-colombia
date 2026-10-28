@@ -26,6 +26,10 @@ interface OrderDetailDialogProps {
   onRequestCancel?: (order: OrderListItem) => void
 }
 
+/**
+ * Diálogo modal para visualizar el detalle completo de un pedido, su historial de estados,
+ * productos, trazabilidad de entrega y datos de cancelación/merma si aplica.
+ */
 export function OrderDetailDialog({
   open,
   onOpenChange,
@@ -90,6 +94,51 @@ export function OrderDetailDialog({
           aria-label={t("order_detail_content")}
           className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-5 sm:p-6"
         >
+          {/* Tarjeta de información de orden cancelada */}
+          {current.statusCode === "Cancelled" && (
+            <div className="space-y-2.5 rounded-xl border border-destructive/30 bg-destructive/5 p-3.5 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 font-semibold text-destructive">
+                  <Ban className="size-4" />
+                  {t("cancellation_info_title")}
+                </span>
+                {current.cancellationType && (
+                  <Badge tone={current.cancellationType === "Waste" ? "warning" : "info"}>
+                    {current.cancellationType === "Waste"
+                      ? t("cancellation_type_waste")
+                      : t("cancellation_type_restocked")}
+                  </Badge>
+                )}
+              </div>
+
+              {((current.wasteCost != null && current.wasteCost > 0) ||
+                (detail?.wasteCost != null && detail.wasteCost > 0)) && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">{t("cancellation_waste_cost")}:</span>
+                  <span className="font-semibold text-destructive">
+                    {formatCurrency(detail?.wasteCost ?? current.wasteCost ?? 0)}
+                  </span>
+                </div>
+              )}
+
+              {detail?.cancellationReason && (
+                <div className="space-y-1 text-xs">
+                  <span className="text-muted-foreground">{t("cancellation_reason_display")}:</span>
+                  <p className="rounded-lg bg-background/60 p-2 text-foreground italic">
+                    "{detail.cancellationReason}"
+                  </p>
+                </div>
+              )}
+
+              {detail?.wastedBy && (
+                <div className="flex items-center justify-between border-t border-destructive/10 pt-1 text-[11px] text-muted-foreground">
+                  <span>{t("cancellation_wasted_by")}:</span>
+                  <span className="font-medium text-foreground">{detail.wastedBy}</span>
+                </div>
+              )}
+            </div>
+          )}
+
           {isLoading && <p role="status">{t("loading")}</p>}
           {isError && (
             <div role="alert" className="space-y-2 rounded-xl border border-destructive/40 p-3">

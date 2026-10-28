@@ -22,6 +22,7 @@ import {
 import {
   AlertTriangle,
   ArrowRight,
+  Ban,
   Bike,
   Lock,
   Plus,
@@ -44,7 +45,7 @@ import { BranchSelector } from "@/features/business/items/catalog/components/bra
 import { useBranchIntegrations } from "@/features/business/branches/hooks/use-branch-integrations"
 import { useAssignCourier, useCouriers } from "../hooks/use-couriers"
 import { useOrderNotificationsStore } from "../hooks/use-new-order-notifications"
-import { useCancelOrder, useOrders, useUpdateOrderStatus } from "../hooks/use-orders"
+import { useOrders, useUpdateOrderStatus } from "../hooks/use-orders"
 import { useOrderUpdates } from "../hooks/use-order-updates"
 import { OrdersKanban } from "../components/orders-kanban"
 import { OrderConnectionStatus } from "../components/order-connection-status"
@@ -56,12 +57,13 @@ import { OrderDetailDialog } from "../components/order-detail-dialog"
 import { OrderQuickFilters } from "../components/order-quick-filters"
 import { useOrderViewPreferences, type OrderViewPreferences } from "../hooks/use-order-view-preferences"
 import { useOrderWorkspaceKey, useWorkspaceState } from "../hooks/use-order-workspace"
+import { CancelOrderDialog } from "../components/cancel-order-dialog"
 import { ManualOrderDialog } from "../components/manual-order-dialog"
 import { EditOrderDialog } from "../components/edit-order-dialog"
 import { CourierPickerDialog } from "../components/courier-picker-dialog"
 import { HISTORY_KANBAN_COLUMNS, KANBAN_COLUMNS, ORDER_STATUS_CONFIG } from "../types"
 import { checkOrderStock } from "../services/orders.service"
-import type { OrderCancellationType, OrderFilters, OrderListItem, OrderStatus, OrderStockItem } from "../types/api"
+import type { OrderFilters, OrderListItem, OrderStatus, OrderStockItem } from "../types/api"
 
 type DatePreset = "all" | "today" | "yesterday" | "last7"
 
@@ -88,6 +90,11 @@ function computeDateRange(preset: DatePreset): { from?: string; to?: string } {
   return { from: fmt(start), to: fmt(todayStart) }
 }
 
+/**
+ * Página principal de gestión de pedidos en tablero Kanban.
+ * Incluye filtrado por sucursal, plataforma de origen, verificación de stock,
+ * asignación de domiciliarios, cancelación granular y operaciones por lote.
+ */
 export function OrdersPage() {
   const { t } = useTranslation("business-orders")
   const navigate = useNavigate()
@@ -139,6 +146,7 @@ export function OrdersPage() {
   } | null>(null)
   const [pendingMove, setPendingMove] = useState<{ orderId: string; status: OrderStatus } | null>(null)
   const [checkingMove, setCheckingMove] = useState(false)
+  const [showCancelled, setShowCancelled] = useState(false)
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(searchInput.trim()), 250)
@@ -177,6 +185,7 @@ export function OrdersPage() {
     if (branchId) localStorage.setItem(ORDERS_BRANCH_STORAGE_KEY, branchId)
   }, [branchId])
 
+  /** Cambia la sucursal activa seleccionada o selecciona todas las sucursales. */
   const handleBranchChange = (id: string | null) => {
     const value = id ?? ALL_BRANCHES
     localStorage.setItem(ORDERS_BRANCH_STORAGE_KEY, value)
@@ -230,7 +239,6 @@ export function OrdersPage() {
   // Pedidos nuevos o actualizados (webhook de Cluvi, otro usuario) aparecen sin recargar.
   const connection = useOrderUpdates(branchId)
   const updateStatusMutation = useUpdateOrderStatus()
-  const cancelOrderMutation = useCancelOrder()
   const assignCourierMutation = useAssignCourier()
 
   const allOrders = useMemo(
@@ -314,6 +322,7 @@ export function OrdersPage() {
   const selectedIds = new Set(
     selection.scope === selectionScope ? selection.ids.filter((id) => visibleIds.has(id)) : []
   )
+  /** Alterna la selección de una lista de identificadores de órdenes para acciones por lote. */
   const toggleSelection = (ids: string[]) => {
     const next = new Set(selectedIds)
     if (ids.every((id) => next.has(id))) ids.forEach((id) => next.delete(id))
@@ -327,7 +336,19 @@ export function OrdersPage() {
   }
   const selectedOrders = selectableOrders.filter((order) => selectedIds.has(order.id))
 
-  const kanbanColumns = orderScope === "history" ? HISTORY_KANBAN_COLUMNS : KANBAN_COLUMNS
+  const cancelledOrdersCount = useMemo(
+    () => filteredOrders.filter((o) => o.statusCode === "Cancelled").length,
+    [filteredOrders]
+  )
+
+  const baseColumns = orderScope === "history" ? HISTORY_KANBAN_COLUMNS : KANBAN_COLUMNS
+  // En "historia" ya entra Cancelled; fuera de ella se agrega solo si el usuario lo pide.
+  const kanbanColumns = useMemo(() => {
+    const cols: (OrderStatus | "Refunded")[] = [...baseColumns]
+    if (showCancelled && !cols.includes("Cancelled")) cols.push("Cancelled")
+    return cols
+  }, [baseColumns, showCancelled])
+
   const ordersByStatus = kanbanColumns.reduce(
     (acc, status) => {
       acc[status] = filteredOrders.filter((o) => o.statusCode === status)
@@ -351,10 +372,9 @@ export function OrdersPage() {
   const [dispatchOrder, setDispatchOrder] = useState<OrderListItem | null>(null)
   const [assigningCourierOrder, setAssigningCourierOrder] = useState<OrderListItem | null>(null)
   const [cancellingOrder, setCancellingOrder] = useState<OrderListItem | null>(null)
-  const [cancelReason, setCancelReason] = useState("")
-  const [cancellationType, setCancellationType] = useState<OrderCancellationType>("Restocked")
   const pendingConfirmRef = useRef<{ orderId: string; status: OrderStatus } | null>(null)
 
+  /** Aplica un cambio de estado a una orden y opcionalmente asigna un repartidor. */
   const applyStatus = (orderId: string, newStatus: OrderStatus, courierId?: string | null) => {
     setPendingMove({ orderId, status: newStatus })
     updateStatusMutation.mutate(
@@ -380,6 +400,12 @@ export function OrdersPage() {
    */
   const handleDragEnd = async (orderId: string, newStatus: OrderStatus) => {
     if (bulkRequest || checkingMove || updateStatusMutation.isPending) return
+    // Cancelar requiere seleccionar tipo de disposición (Restocked / Waste) y motivo individualizado
+    if (newStatus === "Cancelled") {
+      const order = allOrders.find((o) => o.id === orderId)
+      if (order) handleRequestCancel(order)
+      return
+    }
     if (selectedIds.has(orderId) && selectedOrders.length > 1) {
       setBulkRequest({ orders: selectedOrders, status: newStatus })
       return
@@ -410,6 +436,7 @@ export function OrdersPage() {
     applyStatus(orderId, newStatus)
   }
 
+  /** Confirma el cambio de estado a pesar de existir advertencia de inventario insuficiente. */
   const handleConfirmDespiteShortage = () => {
     const pending = pendingConfirmRef.current
     pendingConfirmRef.current = null
@@ -417,36 +444,14 @@ export function OrdersPage() {
     if (pending) applyStatus(pending.orderId, pending.status)
   }
 
+  /** Abre el modal con el detalle completo de la orden seleccionada. */
   const handleViewDetail = (order: OrderListItem) => {
     setSelectedOrder(order)
     setDetailOpen(true)
   }
 
   const handleRequestCancel = (order: OrderListItem) => {
-    setCancelReason("")
-    setCancellationType("Restocked")
     setCancellingOrder(order)
-  }
-
-  const handleConfirmCancelOrder = () => {
-    if (!cancellingOrder) return
-    cancelOrderMutation.mutate(
-      {
-        id: cancellingOrder.id,
-        reason: cancelReason.trim() || null,
-        cancellationType,
-      },
-      {
-        onSuccess: () => {
-          setCancellingOrder(null)
-          notify.success(t("order_cancelled_ok"))
-        },
-        onError: (error: unknown) => {
-          const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message
-          notify.error(message || t("status_update_failed"))
-        },
-      }
-    )
   }
 
   /** Navega a la pestaña de integración de la sucursal en Sucursales. */
@@ -708,46 +713,62 @@ export function OrdersPage() {
           {t("order_history")} ({historyCount})
         </Button>
       </div>
-      {/* Platform Filter Tabs */}
-      <Tabs
-        value={platformFilter}
-        onValueChange={(v) => {
-          setPlatformFilter(v as OrderViewPreferences["platformFilter"])
-          setSelection({ scope: "", ids: [] })
-        }}
-      >
-        <TabsList className="max-w-full flex-wrap gap-1">
-          <TabsTrigger value="all" className="gap-1.5">
-            <ShoppingCart className="h-3.5 w-3.5" />
-            {t("platform_all")}
-            <Badge tone="neutral" className="ml-1 text-[10px]">
-              {platformCounts.all}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="POSCO" className="gap-1.5">
-            {t("platform_local")}
-            <Badge tone="neutral" className="ml-1 text-[10px]">
-              {platformCounts.POSCO}
-            </Badge>
-          </TabsTrigger>
-          {(hasCluviModule || platformCounts.CLUVI > 0 || platformFilter === "CLUVI") && (
-            <TabsTrigger value="CLUVI" className="gap-1.5">
-              Cluvi
+      {/* Filtros de plataforma + ver/ocultar órdenes canceladas */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Tabs
+          value={platformFilter}
+          onValueChange={(v) => {
+            setPlatformFilter(v as OrderViewPreferences["platformFilter"])
+            setSelection({ scope: "", ids: [] })
+          }}
+        >
+          <TabsList className="max-w-full flex-wrap gap-1">
+            <TabsTrigger value="all" className="gap-1.5">
+              <ShoppingCart className="h-3.5 w-3.5" />
+              {t("platform_all")}
               <Badge tone="neutral" className="ml-1 text-[10px]">
-                {platformCounts.CLUVI}
+                {platformCounts.all}
               </Badge>
             </TabsTrigger>
-          )}
-          {(hasWooCommerceModule || platformCounts.WOOCOMMERCE > 0 || platformFilter === "WOOCOMMERCE") && (
-            <TabsTrigger value="WOOCOMMERCE" className="gap-1.5">
-              WooCommerce
+            <TabsTrigger value="POSCO" className="gap-1.5">
+              {t("platform_local")}
               <Badge tone="neutral" className="ml-1 text-[10px]">
-                {platformCounts.WOOCOMMERCE}
+                {platformCounts.POSCO}
               </Badge>
             </TabsTrigger>
-          )}
-        </TabsList>
-      </Tabs>
+            {(hasCluviModule || platformCounts.CLUVI > 0 || platformFilter === "CLUVI") && (
+              <TabsTrigger value="CLUVI" className="gap-1.5">
+                Cluvi
+                <Badge tone="neutral" className="ml-1 text-[10px]">
+                  {platformCounts.CLUVI}
+                </Badge>
+              </TabsTrigger>
+            )}
+            {(hasWooCommerceModule || platformCounts.WOOCOMMERCE > 0 || platformFilter === "WOOCOMMERCE") && (
+              <TabsTrigger value="WOOCOMMERCE" className="gap-1.5">
+                WooCommerce
+                <Badge tone="neutral" className="ml-1 text-[10px]">
+                  {platformCounts.WOOCOMMERCE}
+                </Badge>
+              </TabsTrigger>
+            )}
+          </TabsList>
+        </Tabs>
+
+        {/* Botón para ver/ocultar órdenes canceladas */}
+        <Button
+          variant={showCancelled ? "secondary" : "outline"}
+          size="sm"
+          onClick={() => setShowCancelled(!showCancelled)}
+          className="gap-1.5"
+        >
+          <Ban className="size-3.5 text-destructive" />
+          <span>{showCancelled ? t("hide_cancelled_orders") : t("show_cancelled_orders")}</span>
+          <Badge tone="neutral" className="ml-0.5 text-[10px]">
+            {cancelledOrdersCount}
+          </Badge>
+        </Button>
+      </div>
 
       {selectableOrders.length > 0 && (
         <div
@@ -845,6 +866,17 @@ export function OrdersPage() {
         onAdvanceStatus={(order, nextStatus) => void handleDragEnd(order.id, nextStatus)}
         onRequestCancel={handleRequestCancel}
       />
+      <CancelOrderDialog
+        open={cancellingOrder !== null}
+        onOpenChange={(open) => {
+          if (!open) setCancellingOrder(null)
+        }}
+        order={cancellingOrder}
+        onSuccess={() => {
+          setCancellingOrder(null)
+          setShowCancelled(true)
+        }}
+      />
       <EditOrderDialog open={editOrderOpen} onOpenChange={setEditOrderOpen} orderId={selectedOrder?.id ?? null} />
 
       {/* Advertencia de inventario insuficiente antes de confirmar la orden */}
@@ -878,68 +910,6 @@ export function OrdersPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>{t("stock_warning_cancel")}</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmDespiteShortage}>{t("stock_warning_confirm")}</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Cancelación de orden con disposición Restocked vs Waste */}
-      <AlertDialog open={cancellingOrder !== null} onOpenChange={(open) => !open && setCancellingOrder(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("cancel_order_title")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {cancellingOrder
-                ? t("cancel_order_desc", {
-                    reference: cancellingOrder.externalOrderId?.slice(0, 8) ?? cancellingOrder.id.slice(0, 8),
-                  })
-                : ""}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <p className="text-xs font-medium text-muted-foreground">{t("cancel_disposition_label")}</p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => setCancellationType("Restocked")}
-                  className={`rounded-xl border p-2.5 text-left text-xs transition-colors ${
-                    cancellationType === "Restocked"
-                      ? "border-primary bg-primary/10 font-medium text-foreground"
-                      : "border-border bg-background text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <span className="block font-semibold">{t("cancel_restocked")}</span>
-                  <span className="mt-0.5 block text-[11px] opacity-80">{t("cancel_restocked_desc")}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCancellationType("Waste")}
-                  className={`rounded-xl border p-2.5 text-left text-xs transition-colors ${
-                    cancellationType === "Waste"
-                      ? "border-amber-500 bg-amber-500/10 font-medium text-foreground"
-                      : "border-border bg-background text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <span className="block font-semibold">{t("cancel_waste")}</span>
-                  <span className="mt-0.5 block text-[11px] opacity-80">{t("cancel_waste_desc")}</span>
-                </button>
-              </div>
-            </div>
-            <Input
-              placeholder={t("cancel_reason_placeholder")}
-              value={cancelReason}
-              onChange={(e) => setCancelReason(e.target.value)}
-            />
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              disabled={cancelOrderMutation.isPending}
-              onClick={handleConfirmCancelOrder}
-            >
-              {t("confirm_cancel_order")}
-            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

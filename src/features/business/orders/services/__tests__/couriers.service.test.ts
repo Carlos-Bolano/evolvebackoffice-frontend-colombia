@@ -88,7 +88,7 @@ describe("estado y conciliación con domiciliario", () => {
   it("cancelOrderFromClosing y cancelOrder envían reason y cancellationType en el body JSON", async () => {
     mockedApi.post.mockResolvedValue({})
     await cancelOrderFromClosing("o1", "Cliente no contestó", "Waste")
-    await cancelOrder("o2", "Error de captura", "Restocked")
+    await cancelOrder("o2", { reason: "Error de captura", cancellationType: "Restocked" })
     expect(mockedApi.post).toHaveBeenNthCalledWith(1, "/api/orders/o1/cancel", {
       reason: "Cliente no contestó",
       cancellationType: "Waste",

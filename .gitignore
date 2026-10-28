@@ -54,3 +54,5 @@ tests/*
 playwright-report/
 
 test-results/*
+
+.codebase-memory

@@ -28,13 +28,13 @@ export async function updateOrderStatusBatches(batches: BulkOrderStatusRequest[]
 }
 import type {
   PagedOrders,
-  OrderCancellationType,
   OrderFilters,
   OrderDetail,
   OrderStockCheck,
   NewOrdersUpdate,
   CreateManualOrderDto,
   UpdateOrderDetailsDto,
+  CancelOrderDto,
 } from "../types/api"
 
 function normalizePagedResponse(raw: unknown, pageSize: number): PagedOrders {
@@ -65,17 +65,6 @@ export async function getOrders(pageNumber: number, pageSize: number, filters?: 
   if (filters?.syncAlert) params.syncAlert = filters.syncAlert
   const { data } = await api.get("/api/orders", { params })
   return normalizePagedResponse(data, pageSize)
-}
-
-export async function cancelOrder(
-  id: string,
-  reason?: string | null,
-  cancellationType?: OrderCancellationType | null
-): Promise<void> {
-  await api.post(`/api/orders/${id}/cancel`, {
-    reason: reason || null,
-    cancellationType: cancellationType ?? null,
-  })
 }
 
 export async function getOrderById(id: string): Promise<OrderDetail> {
@@ -157,4 +146,12 @@ export async function createManualOrder(payload: CreateManualOrderDto): Promise<
  */
 export async function updateOrderDetails(id: string, payload: UpdateOrderDetailsDto): Promise<void> {
   await api.put(`/api/orders/${id}/details`, payload)
+}
+
+/**
+ * Cancela una orden. Permite indicar si los productos regresan al stock
+ * disponible (Restocked) o se registran como merma física (Waste), y el motivo.
+ */
+export async function cancelOrder(id: string, payload?: CancelOrderDto): Promise<void> {
+  await api.post(`/api/orders/${id}/cancel`, payload ?? {})
 }
