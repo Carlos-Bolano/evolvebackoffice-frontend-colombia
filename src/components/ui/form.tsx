@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import * as React from "react"
+import { Slot } from "@radix-ui/react-slot"
 import {
   Controller,
   FormProvider,
@@ -84,11 +85,11 @@ function FormLabel({ className, ...props }: React.ComponentProps<typeof Label>) 
   )
 }
 
-function FormControl({ ...props }: React.ComponentProps<"div">) {
+function FormControl({ ...props }: React.ComponentProps<typeof Slot>) {
   const { error, formItemId, formDescriptionId, formMessageId } = useFormField()
 
   return (
-    <div
+    <Slot
       data-slot="form-control"
       id={formItemId}
       aria-describedby={!error ? formDescriptionId : `${formDescriptionId} ${formMessageId}`}

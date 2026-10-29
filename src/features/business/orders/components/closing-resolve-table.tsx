@@ -1,3 +1,5 @@
+import { useOrderPresentation } from "../hooks/use-order-presentation"
+import { shortOrderReference } from "../utils/order-presentation"
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Ban, CheckCircle2, History } from "lucide-react"
@@ -33,6 +35,7 @@ import { ReconcilePaymentsDialog } from "./reconcile-payments-dialog"
  */
 export function ClosingResolveTable({ orders }: { orders: OrderClosingOrderRow[] }) {
   const { t } = useTranslation("business-orders")
+  const { statusLabel } = useOrderPresentation()
   const { formatCurrency, formatDateTime } = useLocaleFormat()
   const { data: methods } = useQuery({
     queryKey: ["payment-methods", "active", "for-reconcile"],
@@ -42,6 +45,7 @@ export function ClosingResolveTable({ orders }: { orders: OrderClosingOrderRow[]
   const [delivering, setDelivering] = useState<OrderClosingOrderRow | null>(null)
   const [cancelling, setCancelling] = useState<OrderClosingOrderRow | null>(null)
   const [reason, setReason] = useState("")
+  const [cancellationType, setCancellationType] = useState<"Restocked" | "Waste">("Restocked")
 
   const onError = (error: unknown) => notify.error(getApiErrorMessage(error))
 
@@ -64,7 +68,7 @@ export function ClosingResolveTable({ orders }: { orders: OrderClosingOrderRow[]
             return (
               <TableRow key={o.id}>
                 <TableCell>
-                  <p className="font-mono text-xs">{o.reference}</p>
+                  <p className="font-mono text-xs">{shortOrderReference(o.reference, o.id)}</p>
                   {o.carriedOver ? (
                     <Badge tone="orange" className="mt-1 gap-1 text-[10px]">
                       <History className="size-3" />
@@ -76,7 +80,7 @@ export function ClosingResolveTable({ orders }: { orders: OrderClosingOrderRow[]
                 </TableCell>
                 <TableCell className="hidden text-muted-foreground sm:table-cell">{o.customerName ?? "—"}</TableCell>
                 <TableCell>
-                  <Badge tone={status?.color ?? "neutral"}>{status?.label ?? o.status}</Badge>
+                  <Badge tone={status?.color ?? "neutral"}>{statusLabel(o.status)}</Badge>
                   <p className="mt-1 text-[11px] text-muted-foreground">{o.origin}</p>
                 </TableCell>
                 <TableCell className="hidden text-muted-foreground lg:table-cell">{o.courierName ?? "—"}</TableCell>
@@ -93,6 +97,7 @@ export function ClosingResolveTable({ orders }: { orders: OrderClosingOrderRow[]
                       className="h-8"
                       onClick={() => {
                         setReason("")
+                        setCancellationType("Restocked")
                         setCancelling(o)
                       }}
                       disabled={resolve.isPending}
@@ -144,12 +149,43 @@ export function ClosingResolveTable({ orders }: { orders: OrderClosingOrderRow[]
                 })}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <Input
-            autoFocus
-            placeholder={t("closing_resolve_cancel_reason")}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-          />
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground">{t("cancel_disposition_label")}</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setCancellationType("Restocked")}
+                  className={`rounded-xl border p-2.5 text-left text-xs transition-colors ${
+                    cancellationType === "Restocked"
+                      ? "border-primary bg-primary/10 font-medium text-foreground"
+                      : "border-border bg-background text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <span className="block font-semibold">{t("cancel_restocked")}</span>
+                  <span className="mt-0.5 block text-[11px] opacity-80">{t("cancel_restocked_desc")}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCancellationType("Waste")}
+                  className={`rounded-xl border p-2.5 text-left text-xs transition-colors ${
+                    cancellationType === "Waste"
+                      ? "border-amber-500 bg-amber-500/10 font-medium text-foreground"
+                      : "border-border bg-background text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <span className="block font-semibold">{t("cancel_waste")}</span>
+                  <span className="mt-0.5 block text-[11px] opacity-80">{t("cancel_waste_desc")}</span>
+                </button>
+              </div>
+            </div>
+            <Input
+              autoFocus
+              placeholder={t("closing_resolve_cancel_reason")}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
             <AlertDialogAction
@@ -158,7 +194,12 @@ export function ClosingResolveTable({ orders }: { orders: OrderClosingOrderRow[]
               onClick={() =>
                 cancelling &&
                 resolve.mutate(
-                  { orderId: cancelling.id, outcome: "cancelled", reason: reason.trim() || undefined },
+                  {
+                    orderId: cancelling.id,
+                    outcome: "cancelled",
+                    reason: reason.trim() || undefined,
+                    cancellationType,
+                  },
                   {
                     onSuccess: () => {
                       setCancelling(null)

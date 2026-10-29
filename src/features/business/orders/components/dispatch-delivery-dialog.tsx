@@ -1,3 +1,4 @@
+import { shortOrderReference } from "../utils/order-presentation"
 import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -35,7 +36,7 @@ export function DispatchDeliveryDialog({
         <DialogHeader>
           <DialogTitle>{t("delivery_dispatch_title")}</DialogTitle>
           <DialogDescription>
-            #{order.reference} · {formatCurrency(order.total)}
+            #{shortOrderReference(order.reference, order.id)} · {formatCurrency(order.total)}
           </DialogDescription>
         </DialogHeader>
         <label className="space-y-1 text-sm">

@@ -48,6 +48,8 @@ export interface TenantSettings {
   identificationNumber: string
   identificationTypeId: number
   subdomain: string
+  /** País ISO-2 del negocio (p. ej. "CO"); define el indicativo telefónico por defecto. */
+  countryCode?: string | null
   isActive: boolean
   maxRegisters: number
   maxBranches: number

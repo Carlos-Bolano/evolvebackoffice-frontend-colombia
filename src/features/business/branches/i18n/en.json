@@ -247,5 +247,8 @@
   "go_registers": "Go to Registers",
   "switch_on": "YES",
   "switch_off": "NO",
-  "terminals_breadcrumb_config": "Configuration"
+  "terminals_breadcrumb_config": "Configuration",
+  "config_step_operation": "Operation",
+  "config_step_operation_desc": "Order reception, store open or paused, unlinked products and payment methods: everything Cluvi in one place.",
+  "config_step_goto": "Step {{n}}: {{label}}"
 }

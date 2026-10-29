@@ -1,3 +1,5 @@
+import { useOrderPresentation } from "../hooks/use-order-presentation"
+import { shortOrderReference } from "../utils/order-presentation"
 import type { ReactNode } from "react"
 import { Clock, MapPin, Phone } from "lucide-react"
 
@@ -7,7 +9,7 @@ import { useTranslation } from "@/i18n/use-i18n"
 import { ORDER_STATUS_CONFIG } from "../types"
 import type { DeliveryOrder } from "../types/delivery"
 import { elapsedLabelParts, mapsUrl, minutesSince } from "../utils/order-helpers"
-import { WhatsAppDesktopDialog } from "./whatsapp-desktop-dialog"
+import { OrderWhatsAppDialog } from "./order-whatsapp-dialog"
 import { DeliveryProofDialog } from "./delivery-proof-dialog"
 import { useCanManageDeliveries } from "../hooks/use-delivery-operations"
 import { OrderSyncAction } from "./order-sync-action"
@@ -38,6 +40,7 @@ export function DeliveryOrderCard({
 }: DeliveryOrderCardProps) {
   const { t } = useTranslation("business-orders")
   const { formatCurrency } = useLocaleFormat()
+  const { collectionLabel, paymentLabel, statusLabel } = useOrderPresentation()
   const url = mapsUrl(order)
   const canManage = useCanManageDeliveries()
   const status = ORDER_STATUS_CONFIG[order.status]
@@ -54,13 +57,8 @@ export function DeliveryOrderCard({
     <div data-testid={`delivery-order-${order.id}`} className="space-y-2 rounded-lg border bg-card p-3 shadow-sm">
       {notifyCustomer && (
         <div className="flex flex-wrap gap-2">
-          <WhatsAppDesktopDialog order={order} courierName={courierName} />
-          <WhatsAppDesktopDialog
-            order={order}
-            courierName={courierName}
-            courierPhone={courierPhone}
-            recipient="courier"
-          />
+          <OrderWhatsAppDialog order={order} />
+          <OrderWhatsAppDialog order={order} courierPhone={courierPhone} recipient="courier" />
         </div>
       )}
       {canManage && order.hasDeliveryProof && <DeliveryProofDialog id={order.id} />}
@@ -88,14 +86,16 @@ export function DeliveryOrderCard({
       )}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <span className="block truncate font-mono text-xs text-muted-foreground">#{order.reference}</span>
-          <p className="truncate text-sm font-medium">{order.customerName ?? t("courier_no_customer")}</p>
+          <span className="block truncate font-mono text-xs text-muted-foreground">
+            #{shortOrderReference(order.reference, order.id)}
+          </span>
+          <p className="text-sm font-medium break-words">{order.customerName ?? t("courier_no_customer")}</p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
           <span className="text-sm font-bold tabular-nums">{formatCurrency(order.total)}</span>
           {showStatus && status && (
             <Badge tone={status.color} className="text-[10px]">
-              {status.label}
+              {statusLabel(order.status)}
             </Badge>
           )}
         </div>
@@ -103,11 +103,7 @@ export function DeliveryOrderCard({
 
       <div className="flex flex-wrap items-center gap-1">
         <Badge tone={order.paymentConfirmed || order.isReconciled ? "success" : "warning"}>
-          {order.paymentConfirmed
-            ? t("phase2_paid")
-            : order.isReconciled
-              ? t("phase2_collected")
-              : t("phase2_collect", { amount: formatCurrency(order.total) })}
+          {collectionLabel(order)}
         </Badge>
         {order.platformCode === "CLUVI" && (
           <span title={order.syncError ?? undefined}>
@@ -135,7 +131,7 @@ export function DeliveryOrderCard({
         )}
         {order.paymentMethod && (
           <Badge tone="warning" className="text-[10px]">
-            {order.paymentMethod}
+            {paymentLabel(order.paymentMethod)}
           </Badge>
         )}
         {showBranch && order.branchName && (

@@ -12,6 +12,9 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  server: {
+    watch: { ignored: ["**/graphify-out/**", "**/playwright-report/**", "**/test-results/**"] },
+  },
   test: {
     exclude: [...configDefaults.exclude, "tests/**"],
     globals: true,
