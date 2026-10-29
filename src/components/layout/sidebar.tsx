@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  Bike,
   Bot,
   Building2,
   Fingerprint,
@@ -16,7 +17,7 @@ import {
   User,
   KeyRound,
 } from "lucide-react"
-import { Link, NavLink, useLocation } from "react-router-dom"
+import { Link, useLocation } from "react-router-dom"
 import { useState } from "react"
 
 import { Separator } from "@/components/ui/separator"
@@ -61,6 +62,7 @@ const platformNavigationItems = [
 const businessNavigationItems = [
   { to: "/business/dashboard", labelKey: "dashboard", icon: LayoutDashboard },
   { to: "/business/orders", labelKey: "orders", icon: Truck },
+  { to: "/business/orders/deliveries", labelKey: "deliveries", icon: Bike },
   { to: "/business/ai-chat", labelKey: "ai_chat", icon: Sparkles },
   { to: "/business/items", labelKey: "items", icon: Package },
   { to: "/business/inventory", labelKey: "inventory", icon: Building2 },
@@ -108,12 +110,18 @@ export function SidebarContent({
 
   const baseNavigationItems = isPlatformAdmin ? platformNavigationItems : businessNavigationItems
   const navigationItems = baseNavigationItems.filter((item) => {
-    if (item.labelKey !== "orders" && item.labelKey !== "ai_chat") return true
+    if (item.labelKey !== "orders" && item.labelKey !== "deliveries" && item.labelKey !== "ai_chat") return true
     // Evita parpadeo: oculto hasta confirmar licencias (salvo platform admin).
     if (isPlatformAdmin) return true
     if (tenantModulesLoading) return false
-    return item.labelKey === "orders" ? hasOrdersLicense : hasAiLicense
+    return item.labelKey === "ai_chat" ? hasAiLicense : hasOrdersLicense
   })
+
+  // Domicilios cuelga de /business/orders: gana el ítem con el prefijo más
+  // largo para que Órdenes no quede también resaltado.
+  const activeItemTo = navigationItems
+    .filter((item) => pathname === item.to || pathname.startsWith(`${item.to}/`))
+    .reduce<string | null>((best, item) => (best && best.length >= item.to.length ? best : item.to), null)
 
   return (
     <div
@@ -149,12 +157,14 @@ export function SidebarContent({
       >
         {navigationItems.map((item) => {
           const Icon = item.icon
-          const isActive = pathname === item.to || pathname.startsWith(`${item.to}/`)
+          const isActive = item.to === activeItemTo
           return (
-            <NavLink
+            // Link + aria-current explícito: NavLink marcaría también Órdenes en /business/orders/deliveries.
+            <Link
               key={item.to}
               to={item.to}
               onClick={onNavigate}
+              aria-current={isActive ? "page" : undefined}
               title={
                 isCollapsed && !isMobile
                   ? t(
@@ -167,6 +177,7 @@ export function SidebarContent({
                         | "reports"
                         | "settings"
                         | "orders"
+                        | "deliveries"
                         | "ai_chat"
                         | "logs"
                         | "audit"
@@ -197,6 +208,7 @@ export function SidebarContent({
                       | "users"
                       | "email_settings"
                       | "orders"
+                      | "deliveries"
                       | "ai_chat"
                       | "logs"
                       | "audit"
@@ -204,7 +216,7 @@ export function SidebarContent({
                   )}
                 </span>
               )}
-            </NavLink>
+            </Link>
           )
         })}
       </nav>

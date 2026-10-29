@@ -1,3 +1,20 @@
+/** Alias histórico del mismo dominio de cancelación (Restocked | Waste). */
+export type OrderCancellationType = CancellationType
+
+export interface OrderFilters {
+  branchId?: string
+  status?: string
+  platform?: string
+  from?: string
+  to?: string
+  courierId?: string
+  search?: string
+  fulfillmentType?: "delivery" | "pickup" | string
+  origin?: string
+  paymentState?: "paid" | "reconciled" | "pending" | string
+  syncAlert?: "error" | "pending" | string
+}
+
 export interface OrderListItem {
   id: string
   externalOrderId: string | null
@@ -30,6 +47,31 @@ export interface OrderListItem {
   assignedAt?: string | null
   dispatchedAt?: string | null
   deliveredAt?: string | null
+  customerName?: string | null
+  customerPhone?: string | null
+  itemsCount?: number
+  itemsSummary?: string | null
+  isReconciled?: boolean
+  needsOutboundSync?: boolean
+  promisedDeliveryAt?: string | null
+  deliveryFailureReason?: string | null
+  cancelledWhileDispatched?: boolean
+  cancellationType?: CancellationType | null
+  wasteCost?: number | null
+  wastedAt?: string | null
+}
+
+export type CancellationType = "Restocked" | "Waste"
+
+export interface CancelOrderItemDispositionDto {
+  orderItemId: string
+  disposition: CancellationType
+}
+
+export interface CancelOrderDto {
+  reason?: string
+  cancellationType?: CancellationType
+  items?: CancelOrderItemDispositionDto[]
 }
 
 export interface OrderDetail {
@@ -77,6 +119,11 @@ export interface OrderDetail {
   assignedAt?: string | null
   dispatchedAt?: string | null
   deliveredAt?: string | null
+  cancellationType?: CancellationType | null
+  cancellationReason?: string | null
+  wasteCost?: number | null
+  wastedAt?: string | null
+  wastedBy?: string | null
 }
 
 export interface OrderItemDto {

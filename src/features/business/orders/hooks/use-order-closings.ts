@@ -73,9 +73,11 @@ export function useResolveClosingOrder() {
     mutationFn: async (
       input:
         | { orderId: string; outcome: "delivered"; payments: ReconcilePaymentLine[] }
-        | { orderId: string; outcome: "cancelled"; reason?: string }
+        | { orderId: string; outcome: "cancelled"; reason?: string; cancellationType?: "Restocked" | "Waste" }
     ) => {
-      if (input.outcome === "cancelled") return cancelOrderFromClosing(input.orderId, input.reason)
+      if (input.outcome === "cancelled") {
+        return cancelOrderFromClosing(input.orderId, input.reason, input.cancellationType)
+      }
       await reconcileOrderPayments(input.orderId, input.payments)
       await resolveOrderDelivered(input.orderId)
     },

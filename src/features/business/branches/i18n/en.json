@@ -250,5 +250,8 @@
   "terminals_breadcrumb_config": "Configuration",
   "supplier_label": "Supplier branch",
   "supplier_hint": "Supplies other branches: receives their orders and ships goods to them. Only supplier branches can send transfers.",
-  "supplier_badge": "Supplier"
+  "supplier_badge": "Supplier",
+  "config_step_operation": "Operation",
+  "config_step_operation_desc": "Order reception, store open or paused, unlinked products and payment methods: everything Cluvi in one place.",
+  "config_step_goto": "Step {{n}}: {{label}}"
 }

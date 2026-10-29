@@ -40,6 +40,10 @@ import { DeliveryIncidentActions } from "../components/delivery-incident-actions
 import { useCanManageDeliveries, useDeliveryAction } from "../hooks/use-delivery-operations"
 import { useDeliveryUpdates } from "../hooks/use-delivery-updates"
 import { DeliveryOrderCard } from "../components/delivery-order-card"
+import { OrderConnectionStatus } from "../components/order-connection-status"
+import { OrdersSubnav } from "../components/orders-subnav"
+import { DeliverySetupChecklist } from "../components/delivery-setup-checklist"
+import { useDeliverySetup } from "../hooks/use-delivery-setup"
 import type { DeliveryCourierGroup, DeliveryOrder } from "../types/delivery"
 import { getApiErrorMessage } from "../utils/order-helpers"
 
@@ -74,8 +78,9 @@ export function DeliveriesPage() {
   const branches = useMemo(() => branchesData?.data ?? [], [branchesData])
   const showAllBranches = !selectedBranchId || selectedBranchId === ALL_BRANCHES
   const branchId = showAllBranches ? null : branches.some((b) => b.id === selectedBranchId) ? selectedBranchId : null
-  useDeliveryUpdates(branchId)
+  const connection = useDeliveryUpdates(branchId)
   const canManage = useCanManageDeliveries()
+  const setup = useDeliverySetup(canManage ? branchId : null)
   const deliveryAction = useDeliveryAction()
 
   const handleBranchChange = (id: string | null) => {
@@ -200,16 +205,21 @@ export function DeliveriesPage() {
 
   return (
     <Card className="overflow-hidden shadow-none">
-      <CardContent className="p-4 sm:p-6 lg:p-8">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <CardContent className="space-y-2 p-3 sm:space-y-4 sm:p-6 lg:p-8">
+        <OrdersSubnav />
+        {canManage && branchId && !setup.isLoading && (
+          <DeliverySetupChecklist steps={setup.steps} completed={setup.completed} compact />
+        )}
+        <OrderConnectionStatus connection={connection} />
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex flex-col gap-2">
-            <Badge className="max-w-fit" tone="primary">
+            <Badge className="hidden max-w-fit sm:inline-flex" tone="primary">
               {t("orders")}
             </Badge>
             <h1 className="text-xl font-semibold text-foreground sm:text-2xl">{t("deliveries_title")}</h1>
-            <p className="max-w-3xl text-sm leading-5 text-muted-foreground">{t("deliveries_desc")}</p>
+            <p className="hidden max-w-3xl text-sm leading-5 text-muted-foreground sm:block">{t("deliveries_desc")}</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="hidden flex-wrap items-center gap-2 sm:flex">
             <Button variant="outline" size="sm" onClick={() => navigate("/business/orders")}>
               <ArrowLeft className="mr-2 size-4" />
               {t("orders")}
@@ -237,8 +247,9 @@ export function DeliveriesPage() {
           </div>
         </div>
 
-        <div className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="mt-2 flex flex-col gap-2 sm:mt-6 sm:gap-3 lg:flex-row lg:items-center lg:justify-between">
           <BranchSelector
+            label={t("viewing_branch")}
             options={[
               { id: null, name: t("all_branches") },
               ...branches.map((b) => ({ id: b.id as string | null, name: b.name })),
@@ -259,7 +270,7 @@ export function DeliveriesPage() {
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
+        <div className="mt-2 grid grid-cols-2 gap-1.5 sm:mt-4 sm:gap-2 lg:grid-cols-4">
           <StatTile
             label={t("deliveries_to_assign")}
             value={board?.unassigned.length ?? 0}
@@ -365,7 +376,7 @@ export function DeliveriesPage() {
                                       <Button
                                         variant="outline"
                                         size="sm"
-                                        className="h-7 text-xs"
+                                        className="min-h-11 px-4 text-xs sm:min-h-8"
                                         onClick={() =>
                                           setPicker({ mode: "assign", order, courierId: group?.courierId ?? null })
                                         }
@@ -375,7 +386,7 @@ export function DeliveriesPage() {
                                       </Button>
                                       <Button
                                         size="sm"
-                                        className="h-7 text-xs"
+                                        className="min-h-11 px-4 text-xs sm:min-h-8"
                                         onClick={() =>
                                           setPicker({ mode: "dispatch", order, courierId: group?.courierId ?? null })
                                         }
@@ -414,7 +425,7 @@ export function DeliveriesPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="h-7 text-xs"
+                                className="min-h-11 px-4 text-xs sm:min-h-8"
                                 onClick={() =>
                                   setPicker({
                                     mode: "assign",
@@ -428,7 +439,7 @@ export function DeliveriesPage() {
                               </Button>
                               <Button
                                 size="sm"
-                                className="h-7 text-xs"
+                                className="min-h-11 px-4 text-xs sm:min-h-8"
                                 onClick={() => markDelivered(order)}
                                 disabled={updateStatus.isPending || !!order.deliveryFailureReason}
                               >
@@ -560,19 +571,19 @@ function BoardColumn({
   const { t } = useTranslation("business-orders")
   return (
     <Card className="h-full min-w-0">
-      <CardHeader className="pb-3">
+      <CardHeader className="p-3 sm:p-6 sm:pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-semibold">{title}</CardTitle>
           <Badge tone={tone}>{count}</Badge>
         </div>
-        <p className="text-xs text-muted-foreground">{hint}</p>
+        <p className="hidden text-xs text-muted-foreground sm:block">{hint}</p>
       </CardHeader>
       <Droppable droppableId={id} isDropDisabled={id === COL_READY}>
         {(provided, snapshot) => (
           <CardContent
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`min-h-[200px] space-y-2 transition-colors ${snapshot.isDraggingOver ? "bg-primary/5" : ""}`}
+            className={`min-h-[120px] space-y-2 px-3 pb-3 transition-colors sm:min-h-[200px] sm:px-6 sm:pb-6 ${snapshot.isDraggingOver ? "bg-primary/5" : ""}`}
           >
             {count === 0 && (
               <p className="py-8 text-center text-xs text-muted-foreground">{emptyLabel ?? t("no_orders")}</p>
@@ -609,7 +620,7 @@ function CourierRouteCard({
 
   return (
     <Card className="h-full min-w-0">
-      <CardHeader className="pb-3">
+      <CardHeader className="p-3 sm:p-6 sm:pb-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <CardTitle className="flex items-center gap-2 truncate text-base font-semibold">
@@ -657,7 +668,12 @@ function CourierRouteCard({
             courierPhone={group.phone}
             actions={
               order.status === "Ready" ? (
-                <Button size="sm" className="h-7 text-xs" onClick={() => onDispatch(order)} disabled={isPending}>
+                <Button
+                  size="sm"
+                  className="min-h-11 px-4 text-xs sm:min-h-8"
+                  onClick={() => onDispatch(order)}
+                  disabled={isPending}
+                >
                   <Send className="mr-1 size-3.5" />
                   {t("delivery_dispatch")}
                 </Button>
@@ -665,7 +681,7 @@ function CourierRouteCard({
                 <>
                   <Button
                     size="sm"
-                    className="h-7 text-xs"
+                    className="min-h-11 px-4 text-xs sm:min-h-8"
                     onClick={() => onDelivered(order)}
                     disabled={isPending || !!order.deliveryFailureReason}
                   >
