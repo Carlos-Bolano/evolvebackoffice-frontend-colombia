@@ -59,8 +59,9 @@ export const MORE_KEYS: (keyof MovementFilterForm)[] = [
   "maxTotalCost",
 ]
 
+// Distinto de su valor vacío: "all" solo es "sin filtro" en las listas, no en los textos.
 export const isSet = (form: MovementFilterForm, key: keyof MovementFilterForm) =>
-  form[key].trim() !== "" && form[key] !== ALL
+  form[key].trim() !== "" && form[key] !== EMPTY_MOVEMENT_FILTERS[key]
 
 export const hasMovementFilters = (form: MovementFilterForm) =>
   (Object.keys(form) as (keyof MovementFilterForm)[]).some((k) => isSet(form, k))

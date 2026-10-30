@@ -113,7 +113,7 @@ function InventoryInbox({
 }) {
   const { t } = useTranslation("business-inventory")
   const { branches, branch, branchId, selectBranch } = branchState
-  const { data: inbox } = useInventoryInbox(branchId)
+  const { data: inbox, isError: inboxFailed } = useInventoryInbox(branchId)
 
   if (branches.length === 0) return null
   const pending =
@@ -136,7 +136,9 @@ function InventoryInbox({
           {branch?.isSupplier ? <Badge tone="primary">{t("supplier_branch")}</Badge> : null}
         </div>
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          {pending === 0 ? (
+          {!inbox && inboxFailed ? (
+            <p className="text-sm text-destructive">{t("inbox_load_error")}</p>
+          ) : pending === 0 ? (
             <p className="text-sm text-muted-foreground">{t("inbox_empty")}</p>
           ) : (
             <>

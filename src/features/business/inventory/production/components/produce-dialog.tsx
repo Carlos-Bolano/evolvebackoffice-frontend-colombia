@@ -26,6 +26,7 @@ import { getApiErrorMessage } from "@/utils/api-error"
 import { useCompleteProduction, useCreateProduction, useProducibleItems } from "../../hooks/use-production"
 import { getProductionPreview } from "../../services/production.service"
 import type { ProducibleItemDto, ProductionOrderDto, ProductionPreviewDto } from "../../types/production"
+import { isNonNegative } from "../../utils/lines"
 import { formatMoney, formatQuantity, formatUnitCost, unitSymbol } from "../../utils/units"
 import { RecipeChangeDialog } from "./recipe-change-dialog"
 
@@ -132,8 +133,11 @@ export function ProduceDialog({ branch, mode, fromPlan, onOpenChange, onDone }: 
   const totalCost = rows.reduce((sum, row, index) => sum + costOf(row, previews[index]?.data), 0)
 
   const rowsValid = rows.length > 0 && rows.every((r) => Boolean(r.itemId) && Number(r.planned) > 0)
+  // Lo gastado no puede ser negativo: restaría del total y escondería un faltante.
+  const actualsValid = !adjust || rows.every((r) => Object.values(r.actuals).every(isNonNegative))
   const canSubmit =
     rowsValid &&
+    actualsValid &&
     !pending &&
     (isPlan ||
       (rows.every((r) => Number(r.produced) > 0) && previews.every((p) => Boolean(p.data)) && shortages.length === 0))

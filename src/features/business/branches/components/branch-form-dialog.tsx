@@ -222,7 +222,7 @@ export function BranchFormDialog({
                       <div className="flex items-center justify-between gap-3">
                         <FormLabel>{t("supplier_label")}</FormLabel>
                         <FormControl>
-                          <Switch id="branch-proveedora" checked={field.value} onCheckedChange={field.onChange} />
+                          <Switch checked={field.value} onCheckedChange={field.onChange} />
                         </FormControl>
                       </div>
                       <p className="text-xs leading-5 text-muted-foreground">{t("supplier_hint")}</p>

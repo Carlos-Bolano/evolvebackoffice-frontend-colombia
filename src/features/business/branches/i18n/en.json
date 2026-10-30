@@ -249,7 +249,7 @@
   "switch_off": "NO",
   "terminals_breadcrumb_config": "Configuration",
   "supplier_label": "Supplier branch",
-  "supplier_hint": "Supplies other branches: receives their orders and ships goods to them. Only supplier branches can send transfers.",
+  "supplier_hint": "Supplies other branches: receives their orders and ships goods to them. It can ship to any branch without an order; other branches can only ship to a supplier branch.",
   "supplier_badge": "Supplier",
   "config_step_operation": "Operation",
   "config_step_operation_desc": "Order reception, store open or paused, unlinked products and payment methods: everything Cluvi in one place.",

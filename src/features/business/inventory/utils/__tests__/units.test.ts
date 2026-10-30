@@ -77,5 +77,6 @@ describe("toBaseQuantity", () => {
     expect(toBaseQuantity({ amount: " ", unitKey: BASE_UNIT_KEY }, packagings)).toBeNull()
     expect(toBaseQuantity({ amount: "abc", unitKey: BASE_UNIT_KEY }, packagings)).toBeNull()
     expect(toBaseQuantity({ amount: "1", unitKey: "caja" }, packagings)).toBeNull()
+    expect(toBaseQuantity({ amount: "1e309", unitKey: BASE_UNIT_KEY }, packagings)).toBeNull()
   })
 })

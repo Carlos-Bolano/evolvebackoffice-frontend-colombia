@@ -153,7 +153,8 @@ export function NewOrderDialog({ kind: orderKind, branch, branches, onOpenChange
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="pedido-proveedor">{orderKind === "branch" ? t("order_who") : t("po_who")}</Label>
-            <Select value={target} onValueChange={setTarget}>
+            {/* Bloqueado mientras carga "Sugerido" / "Repetir último": las líneas son de este proveedor. */}
+            <Select value={target} onValueChange={setTarget} disabled={loadingHelper}>
               <SelectTrigger id="pedido-proveedor">
                 <SelectValue
                   placeholder={orderKind === "branch" ? t("order_who_placeholder") : t("po_who_placeholder")}

@@ -64,5 +64,6 @@ describe("resolvePrice", () => {
     expect(resolvePrice(base, price({ mode: "special", special: "-1" }))).toBeNull()
     expect(resolvePrice(base, price({ mode: "percent", percent: "abc" }))).toBeNull()
     expect(resolvePrice({ sale: null, cost: null }, price({ mode: "percent", percent: "10" }))).toBeNull()
+    expect(resolvePrice(base, price({ mode: "percent", percent: "-150" }))).toBeNull()
   })
 })

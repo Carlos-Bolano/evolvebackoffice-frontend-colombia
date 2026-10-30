@@ -173,6 +173,9 @@ export function EntityImageGallery({
               <Skeleton key={i} className="aspect-square w-full rounded-lg" />
             ))}
           </div>
+        ) : imagesQuery.isError && !imagesQuery.data ? (
+          // Sin la galería no se sabe cuántas hay: no se ofrece agregar.
+          <p className="text-sm text-destructive">{t("images_load_error")}</p>
         ) : (
           <div
             className={cn("grid gap-3", gridClassName)}

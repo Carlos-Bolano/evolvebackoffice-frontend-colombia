@@ -42,7 +42,11 @@ export function NewTransferDialog({ branch, branches, onOpenChange, onCreated }:
   const [notes, setNotes] = useState("")
 
   const destinations = branches.filter((b) => b.id !== branch.id && b.isActive && (branch.isSupplier || b.isSupplier))
-  const canSubmit = Boolean(toBranchId) && linesAreValid(lines) && !createTransfer.isPending
+  // Un precio especial o un % sin valor válido no deja enviar (el backend usaría otro precio).
+  const pricesValid = lines.every(
+    (l) => !l.linePrice || l.linePrice.mode === "sale" || l.linePrice.mode === "cost" || Boolean(l.unitCost)
+  )
+  const canSubmit = Boolean(toBranchId) && linesAreValid(lines) && pricesValid && !createTransfer.isPending
 
   const submit = () => {
     if (!canSubmit) return

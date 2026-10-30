@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, type Dispatch, type SetStateAction } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { Plus, Search, Trash2 } from "lucide-react"
 
@@ -39,7 +39,8 @@ export type ProductLine = {
 
 type ProductLinesEditorProps = {
   lines: ProductLine[]
-  onChange: (lines: ProductLine[]) => void
+  /** Recibe el <c>setState</c> de la lista: los cambios se aplican sobre la lista actual. */
+  onChange: Dispatch<SetStateAction<ProductLine[]>>
   /** Muestra la columna de precio (entradas de proveedor, ventas). */
   withPrice?: boolean
   /** También permite platos que no se guardan pero tienen receta (ventas). */
@@ -127,12 +128,15 @@ export function ProductLinesEditor({
       unitCost: withPrice ? (suggestedPrice ? String(Math.round(suggestedPrice * 100) / 100) : "") : undefined,
       ...(priceMode ? { priceBase: base, linePrice } : {}),
     }
-    onChange([...lines, withResolvedPrice(line, packagings)])
+    // Sobre la lista actual: mientras cargaba se pudo agregar, quitar o editar otra línea.
+    onChange((current) =>
+      current.some((l) => l.itemId === line.itemId) ? current : [...current, withResolvedPrice(line, packagings)]
+    )
     setSearch("")
   }
 
   const update = (itemId: string, patch: Partial<ProductLine>) =>
-    onChange(lines.map((l) => (l.itemId === itemId ? withResolvedPrice({ ...l, ...patch }) : l)))
+    onChange((current) => current.map((l) => (l.itemId === itemId ? withResolvedPrice({ ...l, ...patch }) : l)))
 
   return (
     <div className="space-y-3">
@@ -179,8 +183,8 @@ export function ProductLinesEditor({
       {priceMode && lines.some((l) => l.priceBase && percentBase(l.priceBase) !== null) ? (
         <BulkPercent
           onApply={(percent) =>
-            onChange(
-              lines.map((l) =>
+            onChange((current) =>
+              current.map((l) =>
                 l.priceBase && percentBase(l.priceBase) !== null
                   ? withResolvedPrice({
                       ...l,
@@ -249,7 +253,7 @@ export function ProductLinesEditor({
                       variant="ghost"
                       size="icon"
                       aria-label={t("lines_remove")}
-                      onClick={() => onChange(lines.filter((x) => x.itemId !== l.itemId))}
+                      onClick={() => onChange((current) => current.filter((x) => x.itemId !== l.itemId))}
                     >
                       <Trash2 className="size-4" />
                     </Button>

@@ -18,6 +18,7 @@ describe("linesAreValid", () => {
     expect(linesAreValid([line("0")])).toBe(false)
     expect(linesAreValid([line("2"), line("")])).toBe(false)
     expect(linesAreValid([line("2")])).toBe(true)
+    expect(linesAreValid([line("1e309")])).toBe(false)
   })
 
   it("checks the price only when asked", () => {

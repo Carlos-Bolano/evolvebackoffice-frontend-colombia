@@ -38,6 +38,7 @@ import {
   priceBase,
   resolvePrice,
 } from "../../utils/pricing"
+import { isNonNegative } from "../../utils/lines"
 import { purchaseOrderShareText } from "../../utils/share-text"
 import { formatDateTime, OPEN_ORDER_STATUSES, ORDER_STATUS_TONE, TRANSFER_STATUS_TONE } from "../../utils/status"
 import { formatInPackaging, formatMoney, formatQuantity, unitSymbol } from "../../utils/units"
@@ -163,6 +164,12 @@ export function OrderDetailDialog({ orderId, branchId, onOpenChange, onOpenTrans
     const price = prices[l.id] ?? DEFAULT_LINE_PRICE
     return price.mode === "sale" || price.mode === "cost" || resolvePrice(baseOf(l), price) !== null
   })
+  // No se despacha más de lo que tiene la sucursal que despacha (la línea ya muestra el aviso).
+  const withinStock = order.lines.every(
+    (l) => l.supplierStock === null || Number(amounts[l.id] || 0) <= l.supplierStock
+  )
+  // Al recibir, cada línea con cantidad necesita su costo (0 se escribe a propósito), como en la entrada rápida.
+  const costsValid = order.lines.every((l) => Number(amounts[l.id] || 0) <= 0 || isNonNegative(costs[l.id] ?? ""))
   const dispatchValue = order.lines.reduce((sum, l) => {
     const price = resolvePrice(baseOf(l), prices[l.id] ?? DEFAULT_LINE_PRICE)
     return sum + Number(amounts[l.id] || 0) * (price ?? 0)
@@ -418,12 +425,16 @@ export function OrderDetailDialog({ orderId, branchId, onOpenChange, onOpenTrans
                 <Button
                   type="button"
                   onClick={confirmDispatch}
-                  disabled={!anyAmount || !pricesValid || dispatch.isPending}
+                  disabled={!anyAmount || !pricesValid || !withinStock || dispatch.isPending}
                 >
                   {dispatch.isPending ? t("saving") : t("order_confirm_dispatch")}
                 </Button>
               ) : (
-                <Button type="button" onClick={confirmReceive} disabled={!anyAmount || receive.isPending}>
+                <Button
+                  type="button"
+                  onClick={confirmReceive}
+                  disabled={!anyAmount || !costsValid || receive.isPending}
+                >
                   {receive.isPending ? t("saving") : t("order_confirm_receive")}
                 </Button>
               )}

@@ -14,6 +14,7 @@
   "supplier_branch": "Supplier branch",
   "no_branches": "Create a branch to start managing inventory.",
   "inbox_empty": "Nothing pending in this branch.",
+  "inbox_load_error": "Could not load the pending items for this branch.",
   "inbox_below_min": "{{count}} below minimum",
   "inbox_negative": "{{count}} negative",
   "tab_stock": "Stock",

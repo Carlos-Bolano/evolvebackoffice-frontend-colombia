@@ -56,13 +56,16 @@ export function ItemRecipeEditor({ item }: ItemRecipeEditorProps) {
   const deleteRecipe = useDeleteRecipe(item.id)
 
   const [draft, setDraft] = useState<Draft>(() => toDraft(null))
-  const [loadedFrom, setLoadedFrom] = useState<RecipeDto | null | undefined>(undefined)
+  const [loadedKey, setLoadedKey] = useState<string | undefined>(undefined)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
-  // Al llegar (o recargar) la receta del servidor se toma como borrador.
-  if (recipeQuery.data !== undefined && recipeQuery.data !== loadedFrom) {
-    setLoadedFrom(recipeQuery.data)
-    setDraft(toDraft(recipeQuery.data))
+  // La receta del servidor se toma como borrador cuando cambia la receta, no cuando solo cambian
+  // los costos al elegir otra sucursal: así no se pierden los cambios sin guardar.
+  const serverDraft = recipeQuery.data !== undefined ? toDraft(recipeQuery.data) : undefined
+  const serverKey = serverDraft ? JSON.stringify(serverDraft) : undefined
+  if (serverDraft && serverKey !== loadedKey) {
+    setLoadedKey(serverKey)
+    setDraft(serverDraft)
   }
 
   const recipe = recipeQuery.data ?? null
@@ -186,7 +189,7 @@ export function ItemRecipeEditor({ item }: ItemRecipeEditorProps) {
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
         title={t("recipe_delete_title")}
-        description={t("recipe_delete_desc")}
+        description={item.trackInventory ? t("recipe_delete_desc_produced") : t("recipe_delete_desc")}
         confirmLabel={t("recipe_delete")}
         tone="destructive"
         isPending={deleteRecipe.isPending}

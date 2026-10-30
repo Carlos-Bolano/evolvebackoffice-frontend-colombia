@@ -143,7 +143,9 @@ export function ItemFormPage() {
     fill("subDescription1", suggestion.subDescription1)
     fill("subDescription2", suggestion.subDescription2)
     fill("subDescription3", suggestion.subDescription3)
-    if (suggestion.taxable) form.setValue("taxable", true, { shouldDirty: true })
+    // "Gravado" solo se toma de la sugerencia si el usuario no lo cambió.
+    if (suggestion.taxable && !form.getFieldState("taxable").isDirty)
+      form.setValue("taxable", true, { shouldDirty: true })
     setSuggested({ sku: suggestion.sku ?? "", urls: (suggestion.images ?? []).map((i) => i.url) })
   }
 

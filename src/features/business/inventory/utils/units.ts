@@ -113,7 +113,7 @@ export type QuantityUnitValue = {
 /** Cantidad en unidad base, o null si no es un número válido. */
 export function toBaseQuantity(value: QuantityUnitValue, packagings: { id: string; factor: number }[]): number | null {
   const amount = Number(value.amount)
-  if (value.amount.trim() === "" || Number.isNaN(amount)) return null
+  if (value.amount.trim() === "" || !Number.isFinite(amount)) return null
   if (value.unitKey === BASE_UNIT_KEY) return amount
   const packaging = packagings.find((p) => p.id === value.unitKey)
   return packaging ? amount * packaging.factor : null

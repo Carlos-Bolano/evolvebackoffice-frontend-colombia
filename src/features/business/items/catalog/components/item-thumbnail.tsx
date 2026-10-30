@@ -13,7 +13,8 @@ type ItemThumbnailProps = {
 
 /** Miniatura cuadrada de la imagen principal (producto o departamento). */
 export function ItemThumbnail({ url, alt, className, icon: Icon = Package }: ItemThumbnailProps) {
-  const [failed, setFailed] = useState(false)
+  // Se guarda la url que falló: si llega otra (se cambió la imagen), se vuelve a intentar.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null)
 
   return (
     <span
@@ -22,8 +23,8 @@ export function ItemThumbnail({ url, alt, className, icon: Icon = Package }: Ite
         className
       )}
     >
-      {url && !failed ? (
-        <img src={url} alt={alt} loading="lazy" className="size-full object-cover" onError={() => setFailed(true)} />
+      {url && url !== failedUrl ? (
+        <img src={url} alt={alt} loading="lazy" className="size-full object-cover" onError={() => setFailedUrl(url)} />
       ) : (
         <Icon className="size-1/2" aria-hidden />
       )}

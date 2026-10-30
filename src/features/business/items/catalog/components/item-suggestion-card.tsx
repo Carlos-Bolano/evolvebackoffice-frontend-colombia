@@ -70,6 +70,8 @@ export function ItemSuggestionCard({ sku, onApply, onDismiss, appliedImages }: I
             id="btn-usar-sugerencia"
             type="button"
             size="sm"
+            // Mientras se actualiza el SKU escrito, la sugerencia es del anterior.
+            disabled={sku.trim() !== debouncedSku}
             onClick={() => {
               setApplied(debouncedSku)
               onApply(data)

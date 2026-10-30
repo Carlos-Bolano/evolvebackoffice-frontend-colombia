@@ -14,6 +14,7 @@
   "supplier_branch": "Sucursal proveedora",
   "no_branches": "Crea una sucursal para empezar a manejar inventario.",
   "inbox_empty": "Sin pendientes en esta sucursal.",
+  "inbox_load_error": "No se pudieron cargar los pendientes de esta sucursal.",
   "inbox_below_min": "{{count}} bajo el mínimo",
   "inbox_negative": "{{count}} en negativo",
   "tab_stock": "Existencias",

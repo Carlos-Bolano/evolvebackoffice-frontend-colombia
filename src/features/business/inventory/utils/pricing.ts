@@ -50,7 +50,9 @@ export function resolvePrice(base: PriceBase, price: LinePrice): number | null {
       const over = percentBase(base)
       if (over === null) return null
       const percent = Number(price.percent || 0)
-      return Number.isFinite(percent) ? Math.round(over * (1 + percent / 100) * 100) / 100 : null
+      if (!Number.isFinite(percent)) return null
+      const result = Math.round(over * (1 + percent / 100) * 100) / 100
+      return result >= 0 ? result : null
     }
   }
 }
