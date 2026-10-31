@@ -15,6 +15,8 @@ export interface BranchResponseDto {
   adminUserPublicId: string
   adminUserName: string | null
   createdAt: string
+  /** Sucursal proveedora: abastece a otras sucursales. */
+  isSupplier?: boolean
   /** Ubicación en el mapa (centro de zonas de domicilio); null si no se ha ubicado. */
   latitude?: number | null
   longitude?: number | null
@@ -27,6 +29,7 @@ export interface CreateBranchDto {
   address: string | null
   phone: string | null
   email: string | null
+  isSupplier?: boolean
 }
 
 export interface UpdateBranchDto {
@@ -36,6 +39,7 @@ export interface UpdateBranchDto {
   phone: string | null
   email: string | null
   adminUserId: string | null
+  isSupplier?: boolean | null
 }
 
 /**

@@ -22,6 +22,9 @@ export const createItemSchema = (t: TFunction) =>
     brandId: z.coerce.number().int().default(0),
     itemPresentationId: z.coerce.number().int().default(0),
     askQuantity: z.coerce.number().int().default(0),
+    trackInventory: z.boolean().default(true),
+    isSellable: z.boolean().default(true),
+    baseUnit: z.coerce.number().int().min(0).max(2).default(0),
   })
 
 export const updateItemSchema = (t: TFunction) =>

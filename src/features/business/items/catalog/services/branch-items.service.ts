@@ -97,7 +97,7 @@ export interface BranchItemConfig {
 export async function updateBranchItemConfig(
   branchId: string,
   id: string,
-  dto: { useGlobalTaxes?: boolean; useGlobalModifiers?: boolean }
+  dto: { useGlobalTaxes?: boolean; useGlobalModifiers?: boolean; sellsHere?: boolean }
 ): Promise<BranchItemConfig> {
   const { data } = await api.put<BranchItemConfig>(`/api/branches/${branchId}/items/${id}/config`, dto)
   return data

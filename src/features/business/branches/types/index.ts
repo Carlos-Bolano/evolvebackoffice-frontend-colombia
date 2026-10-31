@@ -12,6 +12,7 @@ export interface Branch {
   adminUserId: string
   adminUserName: string
   createdAt: string
+  isSupplier: boolean
   latitude: number | null
   longitude: number | null
 }
@@ -31,4 +32,5 @@ export interface BranchFormValues {
   phone: string
   email: string
   adminUserId: string
+  isSupplier: boolean
 }

@@ -49,8 +49,11 @@
   "name_max": "Name cannot exceed {{max}} characters.",
   "cancel": "Cancel",
   "saving": "Saving...",
+  "images_label": "Images",
+  "images_after_create": "After creating the department you can add images from Edit.",
   "details": "View subdepartments",
   "hide_details": "Hide subdepartments",
   "deactivate_title": "Deactivate department",
-  "error_status": "Status could not be updated."
+  "error_status": "Status could not be updated.",
+  "error_save": "The department could not be saved."
 }

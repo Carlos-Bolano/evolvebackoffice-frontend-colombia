@@ -69,6 +69,7 @@ export function BranchesPage() {
     address: values.address || null,
     phone: values.phone || null,
     email: values.email || null,
+    isSupplier: values.isSupplier,
   })
 
   const handleCreate = (values: BranchFormValues) => {

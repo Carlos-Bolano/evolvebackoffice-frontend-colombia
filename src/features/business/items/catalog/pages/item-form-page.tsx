@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 
 import { BackLink } from "@/components/ui/back-link"
@@ -9,16 +9,32 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ErrorState } from "@/components/ui/error-state"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { notify } from "@/hooks/use-notify"
 import { useTranslation } from "@/i18n/use-i18n"
+import { getApiErrorMessage } from "@/utils/api-error"
 import { createItemSchema, type CreateItemFormValues } from "../schemas/item-schema"
 import { useCreateItem, useItemById, useUpdateItem } from "../hooks/use-items"
+import { useCopyItemImages } from "../hooks/use-item-images"
 import { useDepartmentsAll } from "../../departments/hooks/use-departments"
 import { ItemTaxEditor } from "../components/item-tax-editor"
 import { ItemModifierEditor } from "../components/item-modifier-editor"
+import { ItemPackagingEditor } from "../components/item-packaging-editor"
+import { ItemRecipeEditor } from "../components/item-recipe-editor"
+import { EntityImageGallery } from "../components/entity-image-gallery"
+import { ItemSuggestionCard } from "../components/item-suggestion-card"
+import { ItemThumbnail } from "../components/item-thumbnail"
+import type { ItemSuggestDto } from "../types"
+import {
+  BASE_UNIT_OPTIONS,
+  INVENTORY_USES,
+  inventoryUseOf,
+  type InventoryUse,
+} from "@/features/business/inventory/utils/units"
 
 const defaultValues: CreateItemFormValues = {
   name: "",
@@ -38,7 +54,12 @@ const defaultValues: CreateItemFormValues = {
   brandId: 0,
   itemPresentationId: 0,
   askQuantity: 0,
+  trackInventory: true,
+  isSellable: true,
+  baseUnit: 0,
 }
+
+const ITEM_TABS = ["images", "taxes", "modifiers", "recipe", "packagings"]
 
 export function ItemFormPage() {
   const { itemId } = useParams<{ itemId: string }>()
@@ -51,13 +72,11 @@ export function ItemFormPage() {
 
   const [searchParams, setSearchParams] = useSearchParams()
   const tabParam = searchParams.get("tab")
-  const [activeTab, setActiveTabState] = useState(
-    !isCreateMode && (tabParam === "taxes" || tabParam === "modifiers") ? tabParam : "info"
-  )
+  // La pestaña sale de la URL (deep-link); al crear con imágenes se llega con ?tab=images.
+  const activeTab = !isCreateMode && tabParam && ITEM_TABS.includes(tabParam) ? tabParam : "info"
 
   /** Cambia de pestaña y la refleja en la URL (deep-link). */
   const setActiveTab = (tab: string) => {
-    setActiveTabState(tab)
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev)
@@ -73,6 +92,9 @@ export function ItemFormPage() {
 
   const createItem = useCreateItem()
   const updateItem = useUpdateItem()
+  const copyImages = useCopyItemImages()
+  /** Imágenes de la sugerencia aplicada; se copian al crear si el SKU no cambió. */
+  const [suggested, setSuggested] = useState<{ sku: string; urls: string[] } | null>(null)
   const { data: departments, isLoading: departmentsLoading } = useDepartmentsAll()
 
   const form = useForm<CreateItemFormValues>({
@@ -101,8 +123,31 @@ export function ItemFormPage() {
       brandId: item.brandId,
       itemPresentationId: item.itemPresentationId,
       askQuantity: item.askQuantity,
+      trackInventory: item.trackInventory,
+      isSellable: item.isSellable ?? true,
+      baseUnit: item.baseUnit ?? 0,
     })
   }, [item, form])
+
+  /** Completa solo lo que esté vacío con los datos del producto sugerido. */
+  const applySuggestion = (suggestion: ItemSuggestDto) => {
+    const fill = (
+      field: "name" | "description" | "unitOfMeasure" | "subDescription1" | "subDescription2" | "subDescription3",
+      value?: string | null
+    ) => {
+      if (value && !form.getValues(field)) form.setValue(field, value, { shouldDirty: true, shouldValidate: true })
+    }
+    fill("name", suggestion.name)
+    fill("description", suggestion.description)
+    fill("unitOfMeasure", suggestion.unitOfMeasure)
+    fill("subDescription1", suggestion.subDescription1)
+    fill("subDescription2", suggestion.subDescription2)
+    fill("subDescription3", suggestion.subDescription3)
+    // "Gravado" solo se toma de la sugerencia si el usuario no lo cambió.
+    if (suggestion.taxable && !form.getFieldState("taxable").isDirty)
+      form.setValue("taxable", true, { shouldDirty: true })
+    setSuggested({ sku: suggestion.sku ?? "", urls: (suggestion.images ?? []).map((i) => i.url) })
+  }
 
   const handleSubmit = (values: CreateItemFormValues) => {
     // Transform form values to API types (convert undefined to null)
@@ -121,12 +166,30 @@ export function ItemFormPage() {
       updateItem.mutate({ id: item.id, payload: transformValues(values) })
     } else {
       createItem.mutate(transformValues(values), {
-        onSuccess: (created) => navigate(`/business/items/catalog/${created.id}`),
+        onSuccess: (created) => {
+          const sameSku = suggested && suggested.sku.toLowerCase() === (values.sku ?? "").trim().toLowerCase()
+          if (!sameSku || suggested.urls.length === 0) {
+            navigate(`/business/items/catalog/${created.id}`)
+            return
+          }
+          copyImages.mutate(
+            { itemId: created.id, urls: suggested.urls },
+            {
+              onError: (error) => notify.error(getApiErrorMessage(error, t("suggest_images_error"))),
+              onSettled: () => navigate(`/business/items/catalog/${created.id}?tab=images`),
+            }
+          )
+        },
       })
     }
   }
 
-  const isSubmitting = createItem.isPending || updateItem.isPending
+  const isSubmitting = createItem.isPending || updateItem.isPending || copyImages.isPending
+  const [trackInventory, isSellable, skuValue] = useWatch({
+    control: form.control,
+    name: ["trackInventory", "isSellable", "sku"],
+  })
+  const inventoryUse = inventoryUseOf(trackInventory, isSellable)
 
   if (!isCreateMode && (itemError || (!itemLoading && !item))) {
     return (
@@ -158,11 +221,16 @@ export function ItemFormPage() {
               <Skeleton className="h-4 w-1/2 max-w-md" />
             </div>
           ) : (
-            <div className="space-y-1">
-              <CardTitle className="text-2xl font-semibold tracking-tight text-balance text-foreground sm:text-3xl">
-                {heroTitle}
-              </CardTitle>
-              <p className="text-sm leading-6 text-muted-foreground">{heroDescription}</p>
+            <div className="flex items-center gap-4">
+              {item?.images?.[0] ? (
+                <ItemThumbnail url={item.images[0].url} alt={item.name ?? ""} className="size-16 rounded-xl" />
+              ) : null}
+              <div className="min-w-0 space-y-1">
+                <CardTitle className="text-2xl font-semibold tracking-tight text-balance text-foreground sm:text-3xl">
+                  {heroTitle}
+                </CardTitle>
+                <p className="text-sm leading-6 text-muted-foreground">{heroDescription}</p>
+              </div>
             </div>
           )}
         </div>
@@ -186,10 +254,13 @@ export function ItemFormPage() {
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-0 flex-1 flex-col gap-5">
             {!isCreateMode && (
-              <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-2xl border border-border/70 bg-card/70 p-1 sm:grid sm:w-full sm:grid-cols-3">
+              <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-2xl border border-border/70 bg-card/70 p-1 sm:grid sm:w-full sm:grid-cols-6">
                 <TabsTrigger value="info">{t("tab_info")}</TabsTrigger>
+                <TabsTrigger value="images">{t("tab_images")}</TabsTrigger>
                 <TabsTrigger value="taxes">{t("tab_taxes")}</TabsTrigger>
                 <TabsTrigger value="modifiers">{t("tab_modifiers")}</TabsTrigger>
+                <TabsTrigger value="recipe">{t("tab_recipe")}</TabsTrigger>
+                <TabsTrigger value="packagings">{t("tab_packagings")}</TabsTrigger>
               </TabsList>
             )}
 
@@ -230,6 +301,15 @@ export function ItemFormPage() {
                       )}
                     />
                   </div>
+
+                  {isCreateMode ? (
+                    <ItemSuggestionCard
+                      sku={skuValue ?? ""}
+                      onApply={applySuggestion}
+                      onDismiss={() => setSuggested(null)}
+                      appliedImages={suggested?.urls.length ?? 0}
+                    />
+                  ) : null}
 
                   <FormField
                     control={form.control}
@@ -370,6 +450,69 @@ export function ItemFormPage() {
                     />
                   </div>
 
+                  {/* Inventario: uso del producto y unidad base */}
+                  <div className="grid gap-4 rounded-lg border p-3 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="item-uso-inventario">{t("inventory_use")}</Label>
+                      <Select
+                        value={inventoryUse}
+                        onValueChange={(value) => {
+                          const flags = INVENTORY_USES[value as InventoryUse]
+                          // El Select puede emitir "" al cambiar de pestaña (se desmonta el formulario).
+                          if (!flags) return
+                          form.setValue("trackInventory", flags.trackInventory, { shouldDirty: true })
+                          form.setValue("isSellable", flags.isSellable, { shouldDirty: true })
+                        }}
+                      >
+                        <SelectTrigger id="item-uso-inventario">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(Object.keys(INVENTORY_USES) as InventoryUse[]).map((use) => (
+                            <SelectItem key={use} value={use}>
+                              {t(`inventory_use_${use}`)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs leading-5 text-muted-foreground">
+                        {t(`inventory_use_${inventoryUse}_hint`)}
+                      </p>
+                      {item?.hasRecipe ? (
+                        <p className="text-xs leading-5 text-primary">{t(`inventory_recipe_${inventoryUse}`)}</p>
+                      ) : null}
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="baseUnit"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t("base_unit")}</FormLabel>
+                          <Select
+                            value={String(field.value ?? 0)}
+                            onValueChange={(value) => field.onChange(Number(value))}
+                          >
+                            <FormControl>
+                              <SelectTrigger id="item-unidad-base">
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {BASE_UNIT_OPTIONS.map((option) => (
+                                <SelectItem key={option.value} value={String(option.value)}>
+                                  {t(option.labelKey)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs leading-5 text-muted-foreground">{t("base_unit_hint")}</p>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
                   {/* Boolean Toggles */}
                   <div className="grid gap-4 sm:grid-cols-3">
                     <FormField
@@ -421,11 +564,20 @@ export function ItemFormPage() {
 
             {!isCreateMode && item && (
               <>
+                <TabsContent value="images" className="min-h-0 flex-1 overflow-y-auto pr-1">
+                  <EntityImageGallery entity="items" entityId={item.id} name={item.name ?? ""} />
+                </TabsContent>
                 <TabsContent value="taxes" className="min-h-0 flex-1 overflow-y-auto pr-1">
                   <ItemTaxEditor item={item} />
                 </TabsContent>
                 <TabsContent value="modifiers" className="min-h-0 flex-1 overflow-y-auto pr-1">
                   <ItemModifierEditor item={item} />
+                </TabsContent>
+                <TabsContent value="recipe" className="min-h-0 flex-1 overflow-y-auto pr-1">
+                  <ItemRecipeEditor item={item} />
+                </TabsContent>
+                <TabsContent value="packagings" className="min-h-0 flex-1 overflow-y-auto pr-1">
+                  <ItemPackagingEditor item={item} />
                 </TabsContent>
               </>
             )}

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useTranslation } from "@/i18n/use-i18n"
 import {
@@ -21,8 +22,13 @@ import {
   type AdjustStockFormValues,
   type UpdateBranchItemPricingFormValues,
 } from "../schemas/item-schema"
-import { useAdjustBranchItemStock, useUpdateBranchItemPricing } from "../hooks/use-branch-items"
+import {
+  useAdjustBranchItemStock,
+  useUpdateBranchItemConfig,
+  useUpdateBranchItemPricing,
+} from "../hooks/use-branch-items"
 import type { BranchItemResponseDto } from "../types"
+import { StockLevelsSection } from "@/features/business/inventory/stock/components/stock-levels-section"
 import { BranchItemModifierPanel } from "./branch-item-modifier-panel"
 import { BranchItemTaxPanel } from "./branch-item-tax-panel"
 
@@ -159,6 +165,7 @@ function PricingPanel({ branchId, item }: { branchId: string; item: BranchItemRe
   return (
     <Form {...form}>
       <form className="space-y-5" onSubmit={form.handleSubmit(handleSubmit)}>
+        <SellHereSwitch branchId={branchId} item={item} />
         <div className="grid gap-4 sm:grid-cols-2">
           {numberField("price", t("price"))}
           {numberField("salePrice", t("sale_price"))}
@@ -180,6 +187,35 @@ function PricingPanel({ branchId, item }: { branchId: string; item: BranchItemRe
         </div>
       </form>
     </Form>
+  )
+}
+
+/**
+ * Si el producto se vende en esta sucursal (POS y menú de Cluvi). Arranca en lo que dice el producto;
+ * sirve para vender un ingrediente solo aquí (el CP vende pan) o dejar de vender algo solo aquí.
+ */
+function SellHereSwitch({ branchId, item }: { branchId: string; item: BranchItemResponseDto }) {
+  const { t } = useTranslation("business-items-catalog")
+  const updateConfig = useUpdateBranchItemConfig(branchId)
+  const [checked, setChecked] = useState(item.sellsHere)
+
+  const change = (value: boolean) => {
+    setChecked(value)
+    updateConfig.mutate({ id: item.id, payload: { sellsHere: value } }, { onError: () => setChecked(!value) })
+  }
+
+  return (
+    <div className="rounded-2xl border border-border/70 bg-background/35 p-4 sm:p-5">
+      <div className="flex items-center justify-between gap-3">
+        <label htmlFor="sucursal-se-vende" className="text-sm font-medium text-foreground">
+          {t("sell_here_label")}
+        </label>
+        <Switch id="sucursal-se-vende" checked={checked} disabled={updateConfig.isPending} onCheckedChange={change} />
+      </div>
+      <p className="text-xs leading-5 text-muted-foreground">
+        {item.productIsSellable ? t("sell_here_hint_sellable") : t("sell_here_hint_ingredient")}
+      </p>
+    </div>
   )
 }
 
@@ -206,7 +242,7 @@ function StockPanel({ branchId, item }: { branchId: string; item: BranchItemResp
 
   return (
     <Form {...form}>
-      <form className="space-y-4" onSubmit={form.handleSubmit(handleSubmit)}>
+      <form className="mb-4 space-y-4" onSubmit={form.handleSubmit(handleSubmit)}>
         <div className="rounded-lg border border-border/70 bg-accent/35 p-4">
           <p className="text-xs text-muted-foreground">{t("current_stock")}</p>
           <p className="text-2xl font-semibold text-foreground">{item.quantity ?? 0}</p>
@@ -233,6 +269,14 @@ function StockPanel({ branchId, item }: { branchId: string; item: BranchItemResp
           </Button>
         </div>
       </form>
+
+      <StockLevelsSection
+        key={item.id}
+        branchItemId={item.id}
+        baseUnit={item.baseUnit ?? 0}
+        reorderPoint={item.reorderPoint ?? 0}
+        restockLevel={item.restockLevel ?? 0}
+      />
     </Form>
   )
 }

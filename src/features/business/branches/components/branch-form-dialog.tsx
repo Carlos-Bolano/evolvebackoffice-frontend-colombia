@@ -15,6 +15,7 @@ import {
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import { branchFormSchema, type BranchFormSchemaValues } from "@/features/business/branches/schemas/branch-schema"
 import type { Branch, BranchFormValues } from "@/features/business/branches/types"
 import { getUserDisplayName, type UserResponseDto } from "@/features/business/people/users/types"
@@ -29,6 +30,7 @@ const defaultValues: BranchFormValues = {
   phone: "",
   email: "",
   adminUserId: "",
+  isSupplier: false,
 }
 
 type BranchFormDialogProps = {
@@ -75,6 +77,7 @@ export function BranchFormDialog({
             phone: branchToEdit.phone,
             email: branchToEdit.email,
             adminUserId: branchToEdit.adminUserId,
+            isSupplier: branchToEdit.isSupplier,
           }
         : defaultValues
     )
@@ -174,42 +177,59 @@ export function BranchFormDialog({
                   )}
                 />
               </div>
-              <FormField
-                control={form.control}
-                name="adminUserId"
-                render={({ field }) => (
-                  <FormItem className="h-max rounded-2xl border border-border/70 bg-background/35 p-4 sm:p-5">
-                    <FormLabel>{t("admin_label")}</FormLabel>
-                    <Select
-                      value={field.value || AUTOMATIC_ADMIN}
-                      onValueChange={(value) => field.onChange(value === AUTOMATIC_ADMIN ? "" : value)}
-                      disabled={isUsersLoading}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder={t("admin_placeholder")} />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value={AUTOMATIC_ADMIN}>{t("admin_automatic")}</SelectItem>
-                        {branchToEdit?.adminUserId &&
-                        !eligibleUsers.some((user) => user.id === branchToEdit.adminUserId) ? (
-                          <SelectItem value={branchToEdit.adminUserId}>
-                            {branchToEdit.adminUserName || branchToEdit.adminUserId}
-                          </SelectItem>
-                        ) : null}
-                        {eligibleUsers.map((user) => (
-                          <SelectItem key={user.id} value={user.id}>
-                            {getUserDisplayName(user)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs leading-5 text-muted-foreground">{t("admin_hint")}</p>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="flex w-full flex-col gap-4 lg:max-w-sm">
+                <FormField
+                  control={form.control}
+                  name="adminUserId"
+                  render={({ field }) => (
+                    <FormItem className="h-max rounded-2xl border border-border/70 bg-background/35 p-4 sm:p-5">
+                      <FormLabel>{t("admin_label")}</FormLabel>
+                      <Select
+                        value={field.value || AUTOMATIC_ADMIN}
+                        onValueChange={(value) => field.onChange(value === AUTOMATIC_ADMIN ? "" : value)}
+                        disabled={isUsersLoading}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={t("admin_placeholder")} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={AUTOMATIC_ADMIN}>{t("admin_automatic")}</SelectItem>
+                          {branchToEdit?.adminUserId &&
+                          !eligibleUsers.some((user) => user.id === branchToEdit.adminUserId) ? (
+                            <SelectItem value={branchToEdit.adminUserId}>
+                              {branchToEdit.adminUserName || branchToEdit.adminUserId}
+                            </SelectItem>
+                          ) : null}
+                          {eligibleUsers.map((user) => (
+                            <SelectItem key={user.id} value={user.id}>
+                              {getUserDisplayName(user)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs leading-5 text-muted-foreground">{t("admin_hint")}</p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="isSupplier"
+                  render={({ field }) => (
+                    <FormItem className="h-max rounded-2xl border border-border/70 bg-background/35 p-4 sm:p-5">
+                      <div className="flex items-center justify-between gap-3">
+                        <FormLabel>{t("supplier_label")}</FormLabel>
+                        <FormControl>
+                          <Switch checked={field.value} onCheckedChange={field.onChange} />
+                        </FormControl>
+                      </div>
+                      <p className="text-xs leading-5 text-muted-foreground">{t("supplier_hint")}</p>
+                    </FormItem>
+                  )}
+                />
+              </div>
             </section>
             <DialogFooter className="border-t border-border/70 p-4">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>

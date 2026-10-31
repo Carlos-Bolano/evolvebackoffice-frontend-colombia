@@ -66,9 +66,12 @@ export function buildBranchColumns(
       header: t("status_label"),
       minWidth: "min-w-[90px]",
       render: (branch) => (
-        <Badge tone={branch.isActive ? "success" : "neutral"}>
-          {branch.isActive ? t("status_active") : t("status_inactive")}
-        </Badge>
+        <div className="flex flex-wrap gap-1">
+          <Badge tone={branch.isActive ? "success" : "neutral"}>
+            {branch.isActive ? t("status_active") : t("status_inactive")}
+          </Badge>
+          {branch.isSupplier ? <Badge tone="primary">{t("supplier_badge")}</Badge> : null}
+        </div>
       ),
     },
     {
